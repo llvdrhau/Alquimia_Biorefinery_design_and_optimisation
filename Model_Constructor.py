@@ -15,6 +15,7 @@ import pyomo.environ as pe
 import pyomo.opt as po
 #import warnings
 import importlib
+import os
 
 
 def makeModelWithCompositions(excelFile, reactorLib):
@@ -23,8 +24,9 @@ def makeModelWithCompositions(excelFile, reactorLib):
    
    # retrieve data 
   
-   loc = r'C:\Users\Reboots\OneDrive - Universidade de Santiago de Compostela\Alquimia\PYOMO\pyomo_Alquimia\excel files' 
-   loc = loc + excelFile
+   #loc = r'C:\Users\Reboots\OneDrive - Universidade de Santiago de Compostela\Alquimia\PYOMO\pyomo_Alquimia\excel files'
+   loc = os.getcwd()
+   loc = loc + r'\excel files' + excelFile
    
    components = pd.read_excel(loc, sheet_name = 'components')  
    
