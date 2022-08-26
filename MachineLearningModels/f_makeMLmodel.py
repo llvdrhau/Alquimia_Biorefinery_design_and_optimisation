@@ -8,13 +8,14 @@ import seaborn as sns
 from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split
 from sklearn import linear_model
+from sklearn.linear_model import ElasticNetCV
 from sklearn.preprocessing import PolynomialFeatures
 
-def makeElasticNetModel (ExcelName, hyperparameter=0.5):
+def makeElasticNetModel (ExcelName, hyperparameter=0.005):
     X = pd.read_excel(ExcelName,sheet_name='inputs')
     inputnames = X.keys()
     y = pd.read_excel(ExcelName,sheet_name='outputs')
-    outputNames = y.keys()
+
     stringEquationVector= []
     for i in y:
         # might need to normalise data....
@@ -23,36 +24,48 @@ def makeElasticNetModel (ExcelName, hyperparameter=0.5):
         Y = y[i]
         # split training data/ test data
         X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.2)
-        # Create elastic net regression objects
-        en_regr = linear_model.ElasticNet(alpha= hyperparameter)
-        # Train the model using the training sets
-        en_regr.fit(X_train, y_train)
+
+        ######## find correct hyper parameters: alfa (regularisation parameter)
+        # and l1_ratio => how is the alfa parameter devided over the L1 and L2 norm
+        ratios = np.arange(0, 1.1, 0.1)
+        alphas = [1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 0.0, 1.0, 10.0, 100.0]
+        #ratios = [.1, .5, .7, .9, .95, .99, 1]
+        model = ElasticNetCV(l1_ratio=ratios, alphas=alphas, n_jobs=-1)
+        # fit model
+        model.fit(X_train, y_train)
+        a = model.alpha_
+        b = model.l1_ratio_
+        # summarize chosen configuration
+        print('alpha: %f' % model.alpha_)
+        print('l1_ratio_: %f' % model.l1_ratio_)
+        ########
+
         # Make predictions using the testing set
-        y_pred_en = en_regr.predict(X_test)
+        y_pred_en = model.predict(X_test)
         # plot to evaluate goodness of fit
 
         plt.figure()
         plt.xlabel('observered')
         plt.ylabel('predicted')
         plt.plot( y_test,y_pred_en,'.')
-        plt.plot([min(y_test),min(y_pred_en)],[max(y_test),max(y_pred_en)],'-')
+        #plt.plot([min(y_test),min(y_pred_en)],[max(y_test),max(y_pred_en)],'-')
         plt.title('Plot to evaluate fit of the model')
         plt.legend([ "elastic Net", "digonal"])
         plt.show()
 
-        # add equation to the vector of strings = 'y = ax +b'
-        yName = outputNames[i]
+        # add equation to the vector of strings => 'y = ax +b'
+        yName = i
         eq = yName + '= '
-        test1 = en_regr.get_params()
-
         for j,xname in enumerate(inputnames):
-            eq = eq + '+' + xname + '*{0}'.format(en_regr.coef_[j])
+            eq = eq + '+' + xname + '*{0}'.format(model.coef_[j])
+        stringEquationVector.append(eq)
 
-    return eq
+    return stringEquationVector
 
 
 if __name__ == '__main__':
-    eq = makeElasticNetModel('GelatineData_elastic_net.xslx')
+    eq = makeElasticNetModel('GelatineData_elastic_net.xlsx')
+    print(eq)
 
 
 
