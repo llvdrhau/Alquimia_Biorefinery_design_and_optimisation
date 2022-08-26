@@ -10,9 +10,9 @@ from sklearn.model_selection import train_test_split
 from sklearn import linear_model
 from sklearn.preprocessing import PolynomialFeatures
 
-def makeElasticNetModel (ExcelName, hyperparameter=1):
-    x = pd.read_excel(ExcelName,sheet_name='inputs')
-    inputnames = x.keys()
+def makeElasticNetModel (ExcelName, hyperparameter=0.5):
+    X = pd.read_excel(ExcelName,sheet_name='inputs')
+    inputnames = X.keys()
     y = pd.read_excel(ExcelName,sheet_name='outputs')
     outputNames = y.keys()
     stringEquationVector= []
@@ -43,35 +43,40 @@ def makeElasticNetModel (ExcelName, hyperparameter=1):
         # add equation to the vector of strings = 'y = ax +b'
         yName = outputNames[i]
         eq = yName + '= '
+        test1 = en_regr.get_params()
+
         for j,xname in enumerate(inputnames):
-            txt1 = "My name is {fname}, I'm {age}".format(fname="John", age=36)
-            eq = eq + xname + '*{0}'.format(en_regr.coef_[j])
+            eq = eq + '+' + xname + '*{0}'.format(en_regr.coef_[j])
+
+    return eq
+
+
+if __name__ == '__main__':
+    eq = makeElasticNetModel('GelatineData_elastic_net.xslx')
 
 
 
 
 
-
-
-x = np.linspace(0, 2*np.pi, 50)
-y = 5*np.sin(x) + 0.1*np.random.randn(50)
-
-X = PolynomialFeatures(3).fit_transform(x.reshape((50,1)))  # polynomial features
-
-print(X.shape)
-
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
-
-# Create linear regression object
-regr = linear_model.LinearRegression()
-
-# Train the model using the training sets
-regr.fit(X_train, y_train)
-
-# Make predictions using the testing set
-y_pred = regr.predict(X_test)
-
-plt.figure()
-plt.plot(x, regr.predict(X), '.')
-plt.plot(x, y, 'k')
-plt.title("Linear Regression");
+# x = np.linspace(0, 2*np.pi, 50)
+# y = 5*np.sin(x) + 0.1*np.random.randn(50)
+#
+# X = PolynomialFeatures(3).fit_transform(x.reshape((50,1)))  # polynomial features
+#
+# print(X.shape)
+#
+# X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+#
+# # Create linear regression object
+# regr = linear_model.LinearRegression()
+#
+# # Train the model using the training sets
+# regr.fit(X_train, y_train)
+#
+# # Make predictions using the testing set
+# y_pred = regr.predict(X_test)
+#
+# plt.figure()
+# plt.plot(x, regr.predict(X), '.')
+# plt.plot(x, y, 'k')
+# plt.title("Linear Regression");
