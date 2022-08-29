@@ -561,7 +561,7 @@ def makeModelWithCompositions(excelFile, reactorLib):
        try:                
             PreviousProcessIntervalObject = getattr(importlib.import_module(reactorLib), nameConnectedInterval)
        except : 
-           print('ERROR make sure the reactor name or interval name %s in the lybrary file is correct in the variable mixing  %s ' % (nameConnectedInterval,reactorLib))
+           print('ERROR make sure the reactor name or interval name %s in the library file is correct in the variable mixing  %s ' % (nameConnectedInterval,reactorLib))
        
        
        if interval_to_call.mix :

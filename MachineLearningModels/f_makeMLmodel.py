@@ -1,23 +1,20 @@
-# code to automaticlly make an elastic net regression model
+# code to automatically make an elastic net regression model
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.pyplot import figure
-import time
-import seaborn as sns
-from sklearn.decomposition import PCA
+import math
 from sklearn.model_selection import train_test_split
-from sklearn import linear_model
 from sklearn.linear_model import ElasticNetCV
-from sklearn.preprocessing import PolynomialFeatures
+import pickle
 
-def makeElasticNetModel (ExcelName, hyperparameter=0.005):
+def makeElasticNetModel (ExcelName, iterations = 1000, modelName = ''):
     X = pd.read_excel(ExcelName,sheet_name='inputs')
     inputnames = X.keys()
     y = pd.read_excel(ExcelName,sheet_name='outputs')
-
+    rows = 2
+    cols = math.ceil(y.shape[1]/2)
     stringEquationVector= []
-    for i in y:
+    for id,i in enumerate(y):
         # might need to normalise data....
         # mean standard normilsation if inputs are not in the same decimal rank?
         # select output
@@ -29,67 +26,49 @@ def makeElasticNetModel (ExcelName, hyperparameter=0.005):
         # and l1_ratio => how is the alfa parameter devided over the L1 and L2 norm
         ratios = np.arange(0, 1.1, 0.1)
         alphas = [1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 0.0, 1.0, 10.0, 100.0]
-        #ratios = [.1, .5, .7, .9, .95, .99, 1]
-        model = ElasticNetCV(l1_ratio=ratios, alphas=alphas, n_jobs=-1)
+        #ratios = [0, .1, .5, .7, .9, .95, .99, 1]
+        model = ElasticNetCV(l1_ratio=ratios, alphas=alphas, normalize = True , max_iter = iterations,n_jobs=-1)
+
         # fit model
         model.fit(X_train, y_train)
-        a = model.alpha_
-        b = model.l1_ratio_
+        #a = model.alpha_  #check() out hyperparameters
+        #b = model.l1_ratio_ #check() out hyperparameters
         # summarize chosen configuration
         print('alpha: %f' % model.alpha_)
         print('l1_ratio_: %f' % model.l1_ratio_)
-        ########
 
         # Make predictions using the testing set
         y_pred_en = model.predict(X_test)
-        # plot to evaluate goodness of fit
 
-        plt.figure()
-        plt.xlabel('observered')
-        plt.ylabel('predicted')
-        plt.plot( y_test,y_pred_en,'.')
-        #plt.plot([min(y_test),min(y_pred_en)],[max(y_test),max(y_pred_en)],'-')
-        plt.title('Plot to evaluate fit of the model')
-        plt.legend([ "elastic Net", "digonal"])
-        plt.show()
+        # subplot to evaluate goodness of fit
+        ax = plt.subplot(rows, cols, id+1)
+        ax.plot(y_test,y_pred_en, 'k*')
+        ax.set_title(i)
+        ax.set_xlabel("")
 
         # add equation to the vector of strings => 'y = ax +b'
         yName = i
-        eq = yName + '= '
+        eq = yName + ' == '
         for j,xname in enumerate(inputnames):
             eq = eq + '+' + xname + '*{0}'.format(model.coef_[j])
+
         stringEquationVector.append(eq)
+
+    plt.show()
+    if modelName:
+        with open("stringEquationVector.bin", "wb") as modelName:  # "wb" because we want to write in binary mode
+            pickle.dump(stringEquationVector, modelName)
+
+        # if we want to relaod in other scripts:
+        # with open("state.bin", "rb") as f:  # "rb" because we want to read in binary mode
+        #     state = pickle.load(f)
 
     return stringEquationVector
 
 
 if __name__ == '__main__':
-    eq = makeElasticNetModel('GelatineData_elastic_net.xlsx')
+    eq = makeElasticNetModel('GelatineData_elastic_net.xlsx', modelName= 'SAVE TEST')
     print(eq)
 
 
 
-
-
-# x = np.linspace(0, 2*np.pi, 50)
-# y = 5*np.sin(x) + 0.1*np.random.randn(50)
-#
-# X = PolynomialFeatures(3).fit_transform(x.reshape((50,1)))  # polynomial features
-#
-# print(X.shape)
-#
-# X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
-#
-# # Create linear regression object
-# regr = linear_model.LinearRegression()
-#
-# # Train the model using the training sets
-# regr.fit(X_train, y_train)
-#
-# # Make predictions using the testing set
-# y_pred = regr.predict(X_test)
-#
-# plt.figure()
-# plt.plot(x, regr.predict(X), '.')
-# plt.plot(x, y, 'k')
-# plt.title("Linear Regression");
