@@ -7,6 +7,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import ElasticNetCV
 import pickle
 
+# info at https://scikit-learn.org/stable/modules/linear_model.html#elastic-net
+# https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNetCV.html#sklearn.linear_model.ElasticNetCV
 def makeElasticNetModel (ExcelName, iterations = 1000, modelName = ''):
     X = pd.read_excel(ExcelName,sheet_name='inputs')
     inputnames = X.keys()
