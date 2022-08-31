@@ -2,7 +2,7 @@
 """
 Created on Thu May  5 13:20:00 2022
 
-@author: Reboots
+@author: Lucas Van der Hauwaert lucas.vanderhauwaert@usc.es
 """
 from Model_Constructor import makeModelWithCompositions 
 import pyomo.environ as pe
