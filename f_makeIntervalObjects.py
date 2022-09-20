@@ -95,7 +95,7 @@ class inputCharaterisation:
 
 
 # read function to automate making the interval classes
-def equations_from_FBA(excelName):
+def makeInputIntervals(excelName):
     loc = os.getcwd()
     loc = loc + r'\excel files' + excelName
     DFIntervals = pd.read_excel(loc, sheet_name='componets')
