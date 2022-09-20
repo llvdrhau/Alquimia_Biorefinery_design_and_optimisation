@@ -6,10 +6,11 @@ import math
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import ElasticNetCV
 import pickle
+from random import seed
 
 # info at https://scikit-learn.org/stable/modules/linear_model.html#elastic-net
 # https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNetCV.html#sklearn.linear_model.ElasticNetCV
-def makeElasticNetModel (ExcelName, iterations = 1000, modelName = ''):
+def makeElasticNetModel (ExcelName, iterations = 1000, modelName = '', plotSwitch = 0):
     X = pd.read_excel(ExcelName,sheet_name='inputs')
     inputnames = X.keys()
     y = pd.read_excel(ExcelName,sheet_name='outputs')
@@ -22,7 +23,8 @@ def makeElasticNetModel (ExcelName, iterations = 1000, modelName = ''):
         # select output
         Y = y[i]
         # split training data/ test data
-        X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.2)
+        seed()
+        X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.2,random_state = 2) # random_state = 2, so consistent results are obtained (2 being the seed)
 
         ######## find correct hyper parameters: alfa (regularisation parameter)
         # and l1_ratio => how is the alfa parameter devided over the L1 and L2 norm
@@ -56,7 +58,9 @@ def makeElasticNetModel (ExcelName, iterations = 1000, modelName = ''):
 
         stringEquationVector.append(eq)
 
-    plt.show()
+    if plotSwitch:
+        plt.show()
+
     if modelName:
         with open("stringEquationVector.bin", "wb") as modelName:  # "wb" because we want to write in binary mode
             pickle.dump(stringEquationVector, modelName)
@@ -65,12 +69,18 @@ def makeElasticNetModel (ExcelName, iterations = 1000, modelName = ''):
         # with open("state.bin", "rb") as f:  # "rb" because we want to read in binary mode
         #     state = pickle.load(f)
 
-    return stringEquationVector
+    return stringEquationVector,plt
 
 
 if __name__ == '__main__':
-    eq = makeElasticNetModel('GelatineData_elastic_net.xlsx', modelName= 'SAVE TEST')
-    print(eq)
+    output = makeElasticNetModel('GelatineData_elastic_net.xlsx', modelName= 'SAVE TEST')
+    # print equations
+    eq = output[0]
+    for i in eq:
+        print(i)
+    # show plot of
+    plt = output[1]
+    plt.show()
 
 
 
