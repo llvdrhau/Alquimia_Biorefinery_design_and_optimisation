@@ -2,11 +2,11 @@
 """
 Created on Mon Apr  4 10:43:34 2022
 
-Builds further upone the script makeModelWithClassObjects 
-The goal is to make a superstructure where the streams have different 
-compositions plus intergrating the generic process interval  
+Builds further upone the script makeModelWithClassObjects
+The goal is to make a superstructure where the streams have different
+compositions plus intergrating the generic process interval
 test comment
-@author: Lucas Van der hauwaert 
+@author: Lucas Van der hauwaert
 """
 # imports 
 import pandas as pd
@@ -239,7 +239,7 @@ def makeModelWithCompositions(excelFile, reactorLib):
        if sum(pos) >= 2: 
            intervalsToMix = list(processInvervalNames[pos])
            specifications = list(reactorCol[pos])
-           mixDict = {intervalsToMix[j]:specifications[j] for j in range(0,len(intervalsToMix)) }
+           mixDict = {intervalsToMix[j]:specifications[j] for j in range(0,len(intervalsToMix))}
            interval_to_call.mix = mixDict  
        
        # if a dict is given for seoeration there is obviouly a seperation element    

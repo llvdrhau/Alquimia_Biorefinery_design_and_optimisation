@@ -5,6 +5,9 @@ Created on Mon Apr  4 11:56:05 2022
 @author: Lucas Van der hauwaert
 """
 
+import os
+import pandas as pd
+
 class makeReactor:
     def __init__(self, inputs, outputs, eq, mix = [], utilities = [], isBool = [], split = [], separation = []):
         self.inputs  = inputs 
@@ -59,8 +62,13 @@ class makeReactor:
         # https://www.youtube.com/watch?v=rq8cL2XMM5M&ab_channel=CoreySchafer 
         pass 
    
-  # TODO could you define a stream dependant on a boolena var before in enters a unit reactor 
+  # TODO could you define a stream dependant on a boolean var before in enters a unit reactor
 # think of sizing example   
+
+def equations_from_FBA(excelName,reactorName,substrate):
+    loc = os.getcwd()
+    loc = loc + r'\excel files' + excelName
+    conversionDF = pd.read_excel(loc, sheet_name='massFraction')
 
 
 class InputCharaterisation:

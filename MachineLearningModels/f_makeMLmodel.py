@@ -6,7 +6,7 @@ import math
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import ElasticNetCV
 import pickle
-from random import seed
+
 
 # info at https://scikit-learn.org/stable/modules/linear_model.html#elastic-net
 # https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNetCV.html#sklearn.linear_model.ElasticNetCV
@@ -23,7 +23,6 @@ def makeElasticNetModel (ExcelName, iterations = 1000, modelName = '', plotSwitc
         # select output
         Y = y[i]
         # split training data/ test data
-        seed()
         X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.2,random_state = 2) # random_state = 2, so consistent results are obtained (2 being the seed)
 
         ######## find correct hyper parameters: alfa (regularisation parameter)

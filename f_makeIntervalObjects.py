@@ -68,15 +68,10 @@ class makeReactor:
         #  could you define a stream dependant on a boolean var before in enters a unit reactor
 
 
-# think of sizing example
-
-def equations_from_FBA(excelName, reactorName, substrate):
-    loc = os.getcwd()
-    loc = loc + r'\excel files' + excelName
-    conversionDF = pd.read_excel(loc, sheet_name='massFraction')
 
 
-class InputCharaterisation:
+
+class inputCharaterisation:
     def __init__(self, inputName, compositionDict, isBool=[], split=[], separation=[]):
         self.inputName = inputName
         self.compositionDict = compositionDict
@@ -97,4 +92,35 @@ class InputCharaterisation:
             new_key = newKeys[i]
             old_key = oldKeys[i]
             self.compositionDict[new_key] = self.compositionDict.pop(old_key)
+
+
+# read function to automate making the interval classes
+def equations_from_FBA(excelName):
+    loc = os.getcwd()
+    loc = loc + r'\excel files' + excelName
+    DFIntervals = pd.read_excel(loc, sheet_name='componets')
+    # inputs
+    inputPrices = DFIntervals.input_price.to_numpy()
+    posInputs = inputPrices != 0    #find where the input interval are (they have an input price)
+
+    intervalNames = DFIntervals.process_intervals[posInputs]  # find names of input interval variable
+    componentsList =  DFIntervals.components[posInputs]
+    compositionsList =  DFIntervals.composition[posInputs]
+
+    #loop over all the inputs and make a class of each one
+    for i, intervalName in enumerate(intervalNames):
+        componentsOfInterval = componentsList[i].split(",")
+        compositionsofInterval = compositionsList[i].split(",")
+
+        compsitionDictionary = {}
+        for j,component in enumerate(componentsOfInterval):
+            component = component.replace(' ','')  #get rid of spaces
+            fraction = compositionsofInterval[j]
+            fraction = fraction.replace(' ','')
+            compsitionDictionary.update({component:fraction})
+
+        toExecute = '{0} = inputCharaterisation(intervalName,compsitionDictionary)'.format(intervalName)
+        exec(toExecute)
+
+
 
