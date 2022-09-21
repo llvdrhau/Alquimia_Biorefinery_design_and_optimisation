@@ -127,7 +127,7 @@ def makeModelWithCompositions(excelFile, reactorLib):
    
    # interval and reator data 
    reactorData = pd.read_excel(loc, sheet_name = 'reactors')   
-   processInvervalNames = reactorData.process_intervals 
+   #processInvervalNames = reactorData.process_intervals  #should read this from the main sheet components... see line 144
    reactorNames = reactorData.reactor_name
    posReactors = reactorNames != 'none'
    reactorNames = reactorNames[posReactors]
@@ -136,13 +136,15 @@ def makeModelWithCompositions(excelFile, reactorLib):
       
 # =============================================================================
 #      # rename all components to original names and save to dict {old: new versions} 
-#       which are stored in the interval objects 
+#       which are stored in the interval objects
+#       declare all the component variables of the system
 # =============================================================================
     
-   NewComponentNames = [] 
+   NewComponentNames = []
+   processIntervalName = components.process_intervals
    for i in processInvervalNames :
        if i in reactorNames:   # if the interval has a reactor 
-           try: # consider alternative change the if statement it sucks -> look if the process interval has a reactor as the if stament and not it's names, horrible design
+           try: # consider alternative: change the if statement it sucks -> look if the process interval has a reactor as the if stament and not it's names, horrible design
                 interval_to_call = getattr(importlib.import_module(reactorLib), i)
            except : # create a warning if names in excel don't match names in reator lib.
                 print('ERROR make sure the reactor name or interval name %s in EXCEL is the same as the library.py file: %s ' % (i,reactorLib))
@@ -153,8 +155,7 @@ def makeModelWithCompositions(excelFile, reactorLib):
                # product names don't change, but need to right less code if 
                # dictionary which is a copy of each other (products don't need to be renamed)
                interval_to_call.makeOldNewDictOutputs(ComponentNames,ComponentNames) 
-              
-               
+
            else: 
               
                updateNamesObjectOutputs = [] 
@@ -187,10 +188,14 @@ def makeModelWithCompositions(excelFile, reactorLib):
            interval_to_call.makeOldNewDict(ComponentNames,updateNamesInputObject)
 
                
-   model.allCompositionVariables =  pe.Var(NewComponentNames, domain= pe.PositiveReals)      
-               
+   model.allCompositionVariables =  pe.Var(NewComponentNames, domain= pe.PositiveReals)
 
-   def IntervalBlockInput(b,i): # where I is the list of input interval 
+   # =============================================================================
+   #      # define equations of the input interval (mixing equations)
+   #
+   # =============================================================================
+
+   def IntervalBlockInput(b,i): # where I is the list of input interval
        model 
        try:
             interval_to_call = getattr(importlib.import_module(reactorLib), i)
@@ -208,7 +213,12 @@ def makeModelWithCompositions(excelFile, reactorLib):
        b.massbalanceConstraints = pe.ConstraintList()
        for i in nameComponents: # TODO make a warning if input names are wrong 
            b.massbalanceConstraints.add(expr =  model.allCompositionVariables[i] == model.input[inputName] * b.componentFractions[i])
-                
+
+   # ===================================================================================================================
+   #      # define equations of the Reactor intervals (mixing equations)
+   #
+   # ===================================================================================================================
+
    # TODO as a fail safe make the list i (reactor intervals) in the right order to make sure every thing follows each other up sequentialy    
    def IntervalBlockReactor(b,i): # where I is the list intervals with reactors WHICH MUST BE IN THE CORRECT ORDER!!! inputs to outputs so follwing the sequence as described by the layer number 
        # model to carry over in function 
@@ -222,7 +232,7 @@ def makeModelWithCompositions(excelFile, reactorLib):
        # call equations, inputs and outputs of the reactor
        strExpr =   interval_to_call.eq
        inputList = interval_to_call.inputs # going to be original names expect in the case of mixing 
-       outputList = interval_to_call.outputs # should be a dictionary with {origial names: newnames}
+       outputList = interval_to_call.outputs # should be a dictionary with {origial names: new names}
        
        # get connection matrix
        connectionMatrix = pd.read_excel(loc, sheet_name = 'connectionMatrix')  
@@ -321,7 +331,7 @@ def makeModelWithCompositions(excelFile, reactorLib):
            
 
     # =============================================================================
-    #            # 2: SEPARTION    
+    #            # 2: SEPERATION
     # =============================================================================
        
        if streamToSeperate:
@@ -345,7 +355,7 @@ def makeModelWithCompositions(excelFile, reactorLib):
            b.PermeateSeperationConstraints = pe.ConstraintList() 
            b.RejectSeperationConstraints = pe.ConstraintList()
            
-           # create/ udate the dictionaries to loop over equations easier 
+           # create/ update the dictionaries to loop over equations easier
            seperationDict = interval_to_call.makeSeperationDict(permeateNames,rejectNames)
            #interval_to_call.updateSeperationDict() # need to update the seperation names e.g.: {xx:0.2} to {xx_reactor2: 0.2}
            

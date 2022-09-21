@@ -116,7 +116,7 @@ reactor1 = makeReactor(ins, outs, strExpr)
 
 ############################################################ reactor2
 
-mix = ['input2', 'reactor1']
+#mix = ['input2', 'reactor1']  # also defined by excel file now
 
 ins = ['xx','yy','zz']
 outs = ['uu','vv','ww']
@@ -146,7 +146,6 @@ strExpr = ['uu == xx *0.8 + zz*0.1 ',
            'vv == yy*0.3 + xx*0.1'  ,
            'ww == 0.2*zz+0.05*yy+0.09*xx'] 
 
-
 separationPermeate = {'uu': 0.95,
                       'vv': 0.8,
                       'ww' : 0 }
@@ -156,7 +155,6 @@ is_bool = []  # determined by excel file
 is_split = []
 
 reactorSeperation = makeReactor(ins, outs, strExpr,[],[],is_bool,is_split,separationPermeate) 
-
 
 ############################################################ reactor3
 strExpr = ['p1 == 0.5*uu + 0.05*vv' ]

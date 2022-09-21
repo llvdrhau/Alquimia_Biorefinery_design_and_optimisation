@@ -10,12 +10,18 @@ email: lucas.vanderhauwaert@usc.es
 from f_makeIntervalObjects import *
 
 # Input
-glucose = inputCharaterisation()
+objDict = makeInputIntervals(r'\data_propionibacteria.xlsx')
+# loop over the dictionary to put the names of the intervals in the script
+for i in objDict:
+    locals()[i] = objDict[i]
 
-# Reactors
-P_acidi_batch = makeReactor()
-P_freu_batch = makeReactor()
-P_avi_batch = makeReactor()
-P_acn_batch = makeReactor()
-P_prop_batch = makeReactor()
-mix_culture = makeReactor()
+print(Glucose.compositionDict)
+
+# glucose = inputCharaterisation()
+# # Reactors
+# P_acidi_batch = makeReactor()
+# P_freu_batch = makeReactor()
+# P_avi_batch = makeReactor()
+# P_acn_batch = makeReactor()
+# P_prop_batch = makeReactor()
+# mix_culture = makeReactor()
