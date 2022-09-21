@@ -9,7 +9,7 @@ email: lucas.vanderhauwaert@usc.es
 import os
 import pandas as pd
 
-class makeReactor:
+class reactorIntervalClass:
     def __init__(self, inputs, outputs, eq, mix=[], utilities=[], isBool=[], split=[], separation=[]):
         self.inputs = inputs
         self.outputs = outputs  # updated according to the modula (is there split/seperation/bool)
@@ -67,11 +67,7 @@ class makeReactor:
 
         #  could you define a stream dependant on a boolean var before in enters a unit reactor
 
-
-
-
-
-class inputCharaterisation:
+class inputIntervalClass:
     def __init__(self, inputName, compositionDict, isBool=[], split=[], separation=[]):
         self.inputName = inputName
         self.compositionDict = compositionDict
@@ -93,12 +89,27 @@ class inputCharaterisation:
             old_key = oldKeys[i]
             self.compositionDict[new_key] = self.compositionDict.pop(old_key)
 
+def splitAndRemoveSpaces(expr2split):
+    expresions = expr2split.split(",")
+    exprList = []
+    for i in expresions:
+        i = i.replace(' ', '')
+        exprList.append(i)
+    return exprList
+
+def loadObjectesFromDictionary(dict):
+    for i in dict:
+        locals()[i] = dict[i]
+
+# ============================================================================================================
+# TODO see if you can incorporate these functions (makeInputIntervals, makeReactorInterval) in the classes?
+# ============================================================================================================
 
 # read function to automate making the interval classes
 def makeInputIntervals(excelName):
     loc = os.getcwd()
     loc = loc + r'\excel files' + excelName
-    DFIntervals = pd.read_excel(loc, sheet_name='componets')
+    DFIntervals = pd.read_excel(loc, sheet_name='components')
     # inputs
     inputPrices = DFIntervals.input_price.to_numpy()
     posInputs = inputPrices != 0    #find where the input interval are (they have an input price)
@@ -107,6 +118,7 @@ def makeInputIntervals(excelName):
     componentsList =  DFIntervals.components[posInputs]
     compositionsList =  DFIntervals.composition[posInputs]
 
+    objectDictionary = {}
     #loop over all the inputs and make a class of each one
     for i, intervalName in enumerate(intervalNames):
         componentsOfInterval = componentsList[i].split(",")
@@ -119,8 +131,41 @@ def makeInputIntervals(excelName):
             fraction = fraction.replace(' ','')
             compsitionDictionary.update({component:fraction})
 
-        toExecute = '{0} = inputCharaterisation(intervalName,compsitionDictionary)'.format(intervalName)
-        exec(toExecute)
+        objectInput = inputIntervalClass(intervalName,compsitionDictionary)
+        objectDictionary.update({intervalName:objectInput})
+
+        # toExecute = '{0} = inputCharaterisation(intervalName,compsitionDictionary)'.format(intervalName)
+        # exec(toExecute)
+        return objectDictionary
+
+    #return objectDictionary
+
+def makeReactorInterval(excelName):
+    loc = os.getcwd()
+    loc = loc + r'\excel files' + excelName
+    DFreactors = pd.read_excel(loc, sheet_name='reactors')
+    reactorIntervals = DFreactors.reactor_name
+
+    objectDictionary = {} #a dictionary with the interval names and the interval objects
+    for i, intervalName in enumerate(reactorIntervals):
+        #inputs of reactor
+        inputsReactor = DFreactors.inputs[i]
+        inputsReactor = splitAndRemoveSpaces(inputsReactor)
+        #outputs of the reactor
+        outputsReactor = DFreactors.outputs[i]
+        outputsReactor = splitAndRemoveSpaces(outputsReactor)
+        #find the equation of the reactor
+        equations = DFreactors.equations[i]
+        equations = splitAndRemoveSpaces(equations)
+        # make initial object (with minimum requirements i.e., inputs outputs and reactor equations)
+        objectReactor = reactorIntervalClass(inputsReactor,outputsReactor,equations)
+
+    if DFreactors.has_utility[i] != 0 :
+        # Todo make a dictionary with all the utilities and their bounds e.g. that of pH [5,8] try to read this from the excelfile.
+        pass
 
 
 
+if __name__ == '__main__':
+    location = os.getcwd()
+    print(location)
