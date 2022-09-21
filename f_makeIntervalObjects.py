@@ -160,9 +160,9 @@ def makeReactorInterval(excelName):
         # make initial object (with minimum requirements i.e., inputs outputs and reactor equations)
         objectReactor = reactorIntervalClass(inputsReactor,outputsReactor,equations)
 
-    if DFreactors.has_utility[i] != 0 :
-        # Todo make a dictionary with all the utilities and their bounds e.g. that of pH [5,8] try to read this from the excelfile.
-        pass
+        if DFreactors.has_utility[i] != 0 :
+            # Todo make a dictionary with all the utilities and their bounds e.g. that of pH [5,8] try to read this from the excelfile.
+            pass
 
 
 
