@@ -14,7 +14,7 @@ class reactorIntervalClass:
         self.inputs = inputs
         self.outputs = outputs  # updated according to the modula (is there split/seperation/bool)
         self.mix = mix  # found by the excel file (don't need to specify in this script)
-        self.utilities = utilities
+        self.utilities = utilities # consists of a dictionary {nameUtilty: [bounds]}
         self.isBool = isBool  # is a tuple, 1) where the bool comes from and 2) the name of the bool affecting the outputs
         self.split = split  # true or false # in that case of false just empty []
         self.separation = separation  # dictionary defining seperation fractions of each component
@@ -89,13 +89,21 @@ class inputIntervalClass:
             old_key = oldKeys[i]
             self.compositionDict[new_key] = self.compositionDict.pop(old_key)
 
-def splitAndRemoveSpaces(expr2split):
-    expresions = expr2split.split(",")
+def splitAndRemoveSpaces(expr2split,splitCharacter):
+    expresions = expr2split.split(splitCharacter)
     exprList = []
     for i in expresions:
         i = i.replace(' ', '')
         exprList.append(i)
     return exprList
+
+def stringBounds2tupleBounds(stringBound):
+    stringBound.replace('[', '')
+    stringBound.replace(']', '')
+    bounds = stringBound.split(',')
+    upperbound = float(bounds[1])
+    lowerbound = float(bounds[0])
+    return lowerbound, upperbound
 
 def loadObjectesFromDictionary(dict):
     for i in dict:
@@ -150,10 +158,10 @@ def makeReactorInterval(excelName):
     for i, intervalName in enumerate(reactorIntervals):
         #inputs of reactor
         inputsReactor = DFreactors.inputs[i]
-        inputsReactor = splitAndRemoveSpaces(inputsReactor)
+        inputsReactor = splitAndRemoveSpaces(inputsReactor,',')
         #outputs of the reactor
         outputsReactor = DFreactors.outputs[i]
-        outputsReactor = splitAndRemoveSpaces(outputsReactor)
+        outputsReactor = splitAndRemoveSpaces(outputsReactor,',')
         #find the equation of the reactor
         equations = DFreactors.equations[i]
         equations = splitAndRemoveSpaces(equations)
@@ -161,8 +169,20 @@ def makeReactorInterval(excelName):
         objectReactor = reactorIntervalClass(inputsReactor,outputsReactor,equations)
 
         if DFreactors.has_utility[i] != 0 :
-            # Todo make a dictionary with all the utilities and their bounds e.g. that of pH [5,8] try to read this from the excelfile.
-            pass
+            utilityVariableNames = DFreactors.has_utility[i]
+            utilityVariableNames = splitAndRemoveSpaces(utilityVariableNames,';')
+            utilityBounds = DFreactors.utility_bounds[i]
+            utilityBounds = splitAndRemoveSpaces(utilityBounds,';')
+            utilityDict = {}
+            for j in utilityVariableNames:
+                unitName = utilityVariableNames[j]
+                unitBound = utilityBounds[j]
+                tupleUnitBounds = stringBounds2tupleBounds(unitBound)
+                utilityDict.update({unitName:tupleUnitBounds})
+            objectReactor.utilities = utilityDict
+
+            # Todo check utilities are made correctly.
+    return objectReactor
 
 
 
