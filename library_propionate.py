@@ -11,11 +11,12 @@ from f_makeIntervalObjects import *
 
 # Input
 objDict = makeInputIntervals(r'\data_propionibacteria.xlsx')
+objReqctorDict = makeReactorInterval(r'\data_propionibacteria.xlsx')
 # loop over the dictionary to put the names of the intervals in the script
 for i in objDict:
     locals()[i] = objDict[i]
 
-print(Glucose.compositionDict)
+#print(Glucose.compositionDict)
 
 # glucose = inputCharaterisation()
 # # Reactors
