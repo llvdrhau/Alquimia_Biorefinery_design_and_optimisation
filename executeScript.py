@@ -9,8 +9,10 @@ import pyomo.environ as pe
 import pyomo.opt as po
 
 
-model = makeModelWithCompositions(r'\separation_split_mix.xlsx' ,"testLibraryCompositions")
+#model = makeModelWithCompositions(r'\separation_split_mix.xlsx' ,"testLibraryCompositions")
 #model = makeModelWithCompositions('testModelCompositionsOnlySeparation.xlsx' ,"testLibraryCompositions")
+
+model = makeModelWithCompositions(r'\data_propionibacteria.xlsx' ,"library_propionate")
 model.pprint()
 
 switchSolver = False 

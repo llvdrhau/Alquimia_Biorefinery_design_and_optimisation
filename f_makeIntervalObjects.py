@@ -98,12 +98,13 @@ def splitAndRemoveSpaces(expr2split,splitCharacter):
     return exprList
 
 def stringBounds2tupleBounds(stringBound):
-    stringBound.replace('[', '')
-    stringBound.replace(']', '')
+    stringBound = stringBound.replace('[', '')
+    stringBound = stringBound.replace(']', '')
     bounds = stringBound.split(',')
     upperbound = float(bounds[1])
     lowerbound = float(bounds[0])
-    return lowerbound, upperbound
+    boundsArray = [lowerbound, upperbound]
+    return boundsArray
 
 def loadObjectesFromDictionary(dict):
     for i in dict:
@@ -130,14 +131,19 @@ def makeInputIntervals(excelName):
     #loop over all the inputs and make a class of each one
     for i, intervalName in enumerate(intervalNames):
         componentsOfInterval = componentsList[i].split(",")
-        compositionsofInterval = compositionsList[i].split(",")
-
-        compsitionDictionary = {}
-        for j,component in enumerate(componentsOfInterval):
-            component = component.replace(' ','')  #get rid of spaces
-            fraction = compositionsofInterval[j]
-            fraction = fraction.replace(' ','')
-            compsitionDictionary.update({component:fraction})
+        compositionsofInterval = compositionsList[i] # string or 1 depending if there are different components
+        compsitionDictionary = {} # preallocate dictionary
+        if compositionsofInterval == 1:  #if it is one no need to loop over the dictionary, there is only one compound
+            component = componentsOfInterval[0].replace(' ','')
+            fraction = compositionsofInterval # should allways be one i there is one component in the stream
+            compsitionDictionary.update({component: fraction})
+        else:
+            compositionsofInterval = compositionsList[i].split(",")
+            for j,component in enumerate(componentsOfInterval):
+                component = component.replace(' ','')  #get rid of spaces
+                fraction = compositionsofInterval[j]
+                fraction = fraction.replace(' ','')
+                compsitionDictionary.update({component:fraction})
 
         objectInput = inputIntervalClass(intervalName,compsitionDictionary)
         objectDictionary.update({intervalName:objectInput})
@@ -154,7 +160,7 @@ def makeReactorInterval(excelName):
     DFreactors = pd.read_excel(loc, sheet_name='reactors')
     reactorIntervals = DFreactors.reactor_name
 
-    objectDictionary = {} #a dictionary with the interval names and the interval objects
+    objectDictionary = {} # preallcoate a dictionary with the interval names and the interval objects
     for i, intervalName in enumerate(reactorIntervals):
         #inputs of reactor
         inputsReactor = DFreactors.inputs[i]
@@ -164,7 +170,7 @@ def makeReactorInterval(excelName):
         outputsReactor = splitAndRemoveSpaces(outputsReactor,',')
         #find the equation of the reactor
         equations = DFreactors.equations[i]
-        equations = splitAndRemoveSpaces(equations)
+        equations = splitAndRemoveSpaces(equations,',')
         # make initial object (with minimum requirements i.e., inputs outputs and reactor equations)
         objectReactor = reactorIntervalClass(inputsReactor,outputsReactor,equations)
 
@@ -174,18 +180,18 @@ def makeReactorInterval(excelName):
             utilityBounds = DFreactors.utility_bounds[i]
             utilityBounds = splitAndRemoveSpaces(utilityBounds,';')
             utilityDict = {}
-            for j in utilityVariableNames:
-                unitName = utilityVariableNames[j]
+            for j, unitName in enumerate(utilityVariableNames):
                 unitBound = utilityBounds[j]
                 tupleUnitBounds = stringBounds2tupleBounds(unitBound)
                 utilityDict.update({unitName:tupleUnitBounds})
             objectReactor.utilities = utilityDict
-
+        objectDictionary.update({intervalName:objectReactor})
             # Todo check utilities are made correctly.
-    return objectReactor
+    return objectDictionary
 
 
 
 if __name__ == '__main__':
+    testObje = makeReactorInterval(r'\data_propionibacteria.xlsx')
     location = os.getcwd()
     print(location)

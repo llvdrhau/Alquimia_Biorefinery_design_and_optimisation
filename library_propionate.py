@@ -10,11 +10,16 @@ email: lucas.vanderhauwaert@usc.es
 from f_makeIntervalObjects import *
 
 # Input
-objDict = makeInputIntervals(r'\data_propionibacteria.xlsx')
+objInputDict = makeInputIntervals(r'\data_propionibacteria.xlsx')
 objReqctorDict = makeReactorInterval(r'\data_propionibacteria.xlsx')
+
+#estObje = makeReactorInterval(r'\data_propionibacteria.xlsx')
 # loop over the dictionary to put the names of the intervals in the script
-for i in objDict:
-    locals()[i] = objDict[i]
+for i in objInputDict:
+    locals()[i] = objInputDict[i]
+
+for i in objReqctorDict:
+    locals()[i] = objReqctorDict[i]
 
 #print(Glucose.compositionDict)
 
