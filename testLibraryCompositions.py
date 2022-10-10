@@ -9,8 +9,10 @@ import os
 import pandas as pd
 
 class makeReactor:
-    def __init__(self, inputs, outputs, eq, mix = [], utilities = [], isBool = [], split = [], separation = []):
-        self.inputs  = inputs 
+    def __init__(self, inputs, outputs, eq, mix=None, utilities = [], isBool = [], split = [], separation = []):
+        if mix is None:
+            mix = []
+        self.inputs  = inputs
         self.outputs = outputs    # updated according to the modula (is there split/seperation/bool)
         self.mix = mix            # found by the excel file (don't need to specify in this script)
         self.utilities = utilities
@@ -134,7 +136,7 @@ separationPermeate = {'uu': 0.95,
 is_bool = [] # 4 options or the bool is reject stream, permeate stream, reactor stream  or [] (no boolean variables)
 is_split = []
 
-reactor2 = makeReactor(ins, outs, strExpr,mix,[],is_bool,is_split,separationPermeate)  
+reactor2 = makeReactor(ins, outs, strExpr,[],[],is_bool,is_split,separationPermeate)
 
 
 ############################################################ reactorSeperation

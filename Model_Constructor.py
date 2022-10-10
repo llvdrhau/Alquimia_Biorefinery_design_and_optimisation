@@ -17,11 +17,17 @@ import pyomo.opt as po
 import importlib
 import os
 
-
+def removeSpacesInSeries(seriesOfStr):
+    newList = []
+    for i in seriesOfStr:
+        i = i.replace(' ', '')
+        newList.append(i)
+    newSeries = pd.Series(newList)
+    return newSeries
 def makeModelWithCompositions(excelFile, reactorLib):
    # create model instance
    model = pe.ConcreteModel()
-   
+
    # retrieve data 
   
    #loc = r'C:\Users\Reboots\OneDrive - Universidade de Santiago de Compostela\Alquimia\PYOMO\pyomo_Alquimia\excel files'
@@ -53,18 +59,18 @@ def makeModelWithCompositions(excelFile, reactorLib):
    # outputs 
    outPrice = components.output_price.to_numpy()
    posOutputs = outPrice != 0
-   nOut = components.process_intervals[posOutputs].tolist() # find input variable
-   for i in range(len(nOut)): 
-       nOut[i] = nOut[i].replace(' ','') # remove space in excel  
+   nameOutputs = components.process_intervals[posOutputs].tolist() # find input variable
+   for i in range(len(nameOutputs)): 
+       nameOutputs[i] = nameOutputs[i].replace(' ','') # remove space in excel  
    
    outBoundLower = components.lower_bound[posOutputs].to_numpy()
    outBoundUpper = components.upper_bound[posOutputs].to_numpy()
    outPrice= outPrice[posOutputs]  # deleet nan in product  price
    #define fixed parameters markt price products
-   outputDic = {nOut[i]: outPrice[i] for i in range(len(outPrice))} # make dictionary 
-   outBoundDict = {nOut[i]: [outBoundLower[i], outBoundUpper[i]] for i in range(len(outPrice))} # make dictionary  
+   outputDic = {nameOutputs[i]: outPrice[i] for i in range(len(outPrice))} # make dictionary 
+   outBoundDict = {nameOutputs[i]: [outBoundLower[i], outBoundUpper[i]] for i in range(len(outPrice))} # make dictionary  
    
-   model.outSet = pe.Set(initialize = nOut)# define set outputs 
+   model.outSet = pe.Set(initialize = nameOutputs)# define set outputs 
    model.Output_Price = pe.Param(model.outSet, initialize=outputDic) #define fixed params using dictoinary: price raw material 
    #model.sellCte = pe.Param(model.outSet, initialize=outPrice)
    
@@ -102,7 +108,7 @@ def makeModelWithCompositions(excelFile, reactorLib):
    ### define variables from input and output streams
    model.input = pe.Var(nIn, domain= pe.PositiveReals, bounds = inBound)
    model.intervals = pe.Var(processIntervalNameList, domain= pe.PositiveReals, bounds = intervalBound)
-   model.output = pe.Var(nOut, domain= pe.PositiveReals, bounds = outBound)
+   model.output = pe.Var(nameOutputs, domain= pe.PositiveReals, bounds = outBound)
    
 # =============================================================================
 #    ### objective function relating to profit and raw input costs  
@@ -135,14 +141,18 @@ def makeModelWithCompositions(excelFile, reactorLib):
    
       
 # =============================================================================
-#      # rename all components to original names and save to dict {old: new versions} 
-#       which are stored in the interval objects
-#       declare all the component variables of the system
+#    DECLARE all the component variables of the system
+#    rename all components to original names and save to dict {old: new versions}
+#     which are stored in the interval objects
+#
 # =============================================================================
     
    NewComponentNames = []
-   processIntervalName = components.process_intervals
-   for i in processInvervalNames :
+   processIntervalNames = components.process_intervals
+   for i,name in enumerate(processIntervalNames): # get rid of spaces
+       processIntervalNames[i] = processIntervalNames[i].replace(' ', '')  # remove space in excel
+
+   for i in processIntervalNames :
        if i in reactorNames:   # if the interval has a reactor 
            try: # consider alternative: change the if statement it sucks -> look if the process interval has a reactor as the if stament and not it's names, horrible design
                 interval_to_call = getattr(importlib.import_module(reactorLib), i)
@@ -151,13 +161,12 @@ def makeModelWithCompositions(excelFile, reactorLib):
            
            ComponentNames = interval_to_call.outputs 
            
-           if len(ComponentNames) == 1 and ComponentNames[0] in nOut:
+           if len(ComponentNames) == 1 and ComponentNames[0] in nameOutputs:
                # product names don't change, but need to right less code if 
-               # dictionary which is a copy of each other (products don't need to be renamed)
+               # dictionary which is a copy of each other (final products don't need to be renamed)
                interval_to_call.makeOldNewDictOutputs(ComponentNames,ComponentNames) 
 
            else: 
-              
                updateNamesObjectOutputs = [] 
                
                for j in ComponentNames :
@@ -169,7 +178,7 @@ def makeModelWithCompositions(excelFile, reactorLib):
                interval_to_call.makeOldNewDictOutputs(ComponentNames,updateNamesObjectOutputs)
                
                
-       elif i not in nOut and i not in reactorNames: # if the interval is an input and not an output nor a reactor
+       elif i not in nameOutputs and i not in reactorNames: # if the interval is an input and not an output nor a reactor
            try:
                 interval_to_call = getattr(importlib.import_module(reactorLib), i)
            except : # create a warning if names in excel don't match names in reator lib.
@@ -189,13 +198,12 @@ def makeModelWithCompositions(excelFile, reactorLib):
 
                
    model.allCompositionVariables =  pe.Var(NewComponentNames, domain= pe.PositiveReals)
+   #model.pprint()
 
-   # =============================================================================
+   # ==================================================================================================================
    #      # define equations of the input interval (mixing equations)
-   #
-   # =============================================================================
-
-   def IntervalBlockInput(b,i): # where I is the list of input interval
+   # =================================================================================================================
+   def IntervalBlockInput(b,i): # where i is the list of input interval
        model 
        try:
             interval_to_call = getattr(importlib.import_module(reactorLib), i)
@@ -213,17 +221,12 @@ def makeModelWithCompositions(excelFile, reactorLib):
        b.massbalanceConstraints = pe.ConstraintList()
        for i in nameComponents: # TODO make a warning if input names are wrong 
            b.massbalanceConstraints.add(expr =  model.allCompositionVariables[i] == model.input[inputName] * b.componentFractions[i])
-
    # ===================================================================================================================
-   #      # define equations of the Reactor intervals (mixing equations)
-   #
+   #      # define equations of the process (Reactor) intervals (mixing equations)
    # ===================================================================================================================
-
    # TODO as a fail safe make the list i (reactor intervals) in the right order to make sure every thing follows each other up sequentialy    
-   def IntervalBlockReactor(b,i): # where I is the list intervals with reactors WHICH MUST BE IN THE CORRECT ORDER!!! inputs to outputs so follwing the sequence as described by the layer number 
-       # model to carry over in function 
-       model
-      
+   def IntervalBlockReactor(b,i): # where I is the list intervals with reactors WHICH MUST BE IN THE CORRECT ORDER!!! inputs to outputs so follwing the sequence as described by the layer number
+       model #  to carry model object over in function
        try:
             interval_to_call = getattr(importlib.import_module(reactorLib), i)
        except : # create a warning if names in excel don't match names in reator lib.             
@@ -236,7 +239,7 @@ def makeModelWithCompositions(excelFile, reactorLib):
        
        # get connection matrix
        connectionMatrix = pd.read_excel(loc, sheet_name = 'connectionMatrix')  
-       processInvervalNames
+       #processInvervalNames
        reactorRow = connectionMatrix.loc[connectionMatrix['process_intervals'] == i]
        reactorCol = connectionMatrix[i]
        
@@ -444,7 +447,7 @@ def makeModelWithCompositions(excelFile, reactorLib):
        if isDependentOnBool: 
            b.BooleanActivationConstraints = pe.ConstraintList()
            for j in interval_to_call.outputs:
-               if j in nOut:
+               if j in nameOutputs:
                    body = model.output[j] - reactorBoundDict[i][1] * model.IntervalBlockReactors[isDependentOnBool[0]].BooleanVariables[isDependentOnBool[1]]
                else: 
                    body = model.allCompositionVariables[j] -reactorBoundDict[i][1] * model.IntervalBlockReactors[isDependentOnBool[0]].BooleanVariables[isDependentOnBool[1]]
@@ -543,10 +546,7 @@ def makeModelWithCompositions(excelFile, reactorLib):
                else: 
                    nextReactor.split  ='down'
                counter += 1    
- 
-                
 
-           
     # =============================================================================
     #            # Reactor phase   
     # =============================================================================
@@ -649,7 +649,7 @@ def makeModelWithCompositions(excelFile, reactorLib):
               
          
            for k in outputsReactor: 
-                if k in nOut:
+                if k in nameOutputs:
                     replaceStr = "model.output['%s']" % outputsReactor[k]
                 else: 
                     replaceStr = "model.allCompositionVariables['%s']" %outputsReactor[k]
@@ -663,11 +663,48 @@ def makeModelWithCompositions(excelFile, reactorLib):
        #print(massBalanceString) 
        massBalanceExpresion = eval(massBalanceString)  
        b.MassBalanceReactorConstraint = pe.Constraint(expr= massBalanceExpresion)       
+  
+   # ==================================================================================================================
+   #      # define equations of the output Intervals (mixing equations)
+   #        i.e., the sum of all the intervalls that produce a certain end product 
+   # =================================================================================================================
    
-
-   model.IntervalBlockInput = pe.Block(nIn,rule=IntervalBlockInput)
-   model.IntervalBlockReactors =  pe.Block(reactorNames,rule=IntervalBlockReactor)    
-   #model.pprint() # debug check 
+   # TODO check if the output block works
+   def IntervalBlockOutput(b,i):
+       model  # to carry model object over in function
+       b.outputConstraints = pe.ConstraintList()
+       connectionMatrix = pd.read_excel(loc, sheet_name = 'connectionMatrix')
+       DFintervals = pd.read_excel(loc, sheet_name = 'components')
+       # find connected intervals
+       positionOfconectedIntervals = connectionMatrix[i].astype(dtype=bool)
+       allIntervals = connectionMatrix['process_intervals']
+       allIntervals = removeSpacesInSeries(allIntervals)
+       connectedIntervalNames = allIntervals[positionOfconectedIntervals]
+       equation = "model.output['{}']==".format(i)
+       for j in connectedIntervalNames:
+           try:
+               interval_to_call = getattr(importlib.import_module(reactorLib), j)
+           except:  # create a warning if names in excel don't match names in reator lib.
+               print('ERROR make sure the reactor name or interval name %s in EXCEL is the same as the library.py file: %s ' % (i, reactorLib))
+           outputsInterval = interval_to_call.outputs
+           # find the short name of the output in components sheet of the excel file
+           posOutputInterval = allIntervals == i
+           shortNameoutput = list(DFintervals.components[posOutputInterval])
+           shortNameoutput = shortNameoutput[0] # there should only be ne element in the final output interval
+           for k in outputsInterval :
+               if shortNameoutput in k:
+                   equation += "+ model.allCompositionVariables['{}']".format(k) # TODO check: carefull!!! check if all variables go to allCompositionVariables?
+       outputMassBalanceExpresion = eval(equation)
+       b.outputConstraints.add(expr= outputMassBalanceExpresion) #= pe.Constraint(expr= outputMassBalanceExpresion)
+            # interesting warning when debuggung! block.del_component() and block.add_component().
+       
+   # Decalre input, reactor and output blocks to the model structure
+   ####################################################################################################################
+   #model.IntervalBlockInput = pe.Block(nIn, rule=IntervalBlockInput)
+   #model.IntervalBlockReactors = pe.Block(reactorNames, rule=IntervalBlockReactor)
+   model.IntervalBlockOutput = pe.Block(nameOutputs, rule=IntervalBlockOutput)
+   ####################################################################################################################
+   # model.pprint() # debug check
    return model 
 
 # test to see if the varable/parameters 
