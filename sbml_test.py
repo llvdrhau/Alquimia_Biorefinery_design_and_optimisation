@@ -3,6 +3,7 @@ import cobra.io
 import os
 from cobra.flux_analysis import flux_variability_analysis
 import matplotlib.pyplot as plt
+import numpy as np
 # import copy
 # from cobra import Metabolite, Reaction
 # #import cameo
@@ -44,11 +45,13 @@ def plot_flux_solutions(modelLocation, substrate_exchange_rnx, product_exchange_
             FBA_yield = -FBA_product_flux/FBA_substrate_flux
             allYields_FBA.append(FBA_yield)
 
-    bottom_ = allYields_FVA_lower
-    height_ = allYields_FVA_upper
+    conversionFactor = 74/180 #to go from mol to grams change to one for moles
+    bottom_ = np.multiply(allYields_FVA_lower, conversionFactor)
+    height_ = np.multiply(allYields_FVA_upper, conversionFactor)
     x_cordinates = range(len(modelLocation))
     plt.bar(x = x_cordinates, height=height_, width=0.8, bottom=bottom_,tick_label = modelNames)
-    plt.plot(1,2,'b*')
+    plt.plot(x_cordinates,np.multiply(allYields_pFBA,conversionFactor),'y*')
+    plt.plot(x_cordinates, np.multiply(allYields_FBA, conversionFactor),'r*')
     plt.show()
 
 if __name__ == '__main__':
@@ -57,9 +60,11 @@ if __name__ == '__main__':
     loc_acidi = loc + r'\SBML models\PAC_4875_model.xml'
     loc_acnes = loc + r'\SBML models\P_acnes_model.xml'
     loc_prop = loc + r'\SBML models\P_propionicum_model.xml'
+    loc_avidum = loc + r'\SBML models\P_avidum_model.xml'
+    loc_sher = loc + r'\SBML models\P_sherm_model.xml'
 
     #microorganisms = [loc_acidi, loc_acnes, loc_prop]
-    microorganisms = [loc_acnes, loc_prop]
+    microorganisms = [loc_acidi, loc_acnes, loc_prop, loc_avidum, loc_sher]
 
     glucose_exchange_rnx = 'Ex_S_cpd00027_ext'
     propionate_exchange_rnx = 'Ex_S_cpd00141_ext'
