@@ -32,11 +32,11 @@ def reactionID2metaboliteNames(reactionList):
         reactionDict.update({nameMetabolite:i})
     return listMetabolites, reactionDict
 
-def productFluxes(model):
+def productFluxes(model, tol = 1e-6):
     exchangeRnxNames = model.exchanges
     exchangeDict = reactionID2metaboliteNames(exchangeRnxNames)[1]
     solution = model.optimize()
-    tol = 1e-6 # what would be a good threshold? 1e-6 maybe? (tutorial matlab pFBA)
+    #tol = 1e-6 # what would be a good threshold? 1e-6 maybe? (tutorial matlab pFBA)
     fluxDict = {}
     for i in exchangeDict: # loop over the name of the
         reactionMetabolite = exchangeDict[i]
