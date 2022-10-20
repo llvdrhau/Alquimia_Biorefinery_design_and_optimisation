@@ -75,8 +75,7 @@ def plot_flux_solutions(modelLocation, substrate_exchange_rnx, product_exchange_
             pfba_solution = cobra.flux_analysis.pfba(model)
             substrate_flux = pfba_solution.fluxes[substrate_exchange_rnx]
             product_flux = pfba_solution.fluxes[product_exchange_rnx]
-            #yield_pFBA =  -substrate_flux/product_flux
-            yield_pFBA = -product_flux/substrate_flux
+            yield_pFBA = -product_flux/substrate_flux # fixed
             allYields_pFBA.append(yield_pFBA)
             # get objective flux
             #objectiveBiomass.append(pfba_solution.objective_value) #this gives a wierd result
