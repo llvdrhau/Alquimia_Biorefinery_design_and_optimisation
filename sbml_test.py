@@ -48,7 +48,8 @@ def productFluxes(model):
     return fluxDict
 
 
-def plot_flux_solutions(modelLocation, substrate_exchange_rnx, product_exchange_rnx, objectiveReaction = None ,conversionFactor = 1.0 , yLabel = 'glucose yield (g/g)' ,FBA = True, pFBA = True, FVA = True):
+def plot_flux_solutions(modelLocation, substrate_exchange_rnx, product_exchange_rnx, objectiveReaction = None,
+                        conversionFactor = 1.0 , yLabel = 'glucose yield (g/g)' ,FBA = True,  pFBA = True, FVA = True):
     allYields_pFBA =[]
     allYields_FBA =[]
     allYields_FVA_upper = []
@@ -74,7 +75,8 @@ def plot_flux_solutions(modelLocation, substrate_exchange_rnx, product_exchange_
             pfba_solution = cobra.flux_analysis.pfba(model)
             substrate_flux = pfba_solution.fluxes[substrate_exchange_rnx]
             product_flux = pfba_solution.fluxes[product_exchange_rnx]
-            yield_pFBA =  -substrate_flux/product_flux
+            #yield_pFBA =  -substrate_flux/product_flux
+            yield_pFBA = -product_flux/substrate_flux
             allYields_pFBA.append(yield_pFBA)
             # get objective flux
             #objectiveBiomass.append(pfba_solution.objective_value) #this gives a wierd result
@@ -102,10 +104,10 @@ def plot_flux_solutions(modelLocation, substrate_exchange_rnx, product_exchange_
     x_cordinates = range(len(modelLocation))
     plt.bar(x = x_cordinates, height=height_, width=0.8, bottom=bottom_,tick_label = modelNames)
     plt.plot(x_cordinates,np.multiply(allYields_pFBA,conversionFactor),'y*', markersize = 18)
-    plt.plot(x_cordinates, np.multiply(allYields_FBA, conversionFactor),'r*', markersize = 18)
+    plt.plot(x_cordinates, np.multiply(allYields_FBA, conversionFactor),'r*', markersize = 10)
     plt.grid()
     plt.ylabel(yLabel)
-    plt.legend(['FVA','pFBA','FBA'])
+    plt.legend(['pFBA','FBA','FVA'])
     plt.ylim(bottom= 0)
 
     return plt, objectiveBiomass
@@ -133,17 +135,20 @@ if __name__ == '__main__':
     plotFig = True
     if plotFig:
         pltGlu, objetiveGlu = plot_flux_solutions(microorganisms, substrate_exchange_rnx=glucose_exchange_rnx,
-                            product_exchange_rnx=propionate_exchange_rnx, objectiveReaction= "Ex_S_biomass_ext"
-                            ,conversionFactor= 74/180)
+                            product_exchange_rnx=propionate_exchange_rnx,conversionFactor= 74/180)
+        # pltGlu, objetiveGlu = plot_flux_solutions(microorganisms, substrate_exchange_rnx=glucose_exchange_rnx,
+        #                     product_exchange_rnx=propionate_exchange_rnx, objectiveReaction= "Ex_S_biomass_ext"
+        #                     ,conversionFactor= 74/180)
         print(objetiveGlu)
         pltGlu.show()
 
+        # # # # # # # # #  glycerol plot# # # # # # # # # # # #
         # pltGly, objetiveGly = plot_flux_solutions(microorganisms,substrate_exchange_rnx=glycerol_exchange_rnx,
         #                                 product_exchange_rnx=propionate_exchange_rnx, conversionFactor = 92.1/180,
         #                                 objectiveReaction= "Ex_S_biomass_ext", yLabel= 'yield glycerol (g/g)')
         # print(objetiveGly)
         # pltGly.show()
-
+         # # # # # # # # #  glycerol plot# # # # # # # # # # # #
 
     testArea = False
     if testArea:  #handy functions and ways to call metabolites or reactions
