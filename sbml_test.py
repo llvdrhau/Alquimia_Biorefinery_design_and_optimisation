@@ -131,7 +131,7 @@ if __name__ == '__main__':
     # model.exchanges[0].id # is the objective reaction for propioni models
 
 
-    plotFig = True
+    plotFig = False
     if plotFig:
         pltGlu, objetiveGlu = plot_flux_solutions(microorganisms, substrate_exchange_rnx=glucose_exchange_rnx,
                             product_exchange_rnx=propionate_exchange_rnx,conversionFactor= 74/180)

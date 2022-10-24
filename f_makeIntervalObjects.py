@@ -186,7 +186,18 @@ def makeReactorInterval(excelName):
                 utilityDict.update({unitName:tupleUnitBounds})
             objectReactor.utilities = utilityDict
         objectDictionary.update({intervalName:objectReactor})
-            # Todo check utilities are made correctly.
+        # Todo check utilities are made correctly.
+
+        if DFreactors.has_seperation[i] != 0 and DFreactors.has_seperation[i] < 2 :  #lets not look at double serperation for now
+            seperationDict = {}
+            coefStr = DFreactors.seperation_coef[i]
+            coefTuple = stringBounds2tupleBounds(coefStr)
+            outputsStr = DFreactors.outputs[i]
+            outputs = splitAndRemoveSpaces(outputsStr, ',' )
+            for j, outputName in enumerate(outputs):
+                seperationDict.update({outputName:coefTuple[j]})
+            objectReactor.separation = seperationDict
+
     return objectDictionary
 
 

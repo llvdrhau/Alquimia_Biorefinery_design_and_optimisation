@@ -219,8 +219,55 @@ def makeModelWithCompositions(excelFile, reactorLib):
        b.componentFractions = pe.Param(b.setComponents, initialize = ComponentCompositions)  
        
        b.massbalanceConstraints = pe.ConstraintList()
-       for i in nameComponents: # TODO make a warning if input names are wrong 
-           b.massbalanceConstraints.add(expr =  model.allCompositionVariables[i] == model.input[inputName] * b.componentFractions[i])
+       for j in nameComponents: # TODO make a warning if input names are wrong
+           b.massbalanceConstraints.add(expr =  model.allCompositionVariables[j] == model.input[inputName] * b.componentFractions[j])
+
+       # handel boolean inputs
+       connectionMatrix = pd.read_excel(loc, sheet_name='connectionMatrix')
+       reactorRow = connectionMatrix.loc[connectionMatrix['process_intervals'] == i]
+       nameBoolVariables = []
+       reactorsWithBool = {}
+       for j in reactorRow:
+           a = str(reactorRow[j]) # uncomment for debugging
+           if 'bool' in str(reactorRow[j]):  # TODO make sure a minimum of 2 bools are counted, display error if not
+               boolVariableName = 'y_' + j
+               nameBoolVariables.append(boolVariableName)
+               reactorsWithBool.update({j: boolVariableName})
+
+       # creat the bool variables and the sum constraint
+       if nameBoolVariables:
+           # initialise boolean values so sum is one
+           initialBools = np.zeros((len(nameBoolVariables),), dtype=int)
+           initialBools[0] = 1
+           initialiseBoolVars = {nameBoolVariables[i]: initialBools[i] for i in range(len(nameBoolVariables))}
+
+           # make set variables and constraints of the bools
+           b.BooleanVariables = pe.Var(nameBoolVariables, domain=pe.Boolean, initialize=initialiseBoolVars)
+           exprBoolean = sum(b.BooleanVariables[k] for k in b.BooleanVariables_index) == 1
+           b.BooleanConstraints = pe.Constraint(expr=exprBoolean)
+
+       # modify the expresions of the intervall that is affected by the booliean var
+       for j in reactorsWithBool:
+           try:
+               interval_to_modify = getattr(importlib.import_module(reactorLib), j)
+               originBool = i  # from which reactor it comes from
+               interval_to_modify.isBool = (originBool, reactorsWithBool[j])
+               equationsToModify = interval_to_modify.eq
+               newEquations = []
+               for k in equationsToModify:
+                   eqCurrent = k
+                   eqCurrent = eqCurrent.replace('==', '==(')
+                   eqCurrent += ") * model.IntervalBlockReactors['%s'].BooleanVariables['%s']" % (
+                   i, reactorsWithBool[j])
+                   newEquations.append(eqCurrent)
+                   # print(eqCurrent)
+               interval_to_modify.eq = newEquations
+
+           except:  # create a warning if names in excel don't match names in reator lib.
+               print(
+                   'ERROR make sure the reactor name or interval name %s in EXCEL is the same as the library.py file: %s ' % (
+                   j, reactorLib))
+
    # ===================================================================================================================
    #      # define equations of the process (Reactor) intervals (mixing equations)
    # ===================================================================================================================
@@ -327,9 +374,7 @@ def makeModelWithCompositions(excelFile, reactorLib):
                    elif j in outputDictPreviousInterval: 
                        nameToAdd = outputDictPreviousInterval[j]
                        expr += model.allCompositionVariables[nameToAdd]
-                       
-                   
-              
+
                b.mixingConstraints.add(b.afterMixVariables[afterMixName] == expr)  
            
 
@@ -399,12 +444,11 @@ def makeModelWithCompositions(excelFile, reactorLib):
     #   boolean variables the boolean variables   
     # =============================================================================
 
-       # look at the row of the reactor in the connenction matrix and make new bool variables and constraints 
-       
+       # look at the row of the reactor in the connenction matrix and make new bool variables and constraints
        nameBoolVariables = []
        reactorsWithBool = {}
-       for j in reactorRow :
-           #print(j)
+       for j in reactorRow:
+           # print(str(reactorRow[j])) # uncomment for debugging
            if 'bool' in str(reactorRow[j]):  # TODO make sure a minimum of 2 bools are counted, display error if not
                boolVariableName = 'y_' + j 
                nameBoolVariables.append(boolVariableName)
@@ -418,7 +462,7 @@ def makeModelWithCompositions(excelFile, reactorLib):
            initialBools[0] = 1
            initialiseBoolVars = {nameBoolVariables[i]:initialBools[i] for i in range(len(nameBoolVariables))}
 
-           # make a set a variables of the bools            
+           # make set variables and constraints of the bools
            b.BooleanVariables = pe.Var(nameBoolVariables, domain = pe.Boolean, initialize = initialiseBoolVars) 
            exprBoolean = sum(b.BooleanVariables[k] for k in b.BooleanVariables_index) == 1
            b.BooleanConstraints = pe.Constraint(expr = exprBoolean )
@@ -442,20 +486,24 @@ def makeModelWithCompositions(excelFile, reactorLib):
            except : # create a warning if names in excel don't match names in reator lib.             
                print('ERROR make sure the reactor name or interval name %s in EXCEL is the same as the library.py file: %s ' % (j,reactorLib))
            
-       # if the current reactor is dependant on a bool, add constraints to the outputs of the reactor!! 
-       isDependentOnBool = interval_to_call.isBool 
-       if isDependentOnBool: 
-           b.BooleanActivationConstraints = pe.ConstraintList()
-           for j in interval_to_call.outputs:
-               if j in nameOutputs:
-                   body = model.output[j] - reactorBoundDict[i][1] * model.IntervalBlockReactors[isDependentOnBool[0]].BooleanVariables[isDependentOnBool[1]]
-               else: 
-                   body = model.allCompositionVariables[j] -reactorBoundDict[i][1] * model.IntervalBlockReactors[isDependentOnBool[0]].BooleanVariables[isDependentOnBool[1]]
-                   
-               lowerBound = 0    
-               upperBound = 0 # reactorBoundDict[i][1] * model.IntervalBlockReactors[isDependentOnBool[0]].BooleanVariables[isDependentOnBool[1]] # 
-               exprBoolActivation = pe.inequality(lowerBound, body ,upperBound)   #TODO compleet the expresions by adding the bool variable 
-               b.BooleanActivationConstraints.add(exprBoolActivation)
+       # if the current reactor is dependant on a bool, add constraints to the outputs of the reactor!!
+       # I think this part is not necesary, what I was trying to do is force an equation to zero if the bool var is not chosen
+       # but not necsary it is already in the equation
+       ##uncomment for here should I be wrong
+
+       # isDependentOnBool = interval_to_call.isBool
+       # if isDependentOnBool:
+       #     b.BooleanActivationConstraints = pe.ConstraintList()
+       #     for j in interval_to_call.outputs:
+       #         if j in nameOutputs:
+       #             body = model.output[j] - reactorBoundDict[i][1] * model.IntervalBlockReactors[isDependentOnBool[0]].BooleanVariables[isDependentOnBool[1]]
+       #         else:
+       #             body = model.allCompositionVariables[j] -reactorBoundDict[i][1] * model.IntervalBlockReactors[isDependentOnBool[0]].BooleanVariables[isDependentOnBool[1]]
+       #
+       #         lowerBound = 0
+       #         upperBound = 0 # reactorBoundDict[i][1] * model.IntervalBlockReactors[isDependentOnBool[0]].BooleanVariables[isDependentOnBool[1]] #
+       #         exprBoolActivation = pe.inequality(lowerBound, body ,upperBound)   #TODO compleet the expresions by adding the bool variable
+       #         b.BooleanActivationConstraints.add(exprBoolActivation)
            
     # =============================================================================
     #                      #4 SPLITTER VARIABLES/CONSTRAINTS
@@ -700,8 +748,8 @@ def makeModelWithCompositions(excelFile, reactorLib):
        
    # Decalre input, reactor and output blocks to the model structure
    ####################################################################################################################
-   #model.IntervalBlockInput = pe.Block(nIn, rule=IntervalBlockInput)
-   #model.IntervalBlockReactors = pe.Block(reactorNames, rule=IntervalBlockReactor)
+   model.IntervalBlockInput = pe.Block(nIn, rule=IntervalBlockInput)
+   model.IntervalBlockReactors = pe.Block(reactorNames, rule=IntervalBlockReactor)
    model.IntervalBlockOutput = pe.Block(nameOutputs, rule=IntervalBlockOutput)
    ####################################################################################################################
    # model.pprint() # debug check
