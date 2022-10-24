@@ -90,13 +90,17 @@ def carbonBalanceReactions(model, metaboliteReactDict ,tol = 1e-4):
 
     return  dataFrameReturn
 
-def countCarbonInReactants(model,rctID):
+def countCarbonInReactants(model,rctID, productID):
+    #TODO if you want to figure out how much carbon is in a specific product, you also need to look at where the carbon is in the other products
     rct = model.reactions.get_by_id(rctID)
     flux = rct.flux
     listMets = rct.reactants
-    productName = rct.products[0].name
+    productMet = model.metabolites.get_by_id(productID)
+    productName = productMet.name
+    stoiCoef = model.reactions.get_by_id(rctID).metabolites[productMet]
     carbonNrAll = []
     for met in listMets:
+        stoiCoef_i = abs(model.reactions.get_by_id(rctID).metabolites[met])
         metFormula = met.formula
         splitFormula = re.split('(\d+)', metFormula)
         nrOfCarbons = 0  # just in case something wierd happens
@@ -115,8 +119,8 @@ def countCarbonInReactants(model,rctID):
                 else:
                     continue
 
-        carbonNrAll.append(nrOfCarbons)
-    fluxCgrams = sum(carbonNrAll) * flux
+        carbonNrAll.append(nrOfCarbons*stoiCoef_i)
+    fluxCgrams = sum(carbonNrAll) * flux * stoiCoef
     totaalCarbonAtoms = sum(carbonNrAll)
     #gramsC = nrOfCarbons * 12 * flux * stoiCoef
     #gramsCAll.append(gramsC)
@@ -135,9 +139,9 @@ secretionDF = carbonBalance(model)
 print(secretionDF)
 print(uptakeDF)
 #
-# CgramsOut = sum(secretionDF['flux (gram-C/g-DW/h)'])
-# CgramsIn = sum(uptakeDF['flux (gram-C/g-DW/h)'])    # should be 10*6*12 = 720  # 10 mols of glu, 6 C atoms, 12 gC/mol
-# print(-CgramsOut/CgramsIn)
+CgramsOut = sum(secretionDF['flux (gram-C/g-DW/h)'])
+CgramsIn = sum(uptakeDF['flux (gram-C/g-DW/h)'])    # should be 10*6*12 = 720  # 10 mols of glu, 6 C atoms, 12 gC/mol
+print("{} of the carbon is accounted for, let's see how much goes into bio mass".format(-CgramsOut/CgramsIn))
 
 ################################################
 # 46 % of the carbon is accounted for, let's see how much goes into bio mass
@@ -158,21 +162,39 @@ if searchNames:
       names.append(model.metabolites.get_by_id(r).name)
     print(names)
 
+################################################################################################################
+# for metabolites like DNA in biomass cell wall count all carbons used to make the cell wall
 rctWithMetId = {'S_cpd11461_c0': 'biomass_c0', # 'DNA', '
 'S_cpd11463_c0': 'biomass_c0' , # Protein'
 'S_cpd11613_c0':'biomass_c0'}  # , 'RNA'
 
 df = carbonBalanceReactions(model= model, metaboliteReactDict= rctWithMetId)
-print(df)
+#print(df)
 
-# for metabolites like protein cell wall count all carbons used to make the cell wall
-smallPoolMet = countCarbonInReactants(model, rctID= 'rxnnew72_c0')
+################################################################################################################
+# for metabolites like protein cell wall count all carbons used to make the cell wall, pool of molecules and lipids
+smallPoolMet = countCarbonInReactants(model, rctID= 'rxnnew72_c0', productID= 'S_cpdnew26_c0')
+print(smallPoolMet)
 
-#newRow ={'Metabolite':smallPoolMet[0],'# of C':smallPoolMet[1], 'flux (gram-C/g-DW/h)':smallPoolMet[2] }
+### cell wall
+# sm = model.metabolites.get_by_id('S_cpdnew27_c0').summary()
+#print(sm)
+# polyschacarides
+polyS = countCarbonInReactants(model, rctID= 'rxnnew64_c0',productID = 'S_cpdnew20_c0')
+#print(polyS)
+# Lipomannan
+lipoM = countCarbonInReactants(model, rctID= 'rxnnew65_c0',productID = 'S_cpdnew21_c0')
+#print(lipoM)
+# peptidoglycan
+pep = countCarbonInReactants(model, rctID= 'rxnnew66_c0',productID = 'S_cpdnew22_c0')
+#print(pep)
+
+carbonFluxInBiomass = polyS[2] + lipoM[2] + pep[2] + smallPoolMet[2] + sum(df['flux (gram-C/g-DW/h)'])
+
+
+print('{} grams C is in Biomass representing {}% of the total carbon'.format(carbonFluxInBiomass,100*carbonFluxInBiomass/CgramsIn))
+#smallPoolMet = countCarbonInReactants(model, rctID= 'rxnnew72_c0')
+# #newRow ={'Metabolite':smallPoolMet[0],'# of C':smallPoolMet[1], 'flux (gram-C/g-DW/h)':smallPoolMet[2] }
 #df2add = pd.DataFrame(newRow)
 #dfnew = pd.concat([df,df2add],ignore_index=True)
 #df.append(newRow, ignore_index=True)
-
-sm = model.metabolites.get_by_id('S_cpdnew27_c0').summary()
-print('')
-#smallPoolMet = countCarbonInReactants(model, rctID= 'rxnnew72_c0')
