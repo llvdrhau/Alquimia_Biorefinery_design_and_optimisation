@@ -91,7 +91,6 @@ def carbonBalanceReactions(model, metaboliteReactDict ,tol = 1e-4):
     return  dataFrameReturn
 
 def countCarbonInReactants(model,rctID, productID):
-    #TODO if you want to figure out how much carbon is in a specific product, you also need to look at where the carbon is in the other products
     rct = model.reactions.get_by_id(rctID)
     flux = rct.flux
     listMets = rct.reactants
@@ -125,6 +124,8 @@ def countCarbonInReactants(model,rctID, productID):
     #gramsC = nrOfCarbons * 12 * flux * stoiCoef
     #gramsCAll.append(gramsC)
     return productName, totaalCarbonAtoms, fluxCgrams
+
+
 #read model
 loc = os.getcwd()
 loc_acidi = loc + r'\SBML models\PAC_4875_model.xml'
@@ -137,6 +138,7 @@ model = cobra.io.read_sbml_model(loc_acidi)
 uptakeDF = carbonBalance(model, case = 'uptake')
 secretionDF = carbonBalance(model)
 print(secretionDF)
+print('')
 print(uptakeDF)
 #
 CgramsOut = sum(secretionDF['flux (gram-C/g-DW/h)'])
@@ -174,24 +176,27 @@ df = carbonBalanceReactions(model= model, metaboliteReactDict= rctWithMetId)
 ################################################################################################################
 # for metabolites like protein cell wall count all carbons used to make the cell wall, pool of molecules and lipids
 smallPoolMet = countCarbonInReactants(model, rctID= 'rxnnew72_c0', productID= 'S_cpdnew26_c0')
-print(smallPoolMet)
+#print(smallPoolMet)
 
 ### cell wall
 # sm = model.metabolites.get_by_id('S_cpdnew27_c0').summary()
 #print(sm)
-# polyschacarides
+
+### polyschacarides
 polyS = countCarbonInReactants(model, rctID= 'rxnnew64_c0',productID = 'S_cpdnew20_c0')
 #print(polyS)
-# Lipomannan
+
+### Lipomannan
 lipoM = countCarbonInReactants(model, rctID= 'rxnnew65_c0',productID = 'S_cpdnew21_c0')
 #print(lipoM)
-# peptidoglycan
+
+### peptidoglycan
 pep = countCarbonInReactants(model, rctID= 'rxnnew66_c0',productID = 'S_cpdnew22_c0')
 #print(pep)
 
 carbonFluxInBiomass = polyS[2] + lipoM[2] + pep[2] + smallPoolMet[2] + sum(df['flux (gram-C/g-DW/h)'])
 
-
+print('')
 print('{} grams C is in Biomass representing {}% of the total carbon'.format(carbonFluxInBiomass,100*carbonFluxInBiomass/CgramsIn))
 #smallPoolMet = countCarbonInReactants(model, rctID= 'rxnnew72_c0')
 # #newRow ={'Metabolite':smallPoolMet[0],'# of C':smallPoolMet[1], 'flux (gram-C/g-DW/h)':smallPoolMet[2] }
