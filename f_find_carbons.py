@@ -2,6 +2,8 @@
 import cobra.io
 import os
 import re
+import numpy as np
+import warnings
 
 def findCarbonsMissingMetabolite(model, metID):
     met = model.metabolites.get_by_id(metID)
@@ -20,7 +22,7 @@ def findCarbonsMissingMetabolite(model, metID):
     CarbonsMissingMet = (carbonInReactants-carbonInProducts)/stoiCoef_rct
     return  CarbonsMissingMet
 
-def countCarbonInMetabolite(metFormula):
+def countCarbonInFormula(metFormula):
     splitFormula = re.split('(\d+)', metFormula)
     nrOfCarbons = 0  # just in case something wierd happens
     if 'C' not in metFormula:  # if there is no carbon in the formula
@@ -68,13 +70,16 @@ def countCarbonInList(reaction, reactionList):
 def getIDlistOfProducingMetabolties(model, metID):
     reactions = getProducingReactions(model , metID)
     ids = []
-    r = reactions[0] # only interested in one reaction(doesn¡t matter which)
+    coef = []
+    r = reactions[0] # only interested in one reaction(doesn't matter which)
     metCoef = r.metabolites
+    coefProduct = abs(metCoef[model.metabolites.get_by_id(metID)])
     reactants = r.reactants
     for met in reactants:
         ids.append(met.id)
+        coef.append(abs(metCoef[met]))
 
-    return ids , metCoef
+    return ids, coef, coefProduct
 
 def getProducingReactions(model, metID):
     met = model.metabolites.get_by_id(metID)
@@ -92,6 +97,55 @@ def getProducingReactions(model, metID):
     reaction = ProducingRct[0]
     return ProducingRct
 
+def findCarbonsOfReaction(model,reactionID):
+    reaction = model.reactions.get_by_id(reactionID)
+    reactantlist = reaction.reactants
+    product =  reaction.products
+    if len(product) > 1:
+        raise ValueError("there should only be one product in the reaction, check")
+    coefOfProduct = [abs(reaction.metabolites[i]) for i in product]
+    coefOfReactants = [abs(reaction.metabolites[i]) for i in reactantlist]
+    carbonOfEachMolecule = []
+    for met in reactantlist:
+        if met.formula:  # if it has formula count the carbons
+            formula = met.formula
+            nCarbon = countCarbonInFormula(formula)
+            carbonOfEachMolecule.append(nCarbon)
+        else: #else go one reaction deeper to find the amount of carbons
+            metID = met.id
+            nCarbon = findCarbonsMissingMetabolite(model=model, metID=metID)
+            if nCarbon > 0:
+                carbonOfEachMolecule.append(nCarbon)
+            else:
+                switch = True
+                # get missing metabolites and run
+                name = model.metabolites.get_by_id(metID).name
+                subMetabolites, coef, coefMet = getIDlistOfProducingMetabolties(model, metID)
+                carbonSubReactions = []
+                for subMetID in subMetabolites:
+                    namesubMet = model.metabolites.get_by_id(subMetID).name
+                    nSubCarbon = findCarbonsMissingMetabolite(model=model, metID=subMetID)
+                    carbonSubReactions.append(nSubCarbon)
+
+                control = [carbonSubReactions[i] >= 0 for i in range(len(carbonSubReactions))]
+                if sum(control) == len(carbonSubReactions): #all reactions have carbon that makes them
+                    coefficients = np.array(coef)
+                    carbons = np.transpose(np.array(carbonSubReactions))
+                    sumOfCarbons = np.matmul(coefficients, carbons)
+                    nCarbon = sumOfCarbons/coefMet
+                    carbonOfEachMolecule.append(nCarbon)
+                else:
+                    carbonOfEachMolecule.append(0)
+                    # program to display warning a message
+                    # displaying the warning message
+                    warnings.warn('the carbons in metabolite {} could not be found, check manually. Metabolite ID is {}'.format(name, metID))
+
+
+    coefficientsHeadReaction = np.array(coefOfReactants)
+    carbonsHeadReaction = np.transpose(np.array(carbonOfEachMolecule))
+    sumOfCarbons = np.matmul(coefficientsHeadReaction, carbonsHeadReaction)
+    carbonProduct = sumOfCarbons / coefOfProduct
+    return carbonProduct, carbonOfEachMolecule, coefOfReactants
 
 if __name__ == '__main__':
     loc = os.getcwd()
