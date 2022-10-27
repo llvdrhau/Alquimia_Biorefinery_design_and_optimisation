@@ -3,8 +3,7 @@ Octobre 2022
 This script is to check the carbon balance of the Propioni bacteria
 """
 
-#import modules
-import os
+# import modules
 from f_find_carbons import *
 
 # get the location of the models
@@ -15,10 +14,8 @@ loc_prop = loc + r'\SBML models\P_propionicum_model.xml'
 loc_avidum = loc + r'\SBML models\P_avidum_model.xml'
 loc_sher = loc + r'\SBML models\P_sherm_model.xml'
 
-microorganisms = [loc_acidi, loc_acnes, loc_prop,loc_avidum,loc_sher]
+microorganisms = [loc_acidi, loc_acnes, loc_prop, loc_avidum, loc_sher]
 objectiveMetID = 'S_biomass_ext'
 
 for i in microorganisms:
     carbonBalanceInOut(modelLocation=i, metIDsMissingCarbon=objectiveMetID, tol=1e-4)
-
-print('')
