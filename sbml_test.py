@@ -21,7 +21,7 @@ def getNamesMediaMetabolites(model):
 
     return listMetabolites
 
-def reactionID2metaboliteNames(reactionList):
+def exchangeReactions2metaboliteNames(reactionList):
     listMetabolites = []
     reactionDict = {}
     for i in reactionList:
@@ -34,7 +34,7 @@ def reactionID2metaboliteNames(reactionList):
 
 def productFluxes(model, tol = 1e-6):
     exchangeRnxNames = model.exchanges
-    exchangeDict = reactionID2metaboliteNames(exchangeRnxNames)[1]
+    exchangeDict = exchangeReactions2metaboliteNames(exchangeRnxNames)[1]
     solution = model.optimize()
     #tol = 1e-6 # what would be a good threshold? 1e-6 maybe? (tutorial matlab pFBA)
     fluxDict = {}
@@ -122,7 +122,8 @@ if __name__ == '__main__':
     loc_sher = loc + r'\SBML models\P_sherm_model.xml'
 
     #microorganisms = [loc_acidi, loc_acnes, loc_prop]
-    microorganisms = [loc_acidi, loc_acnes, loc_prop, loc_avidum, loc_sher]
+    #microorganisms = [loc_acidi, loc_acnes, loc_prop, loc_avidum, loc_sher]
+    microorganisms = [loc_acidi, loc_sher]
 
     glucose_exchange_rnx = 'Ex_S_cpd00027_ext'
     propionate_exchange_rnx = 'Ex_S_cpd00141_ext'
@@ -131,7 +132,7 @@ if __name__ == '__main__':
     # model.exchanges[0].id # is the objective reaction for propioni models
 
 
-    plotFig = False
+    plotFig = True
     if plotFig:
         pltGlu, objetiveGlu = plot_flux_solutions(microorganisms, substrate_exchange_rnx=glucose_exchange_rnx,
                             product_exchange_rnx=propionate_exchange_rnx,conversionFactor= 74/180)
@@ -166,10 +167,10 @@ if __name__ == '__main__':
         demandRnxNames = model.demands # A demand reaction is an irreversible reaction that consumes an intracellular metabolite.
 
         # Find name that are interpretable
-        exchangeMet = reactionID2metaboliteNames(exchangeRnxNames)[0]
-        boundryMet = reactionID2metaboliteNames(boundryRnxNames)[0]
-        sinkMet = reactionID2metaboliteNames(sinkRnxNames)[0]
-        demandMet = reactionID2metaboliteNames(demandRnxNames)[0]
+        exchangeMet = exchangeReactions2metaboliteNames(exchangeRnxNames)[0]
+        boundryMet = exchangeReactions2metaboliteNames(boundryRnxNames)[0]
+        sinkMet = exchangeReactions2metaboliteNames(sinkRnxNames)[0]
+        demandMet = exchangeReactions2metaboliteNames(demandRnxNames)[0]
 
         # print results
         print(len(exchangeMet))
@@ -183,7 +184,7 @@ if __name__ == '__main__':
 
         # want to know if an exchange/boundry reaction is consumed or produced? -> check bounds and run a FBA
         #for example, wat happens to Methanol?
-        exchangeDict = reactionID2metaboliteNames(exchangeRnxNames)[1]
+        exchangeDict = exchangeReactions2metaboliteNames(exchangeRnxNames)[1]
         reactionMethanol = exchangeDict['Methanol']
         print(reactionMethanol.bounds)
         #bound : [0, 1000] so does not get consumed?

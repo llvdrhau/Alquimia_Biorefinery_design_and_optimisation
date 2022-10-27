@@ -4,6 +4,7 @@ import pandas as pd
 from sbml_test import productFluxes, getNamesMediaMetabolites
 import re
 import numpy as np
+from sbml_test import exchangeReactions2metaboliteNames
 
 def carbonBalance(model, case = 'secretion' ,tol = 1e-4):
     df = model.summary()
@@ -145,6 +146,15 @@ CgramsOut = sum(secretionDF['flux (gram-C/g-DW/h)'])
 CgramsIn = sum(uptakeDF['flux (gram-C/g-DW/h)'])    # should be 10*6*12 = 720  # 10 mols of glu, 6 C atoms, 12 gC/mol
 print("{} of the carbon is accounted for, let's see how much goes into bio mass".format(-CgramsOut/CgramsIn))
 
+
+## shouldn't change bounds, there propioni bacteria are anaerobic
+# exchanges = model.exchanges
+# a = exchangeReactions2metaboliteNames(exchanges)
+# oxygen = a[1]['O2']
+# # okye check/change bounds of OXYGEN (seems to be anaerobic)
+# model.reactions.get_by_id('Ex_S_cpd00007_ext').bounds = -1000, 1000
+# dfOxygen = model.summary()
+# print(dfOxygen)
 ################################################
 # 46 % of the carbon is accounted for, let's see how much goes into bio mass
 # #(see colab script, checkObjectiveReaction as well)

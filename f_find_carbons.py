@@ -4,6 +4,7 @@ import os
 import re
 import numpy as np
 import warnings
+import pandas as pd
 
 def findCarbonsMissingMetabolite(model, metID):
     met = model.metabolites.get_by_id(metID)
@@ -99,14 +100,14 @@ def getProducingReactions(model, metID):
 
 def findCarbonsOfReaction(model,reactionID):
     reaction = model.reactions.get_by_id(reactionID)
-    reactantlist = reaction.reactants
+    reactantList = reaction.reactants
     product =  reaction.products
     if len(product) > 1:
         raise ValueError("there should only be one product in the reaction, check")
     coefOfProduct = [abs(reaction.metabolites[i]) for i in product]
-    coefOfReactants = [abs(reaction.metabolites[i]) for i in reactantlist]
+    coefOfReactants = [abs(reaction.metabolites[i]) for i in reactantList]
     carbonOfEachMolecule = []
-    for met in reactantlist:
+    for met in reactantList:
         if met.formula:  # if it has formula count the carbons
             formula = met.formula
             nCarbon = countCarbonInFormula(formula)
@@ -145,9 +146,82 @@ def findCarbonsOfReaction(model,reactionID):
     carbonsHeadReaction = np.transpose(np.array(carbonOfEachMolecule))
     sumOfCarbons = np.matmul(coefficientsHeadReaction, carbonsHeadReaction)
     carbonProduct = sumOfCarbons / coefOfProduct
-    return carbonProduct, carbonOfEachMolecule, coefOfReactants
+    return carbonProduct[0], carbonOfEachMolecule, coefOfReactants
+
+def carbonBalanceInOut(modelLocation, metIDsMissingCarbon=None, tol = 1e-4):
+    model = cobra.io.read_sbml_model(modelLocation)
+    modelName = modelLocation.split("\\")[-1]
+    modelName = modelName.replace(".xml", "")
+
+    if metIDsMissingCarbon is None:
+        metIDsMissingCarbon = []
+
+    allRctIDMissingCarbon = []
+    missingCarbonDict = {}
+    if not isinstance(metIDsMissingCarbon, list):
+        metIDsMissingCarbon = [metIDsMissingCarbon] #change ito a list if it is not
+        if metIDsMissingCarbon: #if it is not empty
+            for metID in metIDsMissingCarbon: #write a for loop to go over all the missing metabolites and find the producing reaction
+                reactions = getProducingReactions(model= model, metID=metID)
+                rctIDMissingCarbon = reactions[0] #only want the first reaction
+                allRctIDMissingCarbon.append(rctIDMissingCarbon)
+                missingCarbonDict.update({metID:rctIDMissingCarbon})
+
+    df = model.summary()
+    uptake = df.uptake_flux
+    secretion = df.secretion_flux
+    dfUptake = carbonBalance(model= model , reactionDF= uptake, missingCarbonDict= missingCarbonDict, tol = tol)
+    dfSecretion = carbonBalance(model= model , reactionDF= secretion, missingCarbonDict= missingCarbonDict, tol = tol)
+    totalCarbonIn = sum(dfUptake['flux (gram-C/g-DW/h)'])
+    CgramsOut = sum(dfSecretion['flux (gram-C/g-DW/h)'])
+    CarbonBalance = abs(CgramsOut / totalCarbonIn)*100
+    print('')
+    print("{:2f} of the carbon is accounted for".format(CarbonBalance))
+    fluxSecretion = dfSecretion['flux (gram-C/g-DW/h)']
+    percentListSecretion = [round(abs(i/totalCarbonIn)*100,2) for i in fluxSecretion]
+    dfSecretion['% carbon'] = percentListSecretion
+
+    print('')
+    print(modelName)
+    print('')
+    print(dfUptake)
+    print('')
+    print('')
+    print(dfSecretion)
+    return dfUptake, dfSecretion
+
+def carbonBalance(model, reactionDF, missingCarbonDict, tol=1e-4):
+    metNamesAll = []
+    carbonNrAll = []
+    gramsCAll = []
+    for i, metID in enumerate(reactionDF.metabolite):
+        if abs(reactionDF.flux[i]) > tol:
+            met = model.metabolites.get_by_id(metID)
+            metName = met.name
+            metNamesAll.append(metName)
+            metFormula = met.formula
+            if metID in missingCarbonDict.keys():
+                rct = missingCarbonDict[metID]
+                rctID = rct.id
+                c = findCarbonsOfReaction(model=model, reactionID=rctID)
+                nrOfCarbons = c[0]
+            else:
+                nrOfCarbons  = countCarbonInFormula(metFormula)
+
+            carbonNrAll.append(nrOfCarbons)
+            gramsC = nrOfCarbons * 12 * reactionDF.flux[i]
+            gramsCAll.append(gramsC)
+
+
+    dictReactions = {'Metabolite': metNamesAll,
+                     '# of C': carbonNrAll,
+                     'flux (gram-C/g-DW/h)': gramsCAll}
+
+    dataFrameReactions = pd.DataFrame(dictReactions)
+    return dataFrameReactions
 
 if __name__ == '__main__':
+    # check if I can find the # carbons in the cell wall
     loc = os.getcwd()
     loc_acidi = loc + r'\SBML models\PAC_4875_model.xml'
     model = cobra.io.read_sbml_model(loc_acidi)
