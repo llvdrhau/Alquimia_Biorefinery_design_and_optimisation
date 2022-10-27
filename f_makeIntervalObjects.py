@@ -117,7 +117,10 @@ def loadObjectesFromDictionary(dict):
 # read function to automate making the interval classes
 def makeInputIntervals(excelName):
     loc = os.getcwd()
+    posAlquimia = loc.find('Alquimia')
+    loc = loc[0:posAlquimia+8]
     loc = loc + r'\excel files' + excelName
+
     DFIntervals = pd.read_excel(loc, sheet_name='components')
     # inputs
     inputPrices = DFIntervals.input_price.to_numpy()
