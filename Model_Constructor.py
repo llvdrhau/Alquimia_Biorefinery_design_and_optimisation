@@ -5,7 +5,6 @@ Created on Mon Apr  4 10:43:34 2022
 Builds further upone the script makeModelWithClassObjects
 The goal is to make a superstructure where the streams have different
 compositions plus intergrating the generic process interval
-test comment
 @author: Lucas Van der hauwaert
 """
 # imports 
@@ -16,6 +15,7 @@ import pyomo.opt as po
 #import warnings
 import importlib
 import os
+from f_makeIntervalObjects import makeReactorIntervals, makeInputIntervals
 
 def removeSpacesInSeries(seriesOfStr):
     newList = []
@@ -25,34 +25,39 @@ def removeSpacesInSeries(seriesOfStr):
     newSeries = pd.Series(newList)
     return newSeries
 def makeModelWithCompositions(excelFile, reactorLib):
+   # get the input and reactor objects
+   objectsInputDict = makeInputIntervals(excelFile)
+   objectsReactorDict = makeReactorIntervals(excelFile)
+   allObjects = objectsInputDict | objectsReactorDict
+
    # create model instance
    model = pe.ConcreteModel()
-
-   # retrieve data 
-  
+   # retrieve data
    #loc = r'C:\Users\Reboots\OneDrive - Universidade de Santiago de Compostela\Alquimia\PYOMO\pyomo_Alquimia\excel files'
    loc = os.getcwd()
+   posAlquimia = loc.find('Alquimia')
+   loc = loc[0:posAlquimia + 8]
    loc = loc + r'\excel files' + excelFile
-   
-   components = pd.read_excel(loc, sheet_name = 'components')  
-   
-   # inputs 
+
+   # read excel file
+   components = pd.read_excel(loc, sheet_name = 'components')
+
+   # inputs
    inPrice = components.input_price.to_numpy()
    posInputs = inPrice != 0 
-   nIn = components.process_intervals[posInputs] # find input variable
-  
-   nIn = nIn.tolist()
-   for i in range(len(nIn)): 
-       nIn[i] = nIn[i].replace(' ','') # remove space in excel 
+   nameInputs = components.process_intervals[posInputs] # find input variable
+   nameInputs = nameInputs.tolist()
+   for i in range(len(nameInputs)):
+       nameInputs[i] = nameInputs[i].replace(' ','') # remove space in excel
    
    inBoundsLow = components.lower_bound[posInputs].to_numpy() 
    inBoundsUpper = components.upper_bound[posInputs].to_numpy()
    inPrice= inPrice[posInputs]  
    
    # define fixed parameters cost raw material
-   inputDic = {nIn[i]: inPrice[i] for i in range(len(inPrice))} # make dictionary 
-   inBoundDict = {nIn[i]: [inBoundsLow[i],inBoundsUpper[i]] for i in range(len(inPrice))} # make dictionary 
-   model.inSet = pe.Set(initialize = nIn) # define set inputs 
+   inputDic = {nameInputs[i]: inPrice[i] for i in range(len(inPrice))} # make dictionary
+   inBoundDict = {nameInputs[i]: [inBoundsLow[i],inBoundsUpper[i]] for i in range(len(inPrice))} # make dictionary
+   model.inSet = pe.Set(initialize = nameInputs) # define set inputs
    model.Input_Price  = pe.Param(model.inSet, initialize=inputDic) #define fixed params using dictoinary: price raw material 
    #model.Input_Price = pe.Param(initialize=inputDic)
    
@@ -91,71 +96,73 @@ def makeModelWithCompositions(excelFile, reactorLib):
        lb = bounds[0]
        ub = bounds[1]
        return (lb,ub)
-   
    def outBound(model, i) :
        bounds = outBoundDict[i]
        lb = bounds[0]
        ub = bounds[1]
-       return (lb,ub) 
-   
+       return (lb,ub)
    def intervalBound(model, i) : # that is the max mass that can flow through the reactor 
        bounds = reactorBoundDict[i]
        lb = bounds[0]
        ub = bounds[1]
        return (lb,ub)
 
-     
-   ### define variables from input and output streams
-   model.input = pe.Var(nIn, domain= pe.PositiveReals, bounds = inBound)
+   ### define variables from input reactor and output streams
+   model.input = pe.Var(nameInputs, domain= pe.PositiveReals, bounds = inBound)
    model.intervals = pe.Var(processIntervalNameList, domain= pe.PositiveReals, bounds = intervalBound)
    model.output = pe.Var(nameOutputs, domain= pe.PositiveReals, bounds = outBound)
    
 # =============================================================================
-#    ### objective function relating to profit and raw input costs  
+#    ### objective function relating to profit and raw input costs
 # =============================================================================
-
-# =============================================================================
-# # TODO if primary inputs have boolean variables you have to define extra constratains 
-# # ex m.IN == m.in_a * Y1 + m.in_b* Y2
-# # with a for loop check if input var is boolean and add corret expersion eg
-# expr = 0 
-# for i in nIn :
-#     if nIn in dictionaryBool :
-#         expr += model.buyCte[i]* model.inpi[i]*model.bool[i]
-#     else: 
-#         expr += model.buyCte[i]* model.inpi[i]
-# =============================================================================
-
-   obj_expr_buy = sum(model.Input_Price [i] * model.input[i] for i in model.inSet)
+   obj_expr_buy = sum(model.Input_Price[i] * model.input[i] for i in model.inSet)
    obj_expr_sell = sum(model.Output_Price[i] * model.output[i] for i in model.outSet)
-   obj_expresion = obj_expr_sell -  obj_expr_buy 
-   
-   
-   # interval and reator data 
-   reactorData = pd.read_excel(loc, sheet_name = 'reactors')   
-   #processInvervalNames = reactorData.process_intervals  #should read this from the main sheet components... see line 144
-   reactorNames = reactorData.reactor_name
-   posReactors = reactorNames != 'none'
-   reactorNames = reactorNames[posReactors]
-   reactorNames = list(reactorNames)
-   
-      
+   obj_expresion = obj_expr_sell - obj_expr_buy
 # =============================================================================
 #    DECLARE all the component variables of the system
 #    rename all components to original names and save to dict {old: new versions}
 #     which are stored in the interval objects
-#
 # =============================================================================
-    
+   # find reactor names
+   reactorData = pd.read_excel(loc, sheet_name = 'reactors')
+   reactorNames = reactorData.reactor_name
+   posReactors = reactorNames != 'none'
+   reactorNames = reactorNames[posReactors]
+   reactorNames = list(reactorNames)
+
+   # preallocation
    NewComponentNames = []
-   processIntervalNames = components.process_intervals
-   for i,name in enumerate(processIntervalNames): # get rid of spaces
-       processIntervalNames[i] = processIntervalNames[i].replace(' ', '')  # remove space in excel
+   processIntervalNamesWithSpaces = components.process_intervals
+   processIntervalNames = []
+
+   for i,name in enumerate(processIntervalNamesWithSpaces): # get rid of spaces
+       processIntervalNames.append(name.replace(' ', ''))  # remove space in excel
 
    for i in processIntervalNames :
-       if i in reactorNames:   # if the interval has a reactor 
+       if i in nameInputs:  # if the interval is an input and not an output nor a reactor
+           try:
+               #interval_to_call = getattr(importlib.import_module(reactorLib), i)
+               interval_to_call = allObjects[i]
+           except:  # create a warning if names in excel don't match names in reator lib.
+               errorStatement = 'ERROR make sure the reactor name or interval name %s in EXCEL is the same as the library.py file: %s ' % (i, reactorLib)
+               raise NameError(errorStatement)
+
+           ComponentNames = interval_to_call.compositionNames
+           updateNamesInputObject = []
+
+           for j in ComponentNames:
+               toAdd = j + '_' + i
+               updateNamesInputObject.append(toAdd)
+               NewComponentNames.append(toAdd)
+
+           interval_to_call.compositionNames = updateNamesInputObject
+           interval_to_call.UpdateDict(updateNamesInputObject)
+           interval_to_call.makeOldNewDict(ComponentNames, updateNamesInputObject)
+
+       elif i in reactorNames:   # if the interval has a reactor
            try: # consider alternative: change the if statement it sucks -> look if the process interval has a reactor as the if stament and not it's names, horrible design
-                interval_to_call = getattr(importlib.import_module(reactorLib), i)
+                interval_to_call = objectsReactorDict[i]
+                #interval_to_call = getattr(importlib.import_module(reactorLib), i)
            except : # create a warning if names in excel don't match names in reator lib.
                 print('ERROR make sure the reactor name or interval name %s in EXCEL is the same as the library.py file: %s ' % (i,reactorLib))
            
@@ -176,39 +183,19 @@ def makeModelWithCompositions(excelFile, reactorLib):
                    
                interval_to_call.outputs = updateNamesObjectOutputs  # update the object OUTPUTS not imputs VERY IMPORTANT      
                interval_to_call.makeOldNewDictOutputs(ComponentNames,updateNamesObjectOutputs)
-               
-               
-       elif i not in nameOutputs and i not in reactorNames: # if the interval is an input and not an output nor a reactor
-           try:
-                interval_to_call = getattr(importlib.import_module(reactorLib), i)
-           except : # create a warning if names in excel don't match names in reator lib.
-                print('ERROR make sure the reactor name or interval name %s in EXCEL is the same as the library.py file: %s ' % (i,reactorLib))
-                
-           ComponentNames = interval_to_call.compositionNames
-           updateNamesInputObject = [] 
-           
-           for j in ComponentNames :
-               toAdd = j + '_' + i
-               updateNamesInputObject.append(toAdd)
-               NewComponentNames.append(toAdd) 
-               
-           interval_to_call.compositionNames = updateNamesInputObject
-           interval_to_call.UpdateDict(updateNamesInputObject) 
-           interval_to_call.makeOldNewDict(ComponentNames,updateNamesInputObject)
 
-               
    model.allCompositionVariables =  pe.Var(NewComponentNames, domain= pe.PositiveReals)
    #model.pprint()
-
    # ==================================================================================================================
    #      # define equations of the input interval (mixing equations)
    # =================================================================================================================
    def IntervalBlockInput(b,i): # where i is the list of input interval
        model 
        try:
-            interval_to_call = getattr(importlib.import_module(reactorLib), i)
+           interval_to_call = allObjects[i]
+            #interval_to_call = getattr(importlib.import_module(reactorLib), i)
        except : # create a warning if names in excel don't match names in reator lib.
-            print('ERROR make sure the reactor name or interval name %s in EXCEL is the same as the library.py file: %s ' % (i,reactorLib))
+           print('ERROR make sure the reactor name or interval name %s in EXCEL is the same as the library.py file: %s ' % (i,reactorLib))
        
        inputName = interval_to_call.inputName
        nameComponents = interval_to_call.compositionNames
@@ -216,8 +203,7 @@ def makeModelWithCompositions(excelFile, reactorLib):
        
        b.setComponents = pe.Set(initialize = nameComponents)
        #b.componentVars = pe.Var(nameComponents, domain= pe.PositiveReals)
-       b.componentFractions = pe.Param(b.setComponents, initialize = ComponentCompositions)  
-       
+       b.componentFractions = pe.Param(b.setComponents, initialize = ComponentCompositions, within= pe.PercentFraction)
        b.massbalanceConstraints = pe.ConstraintList()
        for j in nameComponents: # TODO make a warning if input names are wrong
            b.massbalanceConstraints.add(expr =  model.allCompositionVariables[j] == model.input[inputName] * b.componentFractions[j])
@@ -249,7 +235,8 @@ def makeModelWithCompositions(excelFile, reactorLib):
        # modify the expresions of the intervall that is affected by the booliean var
        for j in reactorsWithBool:
            try:
-               interval_to_modify = getattr(importlib.import_module(reactorLib), j)
+               interval_to_modify = allObjects[j]
+               #interval_to_modify = getattr(importlib.import_module(reactorLib), j)
                originBool = i  # from which reactor it comes from
                interval_to_modify.isBool = (originBool, reactorsWithBool[j])
                equationsToModify = interval_to_modify.eq
@@ -275,7 +262,8 @@ def makeModelWithCompositions(excelFile, reactorLib):
    def IntervalBlockReactor(b,i): # where I is the list intervals with reactors WHICH MUST BE IN THE CORRECT ORDER!!! inputs to outputs so follwing the sequence as described by the layer number
        model #  to carry model object over in function
        try:
-            interval_to_call = getattr(importlib.import_module(reactorLib), i)
+           interval_to_call = allObjects[i]
+            #interval_to_call = getattr(importlib.import_module(reactorLib), i)
        except : # create a warning if names in excel don't match names in reator lib.             
            print('ERROR make sure the reactor name or interval name %s in EXCEL is the same as the library.py file: %s ' % (i,reactorLib))
            
@@ -338,8 +326,9 @@ def makeModelWithCompositions(excelFile, reactorLib):
                afterMixName = interval_to_call.inputMix[j]
                expr = 0 #preallocate expresion 
                for k in intervalsToMix :
-                   try:                
-                        PreviousProcessIntervalObject = getattr(importlib.import_module(reactorLib), k)
+                   try:
+                       PreviousProcessIntervalObject = allObjects[k]
+                       #PreviousProcessIntervalObject = getattr(importlib.import_module(reactorLib), k)
                    except : 
                        print('ERROR make sure the reactor name or interval name %s in the lybrary file is correct in the variable mixing  %s ' % (k,reactorLib))
                        
@@ -470,7 +459,8 @@ def makeModelWithCompositions(excelFile, reactorLib):
        # modify the expresions of the intervall that is affected by the booliean var  
        for j in reactorsWithBool:
            try:
-                interval_to_modify = getattr(importlib.import_module(reactorLib), j) 
+                interval_to_modify = allObjects[j]
+                #interval_to_modify = getattr(importlib.import_module(reactorLib), j)
                 originBool = i # from which reactor it comes from 
                 interval_to_modify.isBool = (originBool,reactorsWithBool[j])
                 equationsToModify = interval_to_modify.eq
@@ -588,7 +578,8 @@ def makeModelWithCompositions(excelFile, reactorLib):
            interval_to_call.outputSplit = OutSplitDict   
            counter = 0 
            for j in split2Reactor :
-               nextReactor = getattr(importlib.import_module(reactorLib), j) 
+               nextReactor = allObjects[j]
+               #nextReactor = getattr(importlib.import_module(reactorLib), j)
                if counter == 0 :
                    nextReactor.split  ='up'
                else: 
@@ -616,8 +607,9 @@ def makeModelWithCompositions(excelFile, reactorLib):
        pos = connectionMatrix.process_intervals == nameConnectedInterval 
        connectInfo = str(connectionMatrix[i][pos]) #.tolist() 
        
-       try:                
-            PreviousProcessIntervalObject = getattr(importlib.import_module(reactorLib), nameConnectedInterval)
+       try:
+           #PreviousProcessIntervalObject = getattr(importlib.import_module(reactorLib), nameConnectedInterval)
+           PreviousProcessIntervalObject = allObjects[nameConnectedInterval]
        except : 
            print('ERROR make sure the reactor name or interval name %s in the library file is correct in the variable mixing  %s ' % (nameConnectedInterval,reactorLib))
        
@@ -626,7 +618,7 @@ def makeModelWithCompositions(excelFile, reactorLib):
            inputsReactor = interval_to_call.inputMix
            outputsReactor = interval_to_call.oldNewDictOutputs
        
-       elif nameConnectedInterval not in nIn and 'split' in connectInfo: 
+       elif nameConnectedInterval not in nameInputs and 'split' in connectInfo:
            #outputsPreviousInterval = PreviousProcessIntervalObject.outputs
            
            inputsReactor = PreviousProcessIntervalObject.outputSplit
@@ -637,8 +629,8 @@ def makeModelWithCompositions(excelFile, reactorLib):
            
            
        # the input comes from a reactor of a seperated stream i.e. the object "output" is then a dict 
-       # if nameConnectedInterval not in nIn and PreviousProcessIntervalObject.separation: 
-       elif nameConnectedInterval not in nIn and 'permeate' in connectInfo or 'reject' in connectInfo: 
+       # if nameConnectedInterval not in nameInputs and PreviousProcessIntervalObject.separation:
+       elif nameConnectedInterval not in nameInputs and 'permeate' in connectInfo or 'reject' in connectInfo:
            
            connectInfo = str(connectionMatrix[i][pos]) #.tolist()
            outputsPreviousInterval = PreviousProcessIntervalObject.outputSeperation
@@ -716,7 +708,6 @@ def makeModelWithCompositions(excelFile, reactorLib):
    #      # define equations of the output Intervals (mixing equations)
    #        i.e., the sum of all the intervalls that produce a certain end product 
    # =================================================================================================================
-   
    # TODO check if the output block works
    def IntervalBlockOutput(b,i):
        model  # to carry model object over in function
@@ -731,7 +722,8 @@ def makeModelWithCompositions(excelFile, reactorLib):
        equation = "model.output['{}']==".format(i)
        for j in connectedIntervalNames:
            try:
-               interval_to_call = getattr(importlib.import_module(reactorLib), j)
+               interval_to_call = allObjects[j]
+               #interval_to_call = getattr(importlib.import_module(reactorLib), j)
            except:  # create a warning if names in excel don't match names in reator lib.
                print('ERROR make sure the reactor name or interval name %s in EXCEL is the same as the library.py file: %s ' % (i, reactorLib))
            outputsInterval = interval_to_call.outputs
@@ -748,9 +740,10 @@ def makeModelWithCompositions(excelFile, reactorLib):
        
    # Decalre input, reactor and output blocks to the model structure
    ####################################################################################################################
-   model.IntervalBlockInput = pe.Block(nIn, rule=IntervalBlockInput)
+   model.IntervalBlockInput = pe.Block(nameInputs, rule=IntervalBlockInput)
    model.IntervalBlockReactors = pe.Block(reactorNames, rule=IntervalBlockReactor)
    model.IntervalBlockOutput = pe.Block(nameOutputs, rule=IntervalBlockOutput)
+   model.objective = po.Objective(sense=po.maximize, expr=obj_expresion)
    ####################################################################################################################
    # model.pprint() # debug check
    return model 

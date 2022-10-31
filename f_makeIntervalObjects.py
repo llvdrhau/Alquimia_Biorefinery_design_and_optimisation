@@ -10,9 +10,10 @@ import os
 import pandas as pd
 
 class reactorIntervalClass:
-    def __init__(self, inputs, outputs, eq, mix=[], utilities=[], isBool=[], split=[], separation=[]):
+    def __init__(self, inputs, outputs, eq, name, mix=[], utilities=[], isBool=[], split=[], separation=[]):
         self.inputs = inputs
         self.outputs = outputs  # updated according to the modula (is there split/seperation/bool)
+        self.name = name
         self.mix = mix  # found by the excel file (don't need to specify in this script)
         self.utilities = utilities # consists of a dictionary {nameUtilty: [bounds]}
         self.isBool = isBool  # is a tuple, 1) where the bool comes from and 2) the name of the bool affecting the outputs
@@ -146,6 +147,7 @@ def makeInputIntervals(excelName):
                 component = component.replace(' ','')  #get rid of spaces
                 fraction = compositionsofInterval[j]
                 fraction = fraction.replace(' ','')
+                fraction = float(fraction)
                 compsitionDictionary.update({component:fraction})
 
         objectInput = inputIntervalClass(intervalName,compsitionDictionary)
@@ -157,9 +159,12 @@ def makeInputIntervals(excelName):
 
     #return objectDictionary
 
-def makeReactorInterval(excelName):
+def makeReactorIntervals(excelName):
     loc = os.getcwd()
+    posAlquimia = loc.find('Alquimia')
+    loc = loc[0:posAlquimia + 8]
     loc = loc + r'\excel files' + excelName
+
     DFreactors = pd.read_excel(loc, sheet_name='reactors')
     reactorIntervals = DFreactors.reactor_name
 
@@ -175,7 +180,7 @@ def makeReactorInterval(excelName):
         equations = DFreactors.equations[i]
         equations = splitAndRemoveSpaces(equations,',')
         # make initial object (with minimum requirements i.e., inputs outputs and reactor equations)
-        objectReactor = reactorIntervalClass(inputsReactor,outputsReactor,equations)
+        objectReactor = reactorIntervalClass(inputsReactor,outputsReactor,equations, intervalName)
 
         if DFreactors.has_utility[i] != 0 :
             utilityVariableNames = DFreactors.has_utility[i]
@@ -203,9 +208,9 @@ def makeReactorInterval(excelName):
 
     return objectDictionary
 
-
+#def makeObjectDictionaries():
 
 if __name__ == '__main__':
-    testObje = makeReactorInterval(r'\data_propionibacteria.xlsx')
+    testObje = makeReactorIntervals(r'\data_propionibacteria.xlsx')
     location = os.getcwd()
     print(location)

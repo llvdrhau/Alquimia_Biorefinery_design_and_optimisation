@@ -74,8 +74,15 @@ def equations_from_FBA(excelName,reactorName,substrate):
 
 
 class InputCharaterisation:
-    def __init__(self, inputName,compositionDict, isBool = [], split = [], separation = []):
-        self.inputName  = inputName 
+    def __init__(self, inputName, compositionDict, isBool=None, split=None, separation=None):
+        if separation is None:
+            separation = []
+        if split is None:
+            split = []
+        if isBool is None:
+            isBool = []
+
+        self.inputName  = inputName
         self.compositionDict = compositionDict
         self.compositionNames = list(compositionDict.keys())
         self.isBool = isBool 

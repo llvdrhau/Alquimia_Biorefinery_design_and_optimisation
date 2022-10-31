@@ -11,13 +11,11 @@ from f_makeIntervalObjects import *
 
 # Input
 objInputDict = makeInputIntervals(r'\data_propionibacteria.xlsx')
-objReqctorDict = makeReactorInterval(r'\data_propionibacteria.xlsx')
-
-#estObje = makeReactorInterval(r'\data_propionibacteria.xlsx')
 # loop over the dictionary to put the names of the intervals in the script
 for i in objInputDict:
     locals()[i] = objInputDict[i]
 
+objReqctorDict = makeReactorInterval(r'\data_propionibacteria.xlsx')
 for i in objReqctorDict:
     locals()[i] = objReqctorDict[i]
 
