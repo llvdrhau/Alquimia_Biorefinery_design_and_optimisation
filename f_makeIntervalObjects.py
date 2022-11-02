@@ -74,32 +74,50 @@ class ReactorIntervalClass:
         #  could you define a stream dependant on a boolean var before in enters a unit reactor
 
 class InputIntervalClass:
-    def __init__(self, inputName, compositionDict, Bool=None, split=None, separation=None):
+    def __init__(self, inputName, compositionDict, inputPrice, boundry, Bool=None, split=None, separation=None):
         if separation is None:
             separation = []
         if split is None:
             split = []
         if Bool is None:
             Bool = []
+
+        # declare input name
         self.inputName = inputName.upper()
-        self.addOn4Variables = self.inputName.lower()
-        self.compositionDict = compositionDict
-        self.compositionNames = list(compositionDict.keys())
+        addOn4Variables = inputName.lower() + '_'
+
+        # change the composition names in the dictionary
+        compositionDictNew = {}
+        for i in compositionDict:
+            compositionDictNew.update({addOn4Variables + i: compositionDict[i]})
+        self.compositionDict = compositionDictNew
+
+        # make the component equations as string equations
+        eqList = []
+        for component in compositionDictNew:
+            eq = "{} == {} * {}".format(component, self.compositionDict[component], self.inputName)
+            eqList.append(eq)
+        self.componentEquations = eqList
+        self.variables =  list(compositionDictNew.keys()) # [self.inputName] not gona add this atm
+        self.inputPrice = inputPrice
+
+        # make boundry for all variables
+        self.boundryInput = boundry
+
+        # do the bounds in the f_make super_structure
+        # variableBoundries = boundry
+        # lowerB = boundry[0]
+        # upper = boundry[1]
+        # for i in self.variables:
+        #     pass
+
         self.Bool = Bool
         self.split = split
         self.separation = separation
-        self.componentEquations = []
+        self.compositionNames = list(compositionDict.keys())
 
     def rename_components(self):
         pass
-
-    def make_component_equations(self):
-        eqList = []
-        for component in self.compositionDict:
-            eq = "{} == {} * {}".format(component, self.compositionDict[component], self.inputName)
-        eqList.append(eq)
-        self.componentEquations = eqList
-        return eqList
 
     def makeOldNewDict(self, oldNames, newNames):
         oldNewDict = {oldNames[i]: newNames[i] for i in range(len(oldNames))}  # make dictionary
@@ -182,7 +200,6 @@ def check_excel_file(excelName):
         print(positonError)
         raise Exception('The names in the connection matrix sheet or the interval sheet are not the same')
 
-
 # ============================================================================================================
 # Usefull functions
 # ============================================================================================================
@@ -233,9 +250,20 @@ def make_input_intervals(excelName):
     componentsList =  DFIntervals.components[posInputs]
     compositionsList =  DFIntervals.composition[posInputs]
 
+    ####
+    inBoundsLow = DFIntervals.lower_bound[posInputs].to_numpy()
+    inBoundsUpper = DFIntervals.upper_bound[posInputs].to_numpy()
+    inputPrices = inputPrices[posInputs]
+
+    # define fixed parameters cost raw material
+    inputPriceDict = {intervalNames[i]: inputPrices[i] for i in range(len(inputPrices))}  # make dictionary
+    boundryDict = {intervalNames[i]: [inBoundsLow[i], inBoundsUpper[i]] for i in range(len(inputPrices))}  # make dictionary
+    ####
     objectDictionary = {}
     #loop over all the inputs and make a class of each one
     for i, intervalName in enumerate(intervalNames):
+        inputPrice = inputPriceDict[intervalName]
+        boundryInput = boundryDict[intervalName]
         componentsOfInterval = componentsList[i].split(",")
         compositionsofInterval = compositionsList[i] # string or 1, depending if there are different components
         compsitionDictionary = {} # preallocate dictionary
@@ -252,8 +280,7 @@ def make_input_intervals(excelName):
                 fraction = float(fraction)
                 compsitionDictionary.update({component:fraction})
 
-        objectInput = InputIntervalClass(intervalName,compsitionDictionary)
-        objectInput.make_component_equations()
+        objectInput = InputIntervalClass(intervalName,compsitionDictionary,inputPrice,boundryInput)
         objectDictionary.update({intervalName:objectInput})
 
         # toExecute = '{0} = inputCharaterisation(intervalName,compsitionDictionary)'.format(intervalName)

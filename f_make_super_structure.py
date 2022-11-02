@@ -16,6 +16,50 @@ import importlib
 import os
 from f_makeIntervalObjects import make_reactor_intervals, make_input_intervals
 
+def make_super_structure(excelFile):
+    superStructure = pe.ConcreteModel()
 
-def make_super_structure():
-    pass
+    objectsInputDict = make_input_intervals(excelFile)
+    objectsReactorDict = make_reactor_intervals(excelFile)
+    allObjects = objectsInputDict | objectsReactorDict
+    """
+    Declare all interval variables (capital letters) and component variables (small letters)
+    loop over all objects 
+    delare equation of each object 
+    """
+    for i in objectsInputDict:
+        try:
+            interval_to_call = allObjects[i]
+        except:  # create a warning if names in Excel don't match names in reator lib.
+            raise Exception('nope, reactor interval object {} cannot be found'.format(i))
+
+        # head varible constrained by bounds
+        intervalName = interval_to_call.inputName
+        superStructure.intervalVar = pe.Var(intervalName, bounds=interval_to_call.boundryInput)
+
+        # free float variables
+        compositionVarNames = interval_to_call.variables
+        superStructure.variables = pe.Var(compositionVarNames, domain=pe.PositiveReals)
+
+        # introduce equations
+        superStructure.InputConstraints = pe.ConstraintList()
+        componentEquations = interval_to_call.componentEquations
+        for eq in componentEquations:
+            eq = eq.replace(intervalName, "b.intervalVar['{}']".format(intervalName))
+            for j in compositionVarNames:
+                eq = eq.replace(j,"b.variables['{}']".format(j))
+            # print(eq) # for debugging
+            constraintExpresion = eval(eq)
+            superStructure.InputConstraints.add = pe.Constraint(expr=constraintExpresion)
+
+    # Declare input, reactor and output blocks to the model structure
+    ####################################################################################################################
+    #nameInputs = list(objectsInputDict.keys())
+    #superStructure.IntervalBlockInput = pe.Block(nameInputs, rule=input_block)
+    # superStructure.IntervalBlockReactors = pe.Block(reactorNames, rule=IntervalBlockReactor)
+    # superStructure.IntervalBlockOutput = pe.Block(nameOutputs, rule=IntervalBlockOutput)
+    # superStructure.objective = po.Objective(sense=po.maximize, expr=obj_expresion)
+    ####################################################################################################################
+    # model.pprint() # debug check
+
+    return superStructure
