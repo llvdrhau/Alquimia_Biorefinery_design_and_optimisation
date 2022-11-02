@@ -13,9 +13,9 @@ import numpy as np
 import pyomo.environ as pe
 import pyomo.opt as po
 #import warnings
-import importlib
+#import importlib
 import os
-from f_makeIntervalObjects import makeReactorIntervals, makeInputIntervals
+from f_makeIntervalObjects import make_input_intervals, make_reactor_intervals
 
 def removeSpacesInSeries(seriesOfStr):
     newList = []
@@ -26,8 +26,8 @@ def removeSpacesInSeries(seriesOfStr):
     return newSeries
 def makeModelWithCompositions(excelFile, reactorLib):
    # get the input and reactor objects
-   objectsInputDict = makeInputIntervals(excelFile)
-   objectsReactorDict = makeReactorIntervals(excelFile)
+   objectsInputDict = make_input_intervals(excelFile)
+   objectsReactorDict = make_reactor_intervals(excelFile)
    allObjects = objectsInputDict | objectsReactorDict
 
    # create model instance
@@ -164,8 +164,8 @@ def makeModelWithCompositions(excelFile, reactorLib):
                 interval_to_call = objectsReactorDict[i]
                 #interval_to_call = getattr(importlib.import_module(reactorLib), i)
            except : # create a warning if names in excel don't match names in reator lib.
-                print('ERROR make sure the reactor name or interval name %s in EXCEL is the same as the library.py file: %s ' % (i,reactorLib))
-           
+               raise Exception('nope, reactor interval object {} cannot be found'.format(i))
+
            ComponentNames = interval_to_call.outputs 
            
            if len(ComponentNames) == 1 and ComponentNames[0] in nameOutputs:
@@ -195,7 +195,7 @@ def makeModelWithCompositions(excelFile, reactorLib):
            interval_to_call = allObjects[i]
             #interval_to_call = getattr(importlib.import_module(reactorLib), i)
        except : # create a warning if names in excel don't match names in reator lib.
-           print('ERROR make sure the reactor name or interval name %s in EXCEL is the same as the library.py file: %s ' % (i,reactorLib))
+           raise Exception('nope, reactor interval object {} cannot be found'.format(i))
        
        inputName = interval_to_call.inputName
        nameComponents = interval_to_call.compositionNames
@@ -271,45 +271,23 @@ def makeModelWithCompositions(excelFile, reactorLib):
        strExpr =   interval_to_call.eq
        inputList = interval_to_call.inputs # going to be original names expect in the case of mixing 
        outputList = interval_to_call.outputs # should be a dictionary with {origial names: new names}
-       
-       # get connection matrix
-       connectionMatrix = pd.read_excel(loc, sheet_name = 'connectionMatrix')  
-       #processInvervalNames
-       reactorRow = connectionMatrix.loc[connectionMatrix['process_intervals'] == i]
-       reactorCol = connectionMatrix[i]
-       
-       # find if seperation, mixing or spliting take place
-       # find mix  
-       pos = reactorCol != 0
-       intervalsToMix = []
-       mixDict = {}
-       # mixed streams are in the same colunm 
-       if sum(pos) >= 2: 
-           intervalsToMix = list(processInvervalNames[pos])
-           specifications = list(reactorCol[pos])
-           mixDict = {intervalsToMix[j]:specifications[j] for j in range(0,len(intervalsToMix))}
-           interval_to_call.mix = mixDict  
-       
-       # if a dict is given for seoeration there is obviouly a seperation element    
-       streamToSeperate = interval_to_call.separation
-       
-       
-    # =============================================================================
-    #        # Total of 4 options for a process interval
-    #        # 1: there is mixing 
-    #        # 2: there is serparation
-    #        # 3: there is a boolean stream 
-    #        # 4: there is a split stream 
-    #        # 5: the reactor 
-    # =============================================================================
-           
+       connectionMatrix = pd.read_excel(loc, sheet_name='connectionMatrix')
+       # =============================================================================
+       #        # Total of 4 options for a process interval
+       #        # 1: there is mixing
+       #        # 2: there is serparation
+       #        # 3: there is a boolean stream
+       #        # 4: there is a split stream
+       #        # 5: the reactor
+       # =============================================================================
 
     # =============================================================================
-    #             # 1: there is mixing 
+    #             # 1: if there is mixing
     # =============================================================================           
-       
-       if intervalsToMix: # if is not empty  
+       mix = interval_to_call.mix
+       if mix: # if is not empty
            AfterMixComponentsNames = []
+           intervalsToMix = mix.keys()
            for j in inputList: 
                newName = j + '_mixed'
                AfterMixComponentsNames.append(newName)
@@ -320,46 +298,29 @@ def makeModelWithCompositions(excelFile, reactorLib):
            # add variables to block structure 
            b.afterMixVariables = pe.Var(AfterMixComponentsNames, domain= pe.PositiveReals)
            b.mixingConstraints = pe.ConstraintList() 
-           
-           
+
            for j in inputList: 
                afterMixName = interval_to_call.inputMix[j]
                expr = 0 #preallocate expresion 
-               for k in intervalsToMix :
+               for k in intervalsToMix:
                    try:
                        PreviousProcessIntervalObject = allObjects[k]
                        #PreviousProcessIntervalObject = getattr(importlib.import_module(reactorLib), k)
-                   except : 
-                       print('ERROR make sure the reactor name or interval name %s in the lybrary file is correct in the variable mixing  %s ' % (k,reactorLib))
-                       
-                   pos = connectionMatrix.process_intervals == k 
-                   connectInfo = str(connectionMatrix[i][pos]) #.tolist()        
-                   
+                   except :
+                       raise Exception('error in reading reactor object'.format(k))
+
+                   connectInfo = mix[k]
                    # call output dictionary 
                    outputDictPreviousInterval = PreviousProcessIntervalObject.oldNewDictOutputs
 
                    if hasattr(PreviousProcessIntervalObject, 'outputSplit') and j in outputDictPreviousInterval:  
-                       outputDict2Use =  PreviousProcessIntervalObject.outputSplit[i]  
-                       
-                       if j in outputDict2Use: 
-                           nameToAdd = outputDict2Use[j] # slect the right stream from the posible splits 
-                           upOrDown = interval_to_call.split
-                           if upOrDown == 'up': 
-                               expr += model.IntervalBlockReactors[k].SplitVariablesUp[nameToAdd] 
-                           else: 
-                               expr += model.IntervalBlockReactors[k].SplitVariablesDown[nameToAdd] 
-                              # IntervalBlockReactors[rExtra1]  
+                      # compleet when you start putting splits in
+                      pass
                            
-                   elif PreviousProcessIntervalObject.separation and j in outputDictPreviousInterval:  
+                   elif PreviousProcessIntervalObject.separation and j in outputDictPreviousInterval:
+                       # compleet when you start putting splits in
+                       pass
 
-                       if 'permeate' in connectInfo:
-                           nameToAdd = PreviousProcessIntervalObject.outputSeperation['permeate'][j] # slect the right stream from the right seperation stream 
-                           expr += model.IntervalBlockReactors[k].permeateVariables[nameToAdd] 
-                       else: 
-                           nameToAdd = PreviousProcessIntervalObject.outputSeperation['reject'][j] # slect the right stream from the right seperation stream 
-                           expr += model.IntervalBlockReactors[k].rejectVariables[nameToAdd]  
-                    
-                   
                    elif j in outputDictPreviousInterval: 
                        nameToAdd = outputDictPreviousInterval[j]
                        expr += model.allCompositionVariables[nameToAdd]
@@ -367,66 +328,29 @@ def makeModelWithCompositions(excelFile, reactorLib):
                b.mixingConstraints.add(b.afterMixVariables[afterMixName] == expr)  
            
 
-    # =============================================================================
-    #            # 2: SEPERATION
-    # =============================================================================
-       
+# =============================================================================
+#            # 2: SEPERATION
+# =============================================================================
+       # if a dict is given for seoeration there is obviouly a seperation element
+       streamToSeperate = interval_to_call.separation
+
        if streamToSeperate:
            # rename outputs of the process interval 
-           permeateNames = []
-           rejectNames = []
-           
-           for j in outputList: 
-               newNamePermeate = j + '_permeate'
-               newNameReject = j + '_reject'
-               permeateNames.append(newNamePermeate)
-               rejectNames.append(newNameReject)
-               
-           # TODO find out if it is necesary to update the input objects with the mixed input names      
-           # interval_to_call.makeOldNewDictInputs(inputList, AfterMixComponentsNames)  # TODO make new class making oldNewDict to 
-           # add variables to block structure 
-           b.permeateVariables = pe.Var(permeateNames, domain= pe.PositiveReals)
-           b.rejectVariables = pe.Var(rejectNames, domain = pe.PositiveReals)
-           
-           # define constraint lists 
-           b.PermeateSeperationConstraints = pe.ConstraintList() 
-           b.RejectSeperationConstraints = pe.ConstraintList()
-           
-           # create/ update the dictionaries to loop over equations easier
-           seperationDict = interval_to_call.makeSeperationDict(permeateNames,rejectNames)
-           #interval_to_call.updateSeperationDict() # need to update the seperation names e.g.: {xx:0.2} to {xx_reactor2: 0.2}
-           
-           for j in outputList: # outputList is the reactor output names e.g. x_reactor2
-               # recall info form dictionary 
-               permeateVar = seperationDict[j][0]
-               rejectVar = seperationDict[j][1]
-               percentExtraction = seperationDict[j][2]
-               
-               exprPermeate = b.permeateVariables[permeateVar] == model.allCompositionVariables[j] * percentExtraction 
-               exprReject = b.rejectVariables[rejectVar] == model.allCompositionVariables[j] * (1-percentExtraction)
-               b.PermeateSeperationConstraints.add(exprPermeate)
-               b.RejectSeperationConstraints.add(exprReject)
-           
-           
-           # update output names of the object to a dictionary which specifies the permeate and reject stream 
-           
-           originalOutputNames = list(interval_to_call.oldNewDictOutputs.keys()) 
-           permeateDictHelp = {}
-           rejectDictHelp = {}
+           seperationNames = streamToSeperate.keys()
+           b.seperationVariables = pe.Var(seperationNames, domain= pe.PositiveReals)
 
-           for m in range(len(inputList)): 
-               # interval_to_call.outputs = {'permeate':{originalOutputNames[m]: permeateNames[m]},
-                                           # 'reject': {originalOutputNames[m]: rejectNames[m]} }
-               permeateDictHelp.update({originalOutputNames[m]: permeateNames[m]})
-               rejectDictHelp.update({originalOutputNames[m]: rejectNames[m]}) 
-               
-           outputSeperation = {'permeate':permeateDictHelp,
-                              'reject': rejectDictHelp   }
-               
-           interval_to_call.outputSeperation = outputSeperation
-           # the output is now a nested dictionary instead of list of outputs, this wil be used to identify the seperation streams
-           
-           
+           # define constraint lists 
+           b.seperationConstraints = pe.ConstraintList()
+           for j in seperationNames:
+               seperationDictInterval = streamToSeperate[j]
+               expr = 0
+               for k in seperationDictInterval:
+                   percentExtraction = seperationDictInterval[k]
+                   compositionVar = interval_to_call.oldNewDictOutputs[k]
+                   expr += model.allCompositionVariables[compositionVar] * percentExtraction
+               expresion = b.seperationVariables[j] == expr
+               b.seperationConstraints.add(expresion)
+
     # =============================================================================
     #                    #3 BOOLEAN VARIABLES/CONSTRAINTS
     #   Name and define constraints in the i'th reactor who's output is split by 
@@ -434,46 +358,46 @@ def makeModelWithCompositions(excelFile, reactorLib):
     # =============================================================================
 
        # look at the row of the reactor in the connenction matrix and make new bool variables and constraints
+       reactorRow = connectionMatrix.loc[connectionMatrix['process_intervals'] == i]
        nameBoolVariables = []
        reactorsWithBool = {}
        for j in reactorRow:
            # print(str(reactorRow[j])) # uncomment for debugging
            if 'bool' in str(reactorRow[j]):  # TODO make sure a minimum of 2 bools are counted, display error if not
-               boolVariableName = 'y_' + j 
+               boolVariableName = 'y_' + j
                nameBoolVariables.append(boolVariableName)
                reactorsWithBool.update({j:boolVariableName})
 
-           
-       # creat the bool variables and the sum constraint 
+       # creat the bool variables and the sum constraint
        if nameBoolVariables:
-           # initialise boolean values so sum is one 
+           # initialise boolean values so sum is one
            initialBools = np.zeros((len(nameBoolVariables),), dtype=int)
            initialBools[0] = 1
            initialiseBoolVars = {nameBoolVariables[i]:initialBools[i] for i in range(len(nameBoolVariables))}
 
            # make set variables and constraints of the bools
-           b.BooleanVariables = pe.Var(nameBoolVariables, domain = pe.Boolean, initialize = initialiseBoolVars) 
+           b.BooleanVariables = pe.Var(nameBoolVariables, domain = pe.Boolean, initialize = initialiseBoolVars)
            exprBoolean = sum(b.BooleanVariables[k] for k in b.BooleanVariables_index) == 1
            b.BooleanConstraints = pe.Constraint(expr = exprBoolean )
-                     
-       # modify the expresions of the intervall that is affected by the booliean var  
+
+       # modify the expresions of the intervall that is affected by the booliean var
        for j in reactorsWithBool:
            try:
                 interval_to_modify = allObjects[j]
                 #interval_to_modify = getattr(importlib.import_module(reactorLib), j)
-                originBool = i # from which reactor it comes from 
+                originBool = i # from which reactor it comes from
                 interval_to_modify.isBool = (originBool,reactorsWithBool[j])
                 equationsToModify = interval_to_modify.eq
                 newEquations = []
-                for k in equationsToModify: 
+                for k in equationsToModify:
                     eqCurrent = k
                     eqCurrent = eqCurrent.replace('==', '==(')
                     eqCurrent += ") * model.IntervalBlockReactors['%s'].BooleanVariables['%s']" % (i,reactorsWithBool[j])
                     newEquations.append(eqCurrent)
                     #print(eqCurrent)
                 interval_to_modify.eq = newEquations
-                
-           except : # create a warning if names in excel don't match names in reator lib.             
+
+           except : # create a warning if names in excel don't match names in reator lib.
                print('ERROR make sure the reactor name or interval name %s in EXCEL is the same as the library.py file: %s ' % (j,reactorLib))
            
        # if the current reactor is dependant on a bool, add constraints to the outputs of the reactor!!
@@ -501,209 +425,174 @@ def makeModelWithCompositions(excelFile, reactorLib):
     # =============================================================================          
     # find the row of the reactor and make new split variables and constraints 
        
-       split2Reactor = {}
-       for j in reactorRow :
-            #print(j)
-            if 'split' in str(reactorRow[j]) and 'permeate' in str(reactorRow[j]):
-                #splitVariableName = 'split_permeate_' + j 
-                split2Reactor.update({j:'permeate'})
-                
-            elif 'split' in str(reactorRow[j]) and 'reject' in str(reactorRow[j]): 
-                # splitVariableName = 'split_reject_' + j 
-                split2Reactor.update({j:'reject'})
-    
-                
-            elif 'split' in str(reactorRow[j]):  
-                # splitVariableName = 'split_fraction_' + j 
-                # nameSplitVariables.append(splitVariableName) 
-                split2Reactor.update({j:'single'})
-                
-                
-       OutSplitDict = {}         
-       if  split2Reactor and len(split2Reactor) == 2:  #TODO if the reject AND perm are split then find a way to get the correct constraints   
-           b.SplitConstraints = pe.ConstraintList()
-           b.SplitFraction = pe.Var(domain = pe.PercentFraction)
-           counter = 0
-           for j in split2Reactor: 
-                originalVarNames = list(interval_to_call.oldNewDictOutputs.keys()) 
-                originalNameAndSplitNameDict = {}
-                nameSplitVariables = [] 
-                for k in originalVarNames:                    
-                    newOutputSplitName = k + '_split_' + j
-                    nameSplitVariables.append(newOutputSplitName) 
-                    originalNameAndSplitNameDict.update({k:newOutputSplitName})
-                    
-                 
-                # make variable names    
-                if counter == 0: 
-                    b.SplitVariablesUp = pe.Var(nameSplitVariables, domain = pe.PositiveReals)
-                else: 
-                    b.SplitVariablesDown = pe.Var(nameSplitVariables, domain = pe.PositiveReals)
-                        
-                 
-                
-                
-                for k in originalVarNames: 
-                    splitVar = originalNameAndSplitNameDict[k]
-                    if split2Reactor[j] == 'permeate': # interval_to_call.seperation: 
-                        var2split = interval_to_call.outputSeperation['permeate'][k]
-                        if counter == 0: 
-                            exprSplit = b.SplitVariablesUp[splitVar] == b.SplitFraction * b.permeateVariables[var2split]
-                        else: 
-                            exprSplit = b.SplitVariablesDown[splitVar] == (1 - b.SplitFraction) * b.permeateVariables[var2split]
-                            
-                    elif split2Reactor[j] == 'reject': 
-                        var2split =   interval_to_call.outputSeperation['reject'][k]
-                        if counter == 0: 
-                            exprSplit = b.SplitVariablesUp[splitVar] == b.SplitFraction * b.rejectVariables[var2split]
-                        else: 
-                            exprSplit = b.SplitVariablesDown[splitVar]  ==(1 - b.SplitFraction) * b.rejectVariables[var2split]
-                        
-                        #"model.IntervalBlockReactors['%s'].rejectVariables['%s']"
-                    else: 
-                        var2split =  interval_to_call.oldNewDictOutputs[k]
-                        if counter == 0: 
-                            exprSplit = b.SplitVariablesUp[splitVar] == b.SplitFraction * model.allCompositionVariables[var2split]
-                        else: 
-                            exprSplit = b.SplitVariablesDown[splitVar] == (1 - b.SplitFraction) * model.allCompositionVariables[var2split]
-                          
-                    b.SplitConstraints.add(exprSplit) 
-                counter += 1    
-                # update the output dict of the reactor 
-                OutSplitDict.update({j:originalNameAndSplitNameDict})  
-                
-       # update currunt and next intervalls          
-       if  split2Reactor and len(split2Reactor) == 2: 
-           # update the output of the reactor 
-           interval_to_call.outputSplit = OutSplitDict   
-           counter = 0 
-           for j in split2Reactor :
-               nextReactor = allObjects[j]
-               #nextReactor = getattr(importlib.import_module(reactorLib), j)
-               if counter == 0 :
-                   nextReactor.split  ='up'
-               else: 
-                   nextReactor.split  ='down'
-               counter += 1    
+       # split2Reactor = {}
+       # for j in reactorRow :
+       #      #print(j)
+       #      if 'split' in str(reactorRow[j]) and 'permeate' in str(reactorRow[j]):
+       #          #splitVariableName = 'split_permeate_' + j
+       #          split2Reactor.update({j:'permeate'})
+       #
+       #      elif 'split' in str(reactorRow[j]) and 'reject' in str(reactorRow[j]):
+       #          # splitVariableName = 'split_reject_' + j
+       #          split2Reactor.update({j:'reject'})
+       #
+       #
+       #      elif 'split' in str(reactorRow[j]):
+       #          # splitVariableName = 'split_fraction_' + j
+       #          # nameSplitVariables.append(splitVariableName)
+       #          split2Reactor.update({j:'single'})
+       #
+       #
+       # OutSplitDict = {}
+       # if  split2Reactor and len(split2Reactor) == 2:  #TODO if the reject AND perm are split then find a way to get the correct constraints
+       #     b.SplitConstraints = pe.ConstraintList()
+       #     b.SplitFraction = pe.Var(domain = pe.PercentFraction)
+       #     counter = 0
+       #     for j in split2Reactor:
+       #          originalVarNames = list(interval_to_call.oldNewDictOutputs.keys())
+       #          originalNameAndSplitNameDict = {}
+       #          nameSplitVariables = []
+       #          for k in originalVarNames:
+       #              newOutputSplitName = k + '_split_' + j
+       #              nameSplitVariables.append(newOutputSplitName)
+       #              originalNameAndSplitNameDict.update({k:newOutputSplitName})
+       #
+       #
+       #          # make variable names
+       #          if counter == 0:
+       #              b.SplitVariablesUp = pe.Var(nameSplitVariables, domain = pe.PositiveReals)
+       #          else:
+       #              b.SplitVariablesDown = pe.Var(nameSplitVariables, domain = pe.PositiveReals)
+       #
+       #          for k in originalVarNames:
+       #              splitVar = originalNameAndSplitNameDict[k]
+       #              if split2Reactor[j] == 'permeate': # interval_to_call.seperation:
+       #                  var2split = interval_to_call.outputSeperation['permeate'][k]
+       #                  if counter == 0:
+       #                      exprSplit = b.SplitVariablesUp[splitVar] == b.SplitFraction * b.permeateVariables[var2split]
+       #                  else:
+       #                      exprSplit = b.SplitVariablesDown[splitVar] == (1 - b.SplitFraction) * b.permeateVariables[var2split]
+       #
+       #              elif split2Reactor[j] == 'reject':
+       #                  var2split =   interval_to_call.outputSeperation['reject'][k]
+       #                  if counter == 0:
+       #                      exprSplit = b.SplitVariablesUp[splitVar] == b.SplitFraction * b.rejectVariables[var2split]
+       #                  else:
+       #                      exprSplit = b.SplitVariablesDown[splitVar]  ==(1 - b.SplitFraction) * b.rejectVariables[var2split]
+       #
+       #                  #"model.IntervalBlockReactors['%s'].rejectVariables['%s']"
+       #              else:
+       #                  var2split =  interval_to_call.oldNewDictOutputs[k]
+       #                  if counter == 0:
+       #                      exprSplit = b.SplitVariablesUp[splitVar] == b.SplitFraction * model.allCompositionVariables[var2split]
+       #                  else:
+       #                      exprSplit = b.SplitVariablesDown[splitVar] == (1 - b.SplitFraction) * model.allCompositionVariables[var2split]
+       #
+       #              b.SplitConstraints.add(exprSplit)
+       #          counter += 1
+       #          # update the output dict of the reactor
+       #          OutSplitDict.update({j:originalNameAndSplitNameDict})
+       #
+       # # update currunt and next intervalls
+       # if  split2Reactor and len(split2Reactor) == 2:
+       #     # update the output of the reactor
+       #     interval_to_call.outputSplit = OutSplitDict
+       #     counter = 0
+       #     for j in split2Reactor :
+       #         nextReactor = allObjects[j]
+       #         #nextReactor = getattr(importlib.import_module(reactorLib), j)
+       #         if counter == 0 :
+       #             nextReactor.split  ='up'
+       #         else:
+       #             nextReactor.split  ='down'
+       #         counter += 1
 
+       model.pprint() #todo get rid is this when done debugging
     # =============================================================================
     #            # Reactor phase   
     # =============================================================================
           
-       # same for if their is mixing/seperation because you 
+       # same for if their is mixing/seperation because you
        # find new input names by looking at it's connections i.e. the previous interval
        # only interested in the previous interval if it ends in a split or seperation (anything without a 0 or 1 in other words)
-       pos = connectionMatrix[i] != 0  
+       pos = connectionMatrix[i] != 0
        nameConnectedInterval = connectionMatrix.process_intervals[pos].tolist()
-       
+
        if len(nameConnectedInterval) > 1 :
-           pos2 = nameConnectedInterval != 1   
+           pos2 = nameConnectedInterval != 1
            nameConnectedInterval = nameConnectedInterval[pos2] # should now only have one element now
            nameConnectedInterval.replace(' ','') # remove spaces
            nameConnectedInterval = nameConnectedInterval
-       else: 
+       else:
            nameConnectedInterval = nameConnectedInterval[0]
-       
-       pos = connectionMatrix.process_intervals == nameConnectedInterval 
-       connectInfo = str(connectionMatrix[i][pos]) #.tolist() 
-       
+
+       pos = connectionMatrix.process_intervals == nameConnectedInterval
+       connectInfo = str(connectionMatrix[i][pos]) #.tolist()
        try:
            #PreviousProcessIntervalObject = getattr(importlib.import_module(reactorLib), nameConnectedInterval)
            PreviousProcessIntervalObject = allObjects[nameConnectedInterval]
-       except : 
-           print('ERROR make sure the reactor name or interval name %s in the library file is correct in the variable mixing  %s ' % (nameConnectedInterval,reactorLib))
-       
-       
+       except :
+           raise Exception('mmmmmm')
+       #find the inputs and outputs of the reactor
+       # todo get rid of this if statement make sure the reator object oldNew dictionary is always reffering to what goes in or out
        if interval_to_call.mix :
            inputsReactor = interval_to_call.inputMix
            outputsReactor = interval_to_call.oldNewDictOutputs
-       
+
        elif nameConnectedInterval not in nameInputs and 'split' in connectInfo:
-           #outputsPreviousInterval = PreviousProcessIntervalObject.outputs
-           
-           inputsReactor = PreviousProcessIntervalObject.outputSplit
-           upOrDown = interval_to_call.split
-           inputsReactor = inputsReactor[i]
-           outputsReactor = interval_to_call.oldNewDictOutputs
-           #connectInfo = connectInfo + ' ' + upOrDown
-           
-           
-       # the input comes from a reactor of a seperated stream i.e. the object "output" is then a dict 
-       # if nameConnectedInterval not in nameInputs and PreviousProcessIntervalObject.separation:
-       elif nameConnectedInterval not in nameInputs and 'permeate' in connectInfo or 'reject' in connectInfo:
-           
-           connectInfo = str(connectionMatrix[i][pos]) #.tolist()
-           outputsPreviousInterval = PreviousProcessIntervalObject.outputSeperation
-           
-           if 'permeate' in connectInfo: 
-               inputsReactor = outputsPreviousInterval['permeate']
-           else: 
-               inputsReactor = outputsPreviousInterval['reject'] 
-               
-           outputsReactor = interval_to_call.oldNewDictOutputs
-           #model.pprint()
-        
+           pass # get correct when spliting is compleet
+
+       elif nameConnectedInterval not in nameInputs and 'sep' in connectInfo:
+           pass # get correct when seperation is compleet
+
        else: # just simply connected without split/mix or seperation before the interval
-           inputsReactor = PreviousProcessIntervalObject.oldNewDictOutputs   
-           outputsReactor = interval_to_call.oldNewDictOutputs 
-           
-       # preallocate the constraints and massbalance equation     
+           inputsReactor = PreviousProcessIntervalObject.oldNewDictOutputs
+           outputsReactor = interval_to_call.oldNewDictOutputs
+
+       # preallocate the constraints and massbalance equation
        b.reactorConstraints = pe.ConstraintList()
-       massBalanceString = "model.intervals['%s'] == " % i 
-           
-           
-       # ajust the reactot expressions 
+       massBalanceString = "model.intervals['%s'] == " % i
+       # ajust the reactor expressions
+       intervalsToMix = interval_to_call.mix
        for j in strExpr:
-           strExprCurrent = j       
-           for k in inputsReactor: 
+           strExprCurrent = j
+           for k in inputsReactor:
                  if intervalsToMix:
-                     replaceStr = "model.IntervalBlockReactors['%s'].afterMixVariables['%s']" % (i,inputsReactor[k]) # from the current reactor interval i 
-                     if replaceStr not in massBalanceString: # so you don't get duplicates in mass balance equation 
+                     replaceStr = "model.IntervalBlockReactors['%s'].afterMixVariables['%s']" % (i,inputsReactor[k]) # from the current reactor interval i
+                     if replaceStr not in massBalanceString: # so you don't get duplicates in mass balance equation
                          massBalanceString += ' + ' + replaceStr
-                 
-                 elif 'split' in  connectInfo: 
-                     if 'up' in upOrDown: 
-                         replaceStr = "model.IntervalBlockReactors['%s'].SplitVariablesUp['%s']" % (nameConnectedInterval,inputsReactor[k])
-                     else: 
-                         replaceStr = "model.IntervalBlockReactors['%s'].SplitVariablesDown['%s']" % (nameConnectedInterval,inputsReactor[k])
-                             
-                     if replaceStr not in massBalanceString: # avoid duplicates in expresion 
+
+                 elif 'split' in  connectInfo:
+                     pass
+
+                 elif 'sep' in connectInfo:
+                     pass
+                     # replaceStr = "model.IntervalBlockReactors['%s'].permeateVariables['%s']" % (nameConnectedInterval,inputsReactor[k])
+                     # if replaceStr not in massBalanceString: # avoid duplicates in expresion
+                     #     massBalanceString += ' + ' + replaceStr
+                 else:
+                     replaceStr = "model.allCompositionVariables['%s']" % inputsReactor[k]
+                     if replaceStr not in massBalanceString:
                          massBalanceString += ' + ' + replaceStr
-                     
-                 elif 'permeate' in connectInfo:
-                     replaceStr = "model.IntervalBlockReactors['%s'].permeateVariables['%s']" % (nameConnectedInterval,inputsReactor[k])
-                     if replaceStr not in massBalanceString: # avoid duplicates in expresion 
-                         massBalanceString += ' + ' + replaceStr
-                      
-                 elif 'reject' in connectInfo: 
-                     replaceStr = "model.IntervalBlockReactors['%s'].rejectVariables['%s']" % (nameConnectedInterval,inputsReactor[k])
-                     if replaceStr not in massBalanceString: 
-                         massBalanceString += ' + ' + replaceStr
-                 
-                 else: 
-                     replaceStr = "model.allCompositionVariables['%s']" % inputsReactor[k]    
-                     if replaceStr not in massBalanceString: 
-                         massBalanceString += ' + ' + replaceStr                            
-                     
+
                  strExprCurrent = strExprCurrent.replace(k,replaceStr)
-              
-         
-           for k in outputsReactor: 
+
+
+           for k in outputsReactor:
                 if k in nameOutputs:
                     replaceStr = "model.output['%s']" % outputsReactor[k]
-                else: 
+                else:
                     replaceStr = "model.allCompositionVariables['%s']" %outputsReactor[k]
-                      
-                strExprCurrent = strExprCurrent.replace(k,replaceStr)        
-           #model.pprint()   
+                strExprCurrent = strExprCurrent.replace(k,replaceStr)
+           #model.pprint()
            print(strExprCurrent)
-           expresion = eval(strExprCurrent)   
+           expresion = eval(strExprCurrent)
            b.reactorConstraints.add(expresion)
-          
-       #print(massBalanceString) 
-       massBalanceExpresion = eval(massBalanceString)  
-       b.MassBalanceReactorConstraint = pe.Constraint(expr= massBalanceExpresion)       
-  
+
+       #print(massBalanceString)
+       massBalanceExpresion = eval(massBalanceString)
+       b.MassBalanceReactorConstraint = pe.Constraint(expr= massBalanceExpresion)
+
    # ==================================================================================================================
    #      # define equations of the output Intervals (mixing equations)
    #        i.e., the sum of all the intervalls that produce a certain end product 

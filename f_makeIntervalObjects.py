@@ -8,13 +8,18 @@ email: lucas.vanderhauwaert@usc.es
 
 import os
 import pandas as pd
+import numpy as np
 
-class reactorIntervalClass:
+# ============================================================================================================
+# Input, reactor and out put Class
+# ============================================================================================================
+
+class ReactorIntervalClass:
     def __init__(self, inputs, outputs, eq, name, mix=[], utilities=[], isBool=[], split=[], separation=[]):
         self.inputs = inputs
         self.outputs = outputs  # updated according to the modula (is there split/seperation/bool)
         self.name = name
-        self.mix = mix  # found by the excel file (don't need to specify in this script)
+        self.mix = mix  # found by the Excel file (don't need to specify in this script)
         self.utilities = utilities # consists of a dictionary {nameUtilty: [bounds]}
         self.isBool = isBool  # is a tuple, 1) where the bool comes from and 2) the name of the bool affecting the outputs
         self.split = split  # true or false # in that case of false just empty []
@@ -27,7 +32,7 @@ class reactorIntervalClass:
         #         self.inputMix
         # =============================================================================
 
-        if isinstance(eq, str):  # fail safe if you forget to code the string reactor expression as a list
+        if isinstance(eq, str):  # failsafe if you forget to code the string reactor expression as a list
             self.eq = [eq]  # make it a list
         else:
             self.eq = eq
@@ -68,14 +73,33 @@ class reactorIntervalClass:
 
         #  could you define a stream dependant on a boolean var before in enters a unit reactor
 
-class inputIntervalClass:
-    def __init__(self, inputName, compositionDict, isBool=[], split=[], separation=[]):
-        self.inputName = inputName
+class InputIntervalClass:
+    def __init__(self, inputName, compositionDict, Bool=None, split=None, separation=None):
+        if separation is None:
+            separation = []
+        if split is None:
+            split = []
+        if Bool is None:
+            Bool = []
+        self.inputName = inputName.upper()
+        self.addOn4Variables = self.inputName.lower()
         self.compositionDict = compositionDict
         self.compositionNames = list(compositionDict.keys())
-        self.isBool = isBool
+        self.Bool = Bool
         self.split = split
         self.separation = separation
+        self.componentEquations = []
+
+    def rename_components(self):
+        pass
+
+    def make_component_equations(self):
+        eqList = []
+        for component in self.compositionDict:
+            eq = "{} == {} * {}".format(component, self.compositionDict[component], self.inputName)
+        eqList.append(eq)
+        self.componentEquations = eqList
+        return eqList
 
     def makeOldNewDict(self, oldNames, newNames):
         oldNewDict = {oldNames[i]: newNames[i] for i in range(len(oldNames))}  # make dictionary
@@ -90,7 +114,79 @@ class inputIntervalClass:
             old_key = oldKeys[i]
             self.compositionDict[new_key] = self.compositionDict.pop(old_key)
 
-def splitAndRemoveSpaces(expr2split,splitCharacter):
+# ============================================================================================================
+# Validate the Excel file sheets, checks and error messages
+# ============================================================================================================
+"""
+list of error 
+* make sure all separations are acounted for 
+* make sure all names of the intervals are the same in each excel sheet 
+write all error you encounter here 
+"""
+def validate_seperation_coef(coef, intervalName, amountOfSep, connectionMatrix):
+    coefList  = split_remove_spaces(coef, ';')
+    arraysOfCoef = []
+    for i in coefList:
+        coefTuple = stringbounds_2_tuplebounds(i)
+        coefArray = np.array(coefTuple)
+        arraysOfCoef.append(coefArray)
+    sumOfArrays = 0
+    # check if there are as many separation processes as separation coefficient bounds
+    if amountOfSep != len(arraysOfCoef):
+        raise Exception("make sure all bounds are written for interval ".format(intervalName))
+    # check if the sum of the separation coefficiets are one
+    for i in arraysOfCoef:
+        sumOfArrays += i
+    nCol = len(sumOfArrays)  #get the amount of columns
+    if sum(sumOfArrays == np.ones(nCol)):
+        pass
+    else:
+        raise Exception("the sum of the seperation coefficients for {} do not add up to 1, check the excel file".format(intervalName))
+
+    # check if all the seperation processes are accounted for in the connenction matrix
+    rowId = list(connectionMatrix['process_intervals']).index(intervalName)
+    rowMatrix = connectionMatrix.iloc[rowId].drop(['process_intervals'])
+    counter = 0
+    for i in rowMatrix:
+        if 'sep' in str(i):
+            counter += 1
+    if counter != amountOfSep:
+        raise Exception("Check interval {} there is a separation process missing in the connection matrix".format(intervalName))
+def check_excel_file(excelName):
+    loc = os.getcwd()
+    posAlquimia = loc.find('Alquimia')
+    loc = loc[0:posAlquimia+8]
+    loc = loc + r'\excel files' + excelName
+
+    DFIntervals = pd.read_excel(loc, sheet_name='Intervals')
+    DFReactors =  pd.read_excel(loc, sheet_name='ConnectionMatrix')
+    DFConnectionMatrix = pd.read_excel(loc, sheet_name='ConnectionMatrix')
+
+    # check interval names in the connection matrix and interval list
+    intervalNamesItervals = remove_spaces(DFIntervals['process_intervals'].to_list())
+    intervalNamesConnenctionMatrixRow = remove_spaces(list(DFConnectionMatrix.columns))
+    intervalNamesConnenctionMatrixRow.remove('process_intervals')
+    intervalNamesConnenctionMatrixCol = remove_spaces(DFConnectionMatrix['process_intervals'].to_list())
+
+    # check length
+    if len(intervalNamesConnenctionMatrixCol) == len(intervalNamesConnenctionMatrixRow) == len(intervalNamesItervals):
+        pass
+    else:
+        raise Exception('Interval name is missing in the connection matrix sheet or the interval sheet')
+    # check names
+    if intervalNamesItervals == intervalNamesConnenctionMatrixRow == intervalNamesConnenctionMatrixCol:
+        pass
+    else:
+        positonError = [errorList for i, errorList in enumerate(intervalNamesItervals) if not intervalNamesItervals[i]
+                                    == intervalNamesConnenctionMatrixRow[i] == intervalNamesConnenctionMatrixCol[i]]
+        print(positonError)
+        raise Exception('The names in the connection matrix sheet or the interval sheet are not the same')
+
+
+# ============================================================================================================
+# Usefull functions
+# ============================================================================================================
+def split_remove_spaces(expr2split,splitCharacter):
     expresions = expr2split.split(splitCharacter)
     exprList = []
     for i in expresions:
@@ -98,31 +194,37 @@ def splitAndRemoveSpaces(expr2split,splitCharacter):
         exprList.append(i)
     return exprList
 
-def stringBounds2tupleBounds(stringBound):
+def stringbounds_2_tuplebounds(stringBound):
     stringBound = stringBound.replace('[', '')
     stringBound = stringBound.replace(']', '')
     bounds = stringBound.split(',')
-    upperbound = float(bounds[1])
-    lowerbound = float(bounds[0])
-    boundsArray = [lowerbound, upperbound]
-    return boundsArray
+    boundsList = []
+    for i in bounds:
+        boundsList.append(float(i))
+    return boundsList
 
-def loadObjectesFromDictionary(dict):
+def load_objectes_from_dictionary(dict):
     for i in dict:
         locals()[i] = dict[i]
 
+def remove_spaces(listOfInterest):
+    exprList = []
+    for i in listOfInterest:
+        i = i.replace(' ','')
+        exprList.append(i)
+    return exprList
 # ============================================================================================================
-# TODO see if you can incorporate these functions (makeInputIntervals, makeReactorInterval) in the classes?
+# Functions to make the interval objects
 # ============================================================================================================
 
 # read function to automate making the interval classes
-def makeInputIntervals(excelName):
+def make_input_intervals(excelName):
     loc = os.getcwd()
     posAlquimia = loc.find('Alquimia')
     loc = loc[0:posAlquimia+8]
     loc = loc + r'\excel files' + excelName
 
-    DFIntervals = pd.read_excel(loc, sheet_name='components')
+    DFIntervals = pd.read_excel(loc, sheet_name='Intervals')
     # inputs
     inputPrices = DFIntervals.input_price.to_numpy()
     posInputs = inputPrices != 0    #find where the input interval are (they have an input price)
@@ -135,82 +237,109 @@ def makeInputIntervals(excelName):
     #loop over all the inputs and make a class of each one
     for i, intervalName in enumerate(intervalNames):
         componentsOfInterval = componentsList[i].split(",")
-        compositionsofInterval = compositionsList[i] # string or 1 depending if there are different components
+        compositionsofInterval = compositionsList[i] # string or 1, depending if there are different components
         compsitionDictionary = {} # preallocate dictionary
-        if compositionsofInterval == 1:  #if it is one no need to loop over the dictionary, there is only one compound
+        if compositionsofInterval == 1:  # if it is one no need to loop over the dictionary, there is only one compound
             component = componentsOfInterval[0].replace(' ','')
             fraction = compositionsofInterval # should allways be one i there is one component in the stream
             compsitionDictionary.update({component: fraction})
         else:
             compositionsofInterval = compositionsList[i].split(",")
             for j,component in enumerate(componentsOfInterval):
-                component = component.replace(' ','')  #get rid of spaces
+                component = component.replace(' ','')  # get rid of spaces
                 fraction = compositionsofInterval[j]
                 fraction = fraction.replace(' ','')
                 fraction = float(fraction)
                 compsitionDictionary.update({component:fraction})
 
-        objectInput = inputIntervalClass(intervalName,compsitionDictionary)
+        objectInput = InputIntervalClass(intervalName,compsitionDictionary)
+        objectInput.make_component_equations()
         objectDictionary.update({intervalName:objectInput})
 
         # toExecute = '{0} = inputCharaterisation(intervalName,compsitionDictionary)'.format(intervalName)
         # exec(toExecute)
-        return objectDictionary
+    return objectDictionary
 
-    #return objectDictionary
-
-def makeReactorIntervals(excelName):
+def make_reactor_intervals(excelName):
+    # read Excel file
     loc = os.getcwd()
     posAlquimia = loc.find('Alquimia')
     loc = loc[0:posAlquimia + 8]
     loc = loc + r'\excel files' + excelName
 
-    DFreactors = pd.read_excel(loc, sheet_name='reactors')
+    #read excel info
+    DFreactors = pd.read_excel(loc, sheet_name='Reactors')
+    connectionMatrix = pd.read_excel(loc, sheet_name='ConnectionMatrix')
     reactorIntervals = DFreactors.reactor_name
-
     objectDictionary = {} # preallcoate a dictionary with the interval names and the interval objects
     for i, intervalName in enumerate(reactorIntervals):
         #inputs of reactor
         inputsReactor = DFreactors.inputs[i]
-        inputsReactor = splitAndRemoveSpaces(inputsReactor,',')
+        inputsReactor = split_remove_spaces(inputsReactor,',')
         #outputs of the reactor
         outputsReactor = DFreactors.outputs[i]
-        outputsReactor = splitAndRemoveSpaces(outputsReactor,',')
+        outputsReactor = split_remove_spaces(outputsReactor,',')
         #find the equation of the reactor
         equations = DFreactors.equations[i]
-        equations = splitAndRemoveSpaces(equations,',')
+        equations = split_remove_spaces(equations,',')
         # make initial object (with minimum requirements i.e., inputs outputs and reactor equations)
-        objectReactor = reactorIntervalClass(inputsReactor,outputsReactor,equations, intervalName)
+        objectReactor = ReactorIntervalClass(inputsReactor,outputsReactor,equations, intervalName)
 
         if DFreactors.has_utility[i] != 0 :
             utilityVariableNames = DFreactors.has_utility[i]
-            utilityVariableNames = splitAndRemoveSpaces(utilityVariableNames,';')
+            utilityVariableNames = split_remove_spaces(utilityVariableNames,';')
             utilityBounds = DFreactors.utility_bounds[i]
-            utilityBounds = splitAndRemoveSpaces(utilityBounds,';')
+            utilityBounds = split_remove_spaces(utilityBounds,';')
             utilityDict = {}
             for j, unitName in enumerate(utilityVariableNames):
                 unitBound = utilityBounds[j]
-                tupleUnitBounds = stringBounds2tupleBounds(unitBound)
+                tupleUnitBounds = stringbounds_2_tuplebounds(unitBound)
                 utilityDict.update({unitName:tupleUnitBounds})
             objectReactor.utilities = utilityDict
-        objectDictionary.update({intervalName:objectReactor})
-        # Todo check utilities are made correctly.
 
-        if DFreactors.has_seperation[i] != 0 and DFreactors.has_seperation[i] < 2 :  #lets not look at double serperation for now
-            seperationDict = {}
-            coefStr = DFreactors.seperation_coef[i]
-            coefTuple = stringBounds2tupleBounds(coefStr)
+
+        if DFreactors.has_seperation[i] >= 2: #and DFreactors.has_seperation[i] < 2 :
+            nrSeperations = DFreactors.has_seperation[i]
             outputsStr = DFreactors.outputs[i]
-            outputs = splitAndRemoveSpaces(outputsStr, ',' )
-            for j, outputName in enumerate(outputs):
-                seperationDict.update({outputName:coefTuple[j]})
+            amountOfSeperations = DFreactors.has_seperation[i]
+            coefStr = DFreactors.seperation_coef[i]
+            validate_seperation_coef(coefStr,intervalName,nrSeperations, connectionMatrix)
+            coefList = split_remove_spaces(coefStr, ';')
+            seperationDict = {}
+            for j in range(amountOfSeperations):
+                seperationName = intervalName + '_sep{}'.format(j+1)
+                coefTuple = stringbounds_2_tuplebounds(coefList[j])
+                outputs = split_remove_spaces(outputsStr, ',' )
+                specificSeperationDict = {}
+                for k, outputName in enumerate(outputs):
+                    specificSeperationDict.update({outputName:coefTuple[k]})
+                seperationDict.update({seperationName: specificSeperationDict})
             objectReactor.separation = seperationDict
 
+            # check if it is mixed with other reactors
+            processInvervalNames = connectionMatrix['process_intervals']
+            #reactorRow = connectionMatrix.loc[processInvervalNames == i]
+            reactorCol = connectionMatrix[intervalName]
+            pos = reactorCol != 0 # find where mixing takes place # mixed streams are in the same colunm
+
+
+            if sum(pos) >= 2:
+                mixDict = {}
+                intervalsToMix = list(processInvervalNames[pos])
+                specifications = list(reactorCol[pos])
+                for k,specs in enumerate(specifications):
+                    if 'mix' in specs:
+                        mixDict.update( {intervalsToMix[k]: specs} )
+                #mixDict = {intervalsToMix[j]: specifications[j] for j in range(0, len(intervalsToMix))}
+                objectReactor.mix = mixDict
+
+        # put the object in the dictionary
+        objectDictionary.update({intervalName:objectReactor})
     return objectDictionary
 
 #def makeObjectDictionaries():
 
 if __name__ == '__main__':
-    testObje = makeReactorIntervals(r'\data_propionibacteria.xlsx')
+    testObje = make_reactor_intervals(r'\data_propionibacteria.xlsx')
     location = os.getcwd()
     print(location)
