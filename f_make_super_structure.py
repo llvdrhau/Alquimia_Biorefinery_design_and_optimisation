@@ -14,7 +14,7 @@ import pyomo.environ as pe
 import pyomo.opt as po
 import importlib
 import os
-from f_makeIntervalObjects import make_reactor_intervals, make_input_intervals
+from f_makeIntervalObjects import make_reactor_intervals, make_input_intervals, update_reactor_interval
 
 def make_super_structure(excelFile):
     superStructure = pe.ConcreteModel()
@@ -22,6 +22,7 @@ def make_super_structure(excelFile):
     objectsInputDict = make_input_intervals(excelFile)
     objectsReactorDict = make_reactor_intervals(excelFile)
     allObjects = objectsInputDict | objectsReactorDict
+    update_reactor_interval(allObjects, excelFile)
     """
     Declare all interval variables (capital letters) and component variables (small letters)
     loop over all objects 
@@ -45,9 +46,9 @@ def make_super_structure(excelFile):
         superStructure.InputConstraints = pe.ConstraintList()
         componentEquations = interval_to_call.componentEquations
         for eq in componentEquations:
-            eq = eq.replace(intervalName, "b.intervalVar['{}']".format(intervalName))
+            eq = eq.replace(intervalName, "superStructure.intervalVar['{}']".format(intervalName))
             for j in compositionVarNames:
-                eq = eq.replace(j,"b.variables['{}']".format(j))
+                eq = eq.replace(j,"superStructure.variables['{}']".format(j))
             # print(eq) # for debugging
             constraintExpresion = eval(eq)
             superStructure.InputConstraints.add = pe.Constraint(expr=constraintExpresion)
