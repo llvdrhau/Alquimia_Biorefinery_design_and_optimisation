@@ -12,6 +12,7 @@ import pyomo.opt as po
 excelFile = r'\data_propionibacteria.xlsx'
 check_excel_file(excelFile)
 superstructure = make_super_structure(excelFile= excelFile)
+
 #model = makeModelWithCompositions(r'\data_propionibacteria.xlsx', "library_propionate")
 #model.pprint()
 
