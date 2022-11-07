@@ -14,16 +14,18 @@ import pyomo.environ as pe
 import pyomo.opt as po
 import importlib
 import os
-from f_makeIntervalObjects import make_reactor_intervals, make_input_intervals, update_reactor_intervals
+from f_makeIntervalObjects import make_reactor_intervals, make_input_intervals, make_output_intervals, update_intervals, check_excel_file
 
 def make_super_structure(excelFile):
     superStructure = pe.ConcreteModel()
+    check_excel_file(excelName= excelFile)
 
     objectsInputDict = make_input_intervals(excelFile)
     objectsReactorDict = make_reactor_intervals(excelFile)
+    objectsOutputDict  = make_output_intervals(excelFile)
 
-    allObjects = objectsInputDict | objectsReactorDict
-    update_reactor_intervals(allObjects, excelFile)
+    allObjects = objectsInputDict | objectsReactorDict | objectsOutputDict
+    update_intervals(allObjects, excelFile)
 
     print(5)
     """

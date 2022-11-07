@@ -11,27 +11,35 @@ email: lucas.vanderhauwaert@usc.es
 # ============================================================================================================
 
 class InputIntervalClass:
-    def __init__(self, inputName, compositionDict, inputPrice, boundry, boolDict = None, split=None, separation=None):
-        if separation is None:
-            separation = []
+    def __init__(self, inputName, compositionDict, inputPrice, boundry, boolDict = None, split=None, separationDict=None):
+        if separationDict is None:
+            separationDict = {}
         if split is None:
             split = []
         if boolDict is None:
-            boolDict = []
+            boolDict = {}
 
-        # declare input name
-        self.inputName = inputName.upper()
+        # declare input interval name
         self.label = 'input'
-        addOn4Variables = inputName.lower() + '_'
+        self.inputName = inputName #.upper() # nah don't put in capitals
+        self.inputPrice = inputPrice
+        addOn4Variables = '_' + inputName.lower()
 
         # change the composition names in the dictionary
         compositionDictNew = {}
         initialCompositionNames = []
         for i in compositionDict:
-            compositionDictNew.update({addOn4Variables + i: compositionDict[i]})
+            compositionDictNew.update({i + addOn4Variables: compositionDict[i]})
             initialCompositionNames.append(i)
         self.initialCompositionNames = initialCompositionNames
         self.compositionDict = compositionDictNew
+
+        # error if you choose a wrong name
+        for i in initialCompositionNames:  # maybe don't place the warning here
+            if i in inputName:
+                raise Exception("the component {} is in interval name {}, change the component name of the reactor to "
+                                "avoid conflict with the equations")
+
 
         # make the component equations as string equations
         eqList = []
@@ -39,10 +47,8 @@ class InputIntervalClass:
             eq = "{} == {} * {}".format(component, self.compositionDict[component], self.inputName)
             eqList.append(eq)
         self.componentEquations = eqList
-        componentVariables =  list(compositionDictNew.keys()) # [self.inputName] not gona add this atm
-        self.allVariables = list(compositionDictNew.keys()) + [self.inputName]
-        self.inputPrice = inputPrice
 
+        componentVariables =  list(compositionDictNew.keys()) # [self.inputName] not gona add this atm
         # make boundary for all variables
         boundaryDict = {self.inputName:boundry} # intervals have bounds
         for i in componentVariables:
@@ -50,7 +56,7 @@ class InputIntervalClass:
         self.boundaries = boundaryDict
         self.boolDict = boolDict
         self.split = split
-        self.separation = separation
+        self.separationDict = separationDict
         #self.compositionNames = list(compositionDict.keys())
         self.leavingInterval = componentVariables
 
@@ -62,13 +68,14 @@ class InputIntervalClass:
             eqSumOfBools = [eqSumOfBoolsHelp]
         self.eqSumOfBools = eqSumOfBools
 
-    # # put all self.VARIABLES that pyomo needs to declare here
+    #  put all VARIABLES that pyomo needs to declare here
         self.componentVariables = componentVariables
         self.boolVariables = list(boolDict.values())
+
         self.allVariables = componentVariables + [self.inputName] + self.boolVariables
 
-    def rename_components(self):
-        pass
+    #  put all EQUATIONS that pyomo needs to declare here
+    # self.allEquations =
 
     def makeOldNewDict(self, oldNames, newNames):
         oldNewDict = {oldNames[i]: newNames[i] for i in range(len(oldNames))}  # make dictionary
@@ -85,11 +92,11 @@ class InputIntervalClass:
 
 class ReactorIntervalClass:
     def __init__(self, inputs, outputs, reactionEquations, nameDict, mix=None, utilities=None, boolActivation = None,
-                 boolDict=None, split=None, separation=None):
+                 boolDict=None, split=None, separationDict=None):
         if utilities is None:
             utilities = {}
-        if separation is None:
-            separation = {}
+        if separationDict is None:
+            separationDict = {}
         if split is None:
             split = []
         if boolDict is None:
@@ -107,13 +114,14 @@ class ReactorIntervalClass:
         # error if you choose a wrong name
         for i in self.initialCompositionNames: # maybe don't place the warning here
             if i in list(nameDict.keys())[0]:
-                raise Exception("the component {} is in interval name {}, change the component name of the reactor")
+                raise Exception("the component {} is in interval name {}, change the component name of the reactor to "
+                                "avoid conflict with the equations")
 
         self.mix = mix  # found by the Excel file (don't need to specify in this script)
         self.utilities = utilities # consists of a dictionary {nameUtilty: [bounds]}
         self.boolDict = boolDict  # is a tuple, 1) where the bool comes from and 2) the name of the bool affecting the outputs
         self.split = split  # TODO will probs be a dict
-        self.separation = separation  # dictionary defining separation fractions of each component
+        self.separationDict = separationDict  # dictionary defining separation fractions of each component
 
         # interval Variable name
         intervalVariable = list(self.nameDict.keys())[0]
@@ -172,27 +180,32 @@ class ReactorIntervalClass:
         self.eqSumOfBools = eqSumOfBools
 
         # separation equations
-        sperationEquations = []
-        for sep in separation: # if it is empty it should not loop nmrly
-            eqSep = sep + " == "
-            for componentSep in separation[sep]:
-                var = rctVarOutD[componentSep] # helpìng dictionary to get the right variable
-                eqSep += " + " + var + " * {} ".format(separation[sep][componentSep])
-            sperationEquations.append(eqSep)
-        self.sperationEquations = sperationEquations
+        separationEquations = []
+        separationVaribles = []
+        for sep in separationDict: # if it is empty it should not loop nmrly
+            for componentSep in separationDict[sep]:
+                var = rctVarOutD[componentSep]  # helpìng dictionary to get the right variable
+                sepVar  = componentSep + '_' + sep
+                eqSep = sepVar + " == {} * {} ".format(separationDict[sep][componentSep], var)
+                separationEquations.append(eqSep)
+                separationVaribles.append(sepVar)
 
-        # mixing equations
-        # see make_mixing_equations
+        self.seprationEquations = separationEquations
+        self.separationVaribles = separationVaribles
 
         # spliting equations
+        # TODO
+
+        # mixing equations
+        # see def make_mixing_equations()
 
         # define wat is leaving the reactor
-        # can either be from the reactor, the seperation process or the spliting
-        if not split and not separation:
+        # can either be from the reactor, the separation process or the spliting
+        if not split and not separationDict:
             self.leavingInterval = reactionVariablesOutput
-        elif split:
-            pass
-        elif separation:  # todo next!!
+        elif separationDict:
+            self.leavingInterval = separationVaribles
+        elif split:  # todo next!!
             pass
         # todo combination of split and serparation after a reaction, how to do that?
 
@@ -200,24 +213,40 @@ class ReactorIntervalClass:
         self.reactionVariablesOutput = reactionVariablesOutput
         # reactionVariablesInputs can be found in class function: update_reactor_equations
         self.intervalVariable = intervalVariable
-        self.activationVariable = boolActivation[0]
+        if boolActivation: # if it is present
+            self.activationVariable = boolActivation[0]
+        #make a list whith all of the variables
 
     def make_mix_equations(self, objects2mix):
         mixEquations = []
         initialInputNames = self.inputs
         intervalNames2Mix = objects2mix.keys()
+
+        # find the leaving variables
         leavingVars = []
         for objName in objects2mix:
-            obj = objects2mix[objName]
-            leavingVars += obj.leavingInterval
+            obj = objects2mix[objName][0] # first element in tuple is the object
+            connectInfo = objects2mix[objName][1] # first element in tuple is connection info
+
+            # if there is a separation process
+            if isinstance(connectInfo, str) and 'sep' in connectInfo:
+                allSepVars = obj.leavingInterval
+                for var in allSepVars:
+                    if connectInfo in var:
+                        leavingVars.append(var)
+            # otherwise just add the leaving variables
+            else:
+                leavingVars += obj.leavingInterval
+
+        # make the equations
         mixingVariables = []
         for i, ins in enumerate(initialInputNames):
             mixVar = ins + "_mix"
-            eqMix = mixVar + " =="
+            eqMix = mixVar + " == "
             startMixEq = eqMix
             for lvar in leavingVars:
                 if ins in lvar:
-                    eqMix += "+ " + lvar
+                    eqMix += " + " + lvar
             """
             For example in the case of pH this does not come from the previous reactor!! 
             so the variable can stay as it is and no extra equations needs to be added, hence if eqMix != startMixEq:  
@@ -284,13 +313,38 @@ class ReactorIntervalClass:
     #     #  could you define a stream dependent on a boolean var before in enters a unit reactor
 
 class OutputIntervalClass:
-    def __init__(self, outputName, outputPrice, Bool=None, split=None, separation=None):
-        if separation is None:
-            separation = []
-        if split is None:
-            split = []
-        if Bool is None:
-            Bool = []
+    def __init__(self, outputName, outputBound ,outputPrice, outputVariable, mixDict = None):
+        if mixDict is None:
+            mixDict = {}
+        self.label = 'output'
         self.outputName = outputName
         self.outputPrice = outputPrice
-        self.label = 'output'
+        self.outputBound = outputBound
+        self.outputVariable = outputVariable  # eg: acetate is output name but is refered to as ace in all the reactions
+    def make_end_equations(self, objects2mix):
+
+        # find the leaving variables of the object(s) that go into the output
+        leavingVars = []
+        for objName in objects2mix:
+            obj = objects2mix[objName][0] # first element in tuple is the object
+            connectInfo = objects2mix[objName][1] # first element in tuple is connection info
+
+            # if there is a separation process
+            if isinstance(connectInfo, str) and 'sep' in connectInfo:
+                allSepVars = obj.leavingInterval
+                for var in allSepVars:
+                    if connectInfo in var and self.outputVariable in var:
+                        leavingVars.append(var)
+            # otherwise just add the leaving variables
+            else:
+                leavingVars += obj.leavingInterval
+
+        # make the equations
+        endVar = self.outputName
+        eqEnd = endVar + " == "
+        #startMixEq = eqEnd
+        for i, lvar in enumerate(leavingVars):
+            eqEnd += " + " + lvar
+
+        self.endEquations = eqEnd
+        self.endVariables = endVar

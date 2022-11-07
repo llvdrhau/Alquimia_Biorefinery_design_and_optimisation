@@ -9,7 +9,7 @@ email: lucas.vanderhauwaert@usc.es
 import os
 import pandas as pd
 import numpy as np
-from classes_intervals import InputIntervalClass, ReactorIntervalClass #, OutputIntervalClass
+from classes_intervals import InputIntervalClass, ReactorIntervalClass, OutputIntervalClass
 
 # ============================================================================================================
 # Validate the Excel file sheets, checks and error messages
@@ -18,6 +18,7 @@ from classes_intervals import InputIntervalClass, ReactorIntervalClass #, Output
 List of possible errors 
 * make sure all separations are acounted for 
 * make sure all names of the intervals are the same in each excel sheet 
+* make sure the abbreviations of the output intervals are in the equations 
 write all error you encounter here 
 """
 def validate_seperation_coef(coef, intervalName, amountOfSep, connectionMatrix):
@@ -118,13 +119,6 @@ def get_connected_intervals(intervalName,conectionMatrix):
     connectionDict = {nameConnectedIntervals[i]:connectionInfo[i] for i in range(len(connectionInfo))}
     return  connectionDict
 
-# def get_replacement_dict(initialVars, newVars):
-#     replacementDict = {}
-#     for i in initialVars:
-#         for j in newVars:
-#             if i in j:  # the initial variable (of excel) is always in the new name, that's how you can find wat belongs to where
-#                 replacementDict.update({i:j})
-#     return replacementDict
 # ============================================================================================================
 # Functions to make the interval objects
 # ============================================================================================================
@@ -210,6 +204,7 @@ def make_reactor_intervals(excelName):
     reactorIntervals = DFreactors.reactor_name
     objectDictionary = {} # preallcoate a dictionary with the interval names and the interval objects
     for i, intervalName in enumerate(reactorIntervals):
+        intervalName = intervalName.replace(' ', '') # remove annoying spaces
         #inputs of reactor
         inputsReactor = DFreactors.inputs[i]
         inputsReactor = split_remove_spaces(inputsReactor,',')
@@ -220,12 +215,11 @@ def make_reactor_intervals(excelName):
         equations = DFreactors.equations[i]
         equations = split_remove_spaces(equations,',')
         # find the bounds of the interval
-        listIntervals = list(DFIntervals.process_intervals)
+        listIntervals = remove_spaces(list(DFIntervals.process_intervals))
         index = listIntervals.index(intervalName)
         lowerBound = DFIntervals.lower_bound[index]
         upperBound = DFIntervals.upper_bound[index]
         nameDict = {intervalName:[lowerBound,upperBound]}
-
 
 
         utilityDict = {}
@@ -267,8 +261,10 @@ def make_reactor_intervals(excelName):
             intervalsToMix = list(processInvervalNames[pos])
             specifications = list(reactorCol[pos])
             for k,specs in enumerate(specifications):
-                if 'mix' in specs:
-                    mixDict.update( {intervalsToMix[k]: specs} )
+                mixDict.update({intervalsToMix[k]: specs})
+
+                # if 'mix' in specs: # don't really need to specify if in it is mixed (very thing in a same colunm in mixed)
+                    # mixDict.update({intervalsToMix[k]: specs})
             #mixDict = {intervalsToMix[j]: specifications[j] for j in range(0, len(intervalsToMix))}
             #objectReactor.mix = mixDict
 
@@ -296,16 +292,68 @@ def make_reactor_intervals(excelName):
 
         # make initial interval object
         objectReactor = ReactorIntervalClass(inputs = inputsReactor, outputs = outputsReactor,  reactionEquations= equations, nameDict =nameDict,
-                             mix= mixDict, utilities=utilityDict, separation=seperationDict, boolActivation= boolVariable, boolDict= boolDict)
+                             mix= mixDict, utilities=utilityDict, separationDict=seperationDict, boolActivation= boolVariable, boolDict= boolDict)
         # put the object in the dictionary
         objectDictionary.update({intervalName:objectReactor})
     return objectDictionary
+
+def make_output_intervals(excelName):
+    # read Excel file
+    loc = os.getcwd()
+    posAlquimia = loc.find('Alquimia')
+    loc = loc[0:posAlquimia + 8]
+    loc = loc + r'\excel files' + excelName
+
+    #read excel info
+    DFIntervals = pd.read_excel(loc, sheet_name='Intervals')
+    #DFreactors = pd.read_excel(loc, sheet_name='Reactors')
+    DFconnectionMatrix = pd.read_excel(loc, sheet_name='ConnectionMatrix')
+
+    # find the output interval names
+    outputPrices = DFIntervals.output_price.to_numpy()
+    posOutputs = outputPrices != 0  # find where the output interval are (they have an output price)
+    intervalNames = DFIntervals.process_intervals[posOutputs]  # find names of the output interval variable
+
+    objectDictionary = {} # preallcoate a dictionary with the interval names and the interval objects
+    for i, intervalName in enumerate(intervalNames):
+        intervalName = intervalName.replace(' ','') # remove spaces
+
+        # find the bounds of the interval
+        listIntervals = remove_spaces(list(DFIntervals.process_intervals))
+        index = listIntervals.index(intervalName)
+        lowerBound = DFIntervals.lower_bound[index]
+        upperBound = DFIntervals.upper_bound[index]
+        outputBound = [lowerBound,upperBound] # is this really necesary?
+        outputPrice = outputPrices[index]
+
+        # find the variable name acossiated with the output
+        outputVariable = DFIntervals.components[index]
+        outputVariable = outputVariable.replace(' ','')
+
+        # check if it is mixed with other reactors
+        processInvervalNames = DFconnectionMatrix.process_intervals
+        reactorCol = DFconnectionMatrix[intervalName]
+        pos = reactorCol != 0 # find where mixing takes place # mixed streams are in the same colunm
+        mixDict = {} #preallcoation
+        if sum(pos) >= 2:
+            intervalsToMix = list(processInvervalNames[pos])
+            specifications = list(reactorCol[pos])
+            for k,specs in enumerate(specifications):
+                mixDict.update({intervalsToMix[k]: specs})
+
+        # make initial interval object
+        objectReactor = OutputIntervalClass(outputName = intervalName, outputBound = outputBound,
+                                            outputPrice = outputPrice, outputVariable= outputVariable, mixDict= mixDict)
+        # put the object in the dictionary
+        objectDictionary.update({intervalName:objectReactor})
+    return objectDictionary
+
 
 # ============================================================================================================
 # Functions to update the interval objects
 # ============================================================================================================
 
-def update_reactor_intervals(allIntervalObjectsDict,excelName):
+def update_intervals(allIntervalObjectsDict,excelName):
     loc = os.getcwd()
     posAlquimia = loc.find('Alquimia')
     loc = loc[0:posAlquimia + 8]
@@ -317,31 +365,51 @@ def update_reactor_intervals(allIntervalObjectsDict,excelName):
     for intervalName in allIntervalObjectsDict:
         intervalObject = allIntervalObjectsDict[intervalName]
         label = intervalObject.label
+        connectedIntervals = get_connected_intervals(intervalName=intervalName, conectionMatrix=connectionMatrix)
+
         if label == 'reactor':
-            connectedIntervals = get_connected_intervals(intervalName= intervalName,conectionMatrix=connectionMatrix)
+            # get the connection info if there is only one connecting interval
+            if len(connectedIntervals) == 1:
+                connectInfo = list(connectedIntervals.values())[0]
+            else:
+                connectInfo = []
 
             #update_reactor_equations: current interval connected by 1 interval
-            if len(connectedIntervals) == 1: # and list(connectedIntervals.values())[0] == 1: or in the case of a bool
+            if len(connectedIntervals) == 1 and connectInfo == 1:
                 previousIntervalName = list(connectedIntervals.keys())[0]
                 previousIntervalObject = allIntervalObjectsDict[previousIntervalName]
                 newReactorInputs4Interval = previousIntervalObject.leavingInterval
                 intervalObject.update_reactor_equations(newReactorInputs4Interval)
 
-            # update_reactor_equations: current interval connected by multiple intervals by MIXING
+            # connected by a separation stream
+            if isinstance(connectInfo,str) and 'sep' in connectInfo:
+                previousIntervalName = list(connectedIntervals.keys())[0]
+                previousIntervalObject = allIntervalObjectsDict[previousIntervalName]
+                allSepVars = previousIntervalObject.leavingInterval
+                newReactorInputs4Interval = []
+                for var in allSepVars:
+                    if connectInfo in var:
+                        newReactorInputs4Interval.append(var)
+                intervalObject.update_reactor_equations(newReactorInputs4Interval)
+
+            # update_reactor_equations: current interval is connected by multiple intervals by MIXING (including mixing separated streams)
             if len(connectedIntervals) > 1: # so here is mixing
-                objectDict2mix = {nameObjConect:allIntervalObjectsDict[nameObjConect] for nameObjConect in connectedIntervals}
+                objectDict2mix = {nameObjConect:(allIntervalObjectsDict[nameObjConect], connectedIntervals[nameObjConect]) for nameObjConect in connectedIntervals}
                 intervalObject.make_mix_equations(objectDict2mix)
                 newReactorInputs4Interval = intervalObject.mixingVariables
                 intervalObject.update_reactor_equations(newReactorInputs4Interval)
 
+            # update_reactor_equations: current interval is connected by a seperated stream
             # wat other
-            # in the case of separation !!!!!!
-            # if len(connectedIntervals) == 1 and list(connectedIntervals.values())[0] == 1:
-            # if len(connectedIntervals) == 1 and 'bool' in list(connectedIntervals.values())[0]:
-            #     update_reactor_equations(intervalObject,allIntervalObjectsDict,connectedIntervals)
+            # in the case of splitting !!!!!!
+
+        if label == 'output':
+            objectDict2mix = {nameObjConect: (allIntervalObjectsDict[nameObjConect], connectedIntervals[nameObjConect])
+                              for nameObjConect in connectedIntervals}
+            intervalObject.make_end_equations(objectDict2mix)
+            #newReactorInputs4Interval = intervalObject.mixingVariables
+            #intervalObject.update_reactor_equations(newReactorInputs4Interval)
 
 
-
-            # if no mixing seperation or split
 
 
