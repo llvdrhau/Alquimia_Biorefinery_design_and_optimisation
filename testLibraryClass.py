@@ -30,7 +30,7 @@ class makeReactor:
         # https://www.youtube.com/watch?v=rq8cL2XMM5M&ab_channel=CoreySchafer 
         pass 
    
-  # TODO could you define a stream dependant on a boolena var before in enters a unit reactor 
+
 # think of sizing example   
 ############################################################ Randy 
 

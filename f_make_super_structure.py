@@ -14,10 +14,10 @@ import pyomo.environ as pe
 import pyomo.opt as po
 import importlib
 import os
-from f_makeIntervalObjects import make_reactor_intervals, make_input_intervals, make_output_intervals, update_intervals, check_excel_file
+from f_makeIntervalObjects import make_reactor_intervals, make_input_intervals, make_output_intervals, update_intervals, check_excel_file, get_vars_eqs_bounds, make_pyomo_equations
 
 def make_super_structure(excelFile):
-    superStructure = pe.ConcreteModel()
+    model = pe.ConcreteModel()
     check_excel_file(excelName= excelFile)
 
     objectsInputDict = make_input_intervals(excelFile)
@@ -26,8 +26,16 @@ def make_super_structure(excelFile):
 
     allObjects = objectsInputDict | objectsReactorDict | objectsOutputDict
     update_intervals(allObjects, excelFile)
+    variables, equations, bounds = get_vars_eqs_bounds(allObjects)
 
+    # !!!
+    bounds['pH_mix_culture'] = (5,8) # TODO this needs to be fixed ASAP
+    # !!!
     print(5)
+
+
+    # make pyomo equations
+    pyomoEquations = make_pyomo_equations(variables= variables, equations= equations)
     """
     Declare all interval variables (capital letters) and component variables (small letters)
     loop over all objects 
@@ -36,6 +44,23 @@ def make_super_structure(excelFile):
     make the objective 
     RUN THE SOLVER 
     """
+    def boundsRule(model,i):
+        boudVar = bounds[i]
+        lowerBound = 0
+        upperBound = None
+        if isinstance(boudVar,list):
+            lowerBound = boudVar[0]
+            upperBound = boudVar[1]
+        elif isinstance(boudVar,str): # and 'bool' in boudVar or 'positiveReal'
+            lowerBound = 0
+            upperBound = None
+        return (lowerBound,upperBound)
+
+    model.input = pe.Var(variables, domain=pe.PositiveReals, bounds=boundsRule)
+
+
+
+
     # for i in objectsInputDict:
     #     try:
     #         interval_to_call = allObjects[i]
@@ -71,4 +96,4 @@ def make_super_structure(excelFile):
     ####################################################################################################################
     # model.pprint() # debug check
 
-    return superStructure
+    return model
