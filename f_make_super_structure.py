@@ -28,14 +28,7 @@ def make_super_structure(excelFile):
     update_intervals(allObjects, excelFile)
     variables, equations, bounds = get_vars_eqs_bounds(allObjects)
 
-    # !!!
-    bounds['pH_mix_culture'] = (5,8) # TODO this needs to be fixed ASAP
-    # !!!
-    print(5)
 
-
-    # make pyomo equations
-    pyomoEquations = make_pyomo_equations(variables= variables, equations= equations)
     """
     Declare all interval variables (capital letters) and component variables (small letters)
     loop over all objects 
@@ -56,10 +49,20 @@ def make_super_structure(excelFile):
             upperBound = None
         return (lowerBound,upperBound)
 
-    model.input = pe.Var(variables, domain=pe.PositiveReals, bounds=boundsRule)
+    model.var = pe.Var(variables['continuous'], domain=pe.PositiveReals, bounds=boundsRule)
+    model.boolVar = pe.Var(variables['boolean'], domain=pe.Boolean)
+    #model.fractionVar = pe.Var(variables['fractions'], domain=pe.PercentFraction)
 
 
+    # introduce the equations to pyomo
+    model.constraints = pe.ConstraintList()
+    for eq in equations:
+        print(eq)
+        expresion = eval(eq)
+        model.constraints.add(expresion)
 
+    model.pprint()
+    print(5)
 
     # for i in objectsInputDict:
     #     try:

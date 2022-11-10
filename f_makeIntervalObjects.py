@@ -182,6 +182,7 @@ def make_input_intervals(excelName):
         processInvervalNames = DFconnectionMatrix['process_intervals'].to_list()
         rowIndex = processInvervalNames.index(intervalName)
         intervalRow = DFconnectionMatrix.iloc[rowIndex].to_list() # looking at the row will show to which intervals the curretn section is connencted to
+        intervalRow.pop(0) # get rind of the intervall name
         # intervalRow = DFconnectionMatrix.loc[processInvervalNames == intervalName].to_dict()
         for j, info in enumerate(intervalRow):
             if isinstance(info,str) and 'bool' in info:
@@ -432,21 +433,31 @@ def update_intervals(allIntervalObjectsDict,excelName):
 
 
 def get_vars_eqs_bounds(objectDict):
-    variables = []
+    variables = {}
+    continuousVariables = []
+    booleanVariables = []
     equations = []
-    bounds = {}
+    boundsContinousVars = {}
     for objName in objectDict:
         obj = objectDict[objName]
         equations += obj.pyomoEquations
-        variables += obj.allVariables
-        bounds = bounds | obj.boundaries
+        continuousVariables += obj.allVariables['continuous']
+        booleanVariables += obj.allVariables['boolean']
+        # fractionVariables += obj.fractionVariables #TODO add fraction vars in class_intervals (when introducing splitting equations)
+        boundsContinousVars = boundsContinousVars | obj.boundaries
 
+    # remove double variables in the list of continuous variables
     # insert the list to the set
-    variables_set = set(variables)
+    variables_set = set(continuousVariables)
     # convert the set to the list
     unique_list_var = (list(variables_set))
 
-    return unique_list_var,equations, bounds
+    # dictionary to bundel  all the varibles
+    variables = {'continuous' : unique_list_var,
+                 'boolean' : booleanVariables}
+
+
+    return variables,equations, boundsContinousVars
 
 def make_pyomo_equations(variables,equations):
     pyomoEquations = []

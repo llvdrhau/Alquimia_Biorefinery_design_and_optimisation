@@ -76,14 +76,16 @@ class InputIntervalClass:
         self.eqSumOfBools = eqSumOfBools
 
         #  put all VARIABLES that pyomo needs to declare here
-        self.componentVariables = componentVariables
         boolVariables = list(boolDict.values())
-        self.boolVariables = boolVariables
+        continuousVariables = componentVariables + [self.inputName]
+        #fractionVariables = []
 
-        self.allVariables = componentVariables + [self.inputName] + self.boolVariables
+        self.allVariables = {'continuous' : continuousVariables,
+                             'boolean' : boolVariables }
+                                # fraction variables
 
         # make BOUNDRIES for all variables
-        boundaryDict = {self.inputName: boundryInputVar}  # intervals have bounds
+        boundaryDict = {self.inputName: boundryInputVar}  # interval variables have bounds
         for i in componentVariables:
             boundaryDict.update({i: 'positiveReals'})
         for i in boolVariables:
@@ -238,7 +240,8 @@ class ReactorIntervalClass:
         self.separationVariables = separationVariables
 
         # spliting equations
-        # TODO
+        # TODO, make splitting equations and add them to the list of equations to be read by pyomo
+        # Also going t ohave to make splitting variables which are fractions
 
         # mixing equations
         # see def make_mixing_equations()
@@ -281,16 +284,18 @@ class ReactorIntervalClass:
         for i in boolVariables:
             boundaryDict.update({i: 'bool'})
 
-        for i in boundryInputVar:
+        for i in boundryInputVar: # this is for when you want to add a specifice bound to a reaction variable SEE EXCEL
             boundaryDict[i] = boundryInputVar[i]
-
 
         self.boundaries = boundaryDict
 
         # make a list with all the variables
-        self.allVariables = self.reactionVariablesOutput + [self.intervalVariable] + self.separationVariables + self.boolVariables
+        continuousVariables = self.reactionVariablesOutput + [self.intervalVariable] + self.separationVariables
+        booleanVariables = self.boolVariables
                             # + self.activationVariable don't need to add this, already in the previous interval under boolVariables
-
+        self.allVariables = {'continuous': continuousVariables,
+                             'boolean': booleanVariables}
+                                # add fraction variables
 
         # make a list with all the equations
         self.allEquations = self.separationEquations + self.eqSumOfBools + self.boolActivationEquations + self.totalMassEquation
@@ -322,7 +327,8 @@ class ReactorIntervalClass:
         mixingVariables = []
         eqMixPyo2Add = []
         for i, ins in enumerate(initialInputNames):
-            mixVar = ins + "_mix"
+            intervalName = list(self.nameDict.keys())[0]
+            mixVar = ins + "_{}_mix".format(intervalName)
             eqMix = mixVar + " == "
             startMixEq = eqMix
             # pyomo version
@@ -344,7 +350,7 @@ class ReactorIntervalClass:
 
         self.mixEquations = mixEquations
         self.mixingVariables = mixingVariables
-        self.pyomoEquations += (eqMixPyo2Add)
+
 
         for i in mixingVariables:
             self.boundaries.update({i: (0, None)})
@@ -355,7 +361,8 @@ class ReactorIntervalClass:
 
         # add the variables and equations to the allVar/equations object
         self.allEquations += mixEquations
-        self.allVariables += mixingVariables
+        self.allVariables['continuous'] += mixingVariables
+        self.pyomoEquations += eqMixPyo2Add
 
     def update_reactor_equations(self, newInputs4Interval):
         initialInputs4Interval = self.inputs
@@ -379,7 +386,7 @@ class ReactorIntervalClass:
 
         # add the variables and equations to the allVar/equations object
         self.allEquations += allEquations
-        self.allVariables += self.reactionVariablesInputs
+        self.allVariables['continuous'] += self.reactionVariablesInputs
         self.pyomoEquations += allPyoEquations
 
         # add variables to boundry dictionary
@@ -390,7 +397,8 @@ class ReactorIntervalClass:
         replacementDict = {}
         for i in initialVars:
             if i == 'pH':  # TODO find a better way to do this: pH always stays pH_intervalName
-                replacementDict.update({i: 'pH_{}'.format(self.intervalVariable)})
+                reactorName = list(self.nameDict.keys())[0]
+                replacementDict.update({i: 'pH_{}'.format(reactorName)})
             for j in newVars:
                 if i in j:  # the initial variable (of excel) is always in the new name, that's how you can find wat belongs to where
                     replacementDict.update({i: j})
@@ -411,7 +419,8 @@ class OutputIntervalClass:
         else:
             self.outputBound = outputBound
         self.outputVariable = outputVariable  # eg: acetate is output name but is refered to as ace in all the reactions
-        self.allVariables = [outputName]
+        self.allVariables = {'continuous':[outputName],
+                             'boolean' : []} # there are no boolean variables for output intervals
         self.boundaries = {outputName:self.outputBound}
     def make_end_equations(self, objects2mix):
 
@@ -434,11 +443,11 @@ class OutputIntervalClass:
         # make the equations
         endVar = self.outputName
         eqEnd = endVar + " == "
-        pyomoEqEnd = "model.var[{}]".format(endVar) + " == "
+        pyomoEqEnd = "model.var['{}']".format(endVar) + " == "
         #startMixEq = eqEnd
         for i, lvar in enumerate(leavingVars):
             eqEnd += " + " + lvar
-            pyomoEqEnd += " + " + "model.var[{}]".format(lvar)
+            pyomoEqEnd += " + " + "model.var['{}']".format(lvar)
 
         self.endEquations = eqEnd
         self.allEquations = [eqEnd]
