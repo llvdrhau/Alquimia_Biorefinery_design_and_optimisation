@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Apr  4 10:43:34 2022
+Created on Mon 29 nov  10:43:34 2022
 
 Builds further upone the script makeModelWithClassObjects
 The goal is to make a superstructure where the streams have different
@@ -61,42 +61,6 @@ def make_super_structure(excelFile):
         expresion = eval(eq)
         model.constraints.add(expresion)
 
-    model.pprint()
-    print(5)
-
-    # for i in objectsInputDict:
-    #     try:
-    #         interval_to_call = allObjects[i]
-    #     except:  # create a warning if names in Excel don't match names in reator lib.
-    #         raise Exception('nope, reactor interval object {} cannot be found'.format(i))
-    #
-    #     # head varible constrained by bounds
-    #     intervalName = interval_to_call.inputName
-    #     superStructure.intervalVar = pe.Var(intervalName, bounds=interval_to_call.boundryInput)
-    #
-    #     # free float variables
-    #     compositionVarNames = interval_to_call.variables
-    #     superStructure.variables = pe.Var(compositionVarNames, domain=pe.PositiveReals)
-    #
-    #     # introduce equations
-    #     superStructure.InputConstraints = pe.ConstraintList()
-    #     componentEquations = interval_to_call.componentEquations
-    #     for eq in componentEquations:
-    #         eq = eq.replace(intervalName, "superStructure.intervalVar['{}']".format(intervalName))
-    #         for j in compositionVarNames:
-    #             eq = eq.replace(j,"superStructure.variables['{}']".format(j))
-    #         # print(eq) # for debugging
-    #         constraintExpresion = eval(eq)
-    #         superStructure.InputConstraints.add = pe.Constraint(expr=constraintExpresion)
-
-    # Declare input, reactor and output blocks to the model structure
-    ####################################################################################################################
-    #nameInputs = list(objectsInputDict.keys())
-    #superStructure.IntervalBlockInput = pe.Block(nameInputs, rule=input_block)
-    # superStructure.IntervalBlockReactors = pe.Block(reactorNames, rule=IntervalBlockReactor)
-    # superStructure.IntervalBlockOutput = pe.Block(nameOutputs, rule=IntervalBlockOutput)
-    # superStructure.objective = po.Objective(sense=po.maximize, expr=obj_expresion)
-    ####################################################################################################################
-    # model.pprint() # debug check
+    model.pprint() # debug check
 
     return model

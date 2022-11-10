@@ -431,7 +431,6 @@ def update_intervals(allIntervalObjectsDict,excelName):
 
     #return pyomoVariables ,pyomoEquations
 
-
 def get_vars_eqs_bounds(objectDict):
     variables = {}
     continuousVariables = []
