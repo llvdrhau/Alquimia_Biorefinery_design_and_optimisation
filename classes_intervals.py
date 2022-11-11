@@ -112,13 +112,11 @@ class InputIntervalClass:
 
 class ReactorIntervalClass:
     def __init__(self, inputs, outputs, reactionEquations, boundryInputVar ,nameDict, mix=None, utilities=None, boolActivation = None,
-                 boolDict=None, split=None, separationDict=None):
+                 boolDict=None, splitList = None, separationDict=None):
         if utilities is None:
             utilities = {}
         if separationDict is None:
             separationDict = {}
-        if split is None:
-            split = []
         if boolDict is None:
             boolDict = {}
         if mix is None:
@@ -131,8 +129,8 @@ class ReactorIntervalClass:
 
         self.label = 'reactor'
         self.nameDict = nameDict
-        self.inputs = inputs
-        self.outputs = outputs
+        self.inputs = inputs  # original unmodified names
+        self.outputs = outputs # original unmodified names
         self.initialCompositionNames = inputs + outputs
         # error if you choose a wrong name
         for i in self.initialCompositionNames: # maybe don't place the warning here
@@ -143,7 +141,7 @@ class ReactorIntervalClass:
         self.mix = mix  # found by the Excel file (don't need to specify in this script)
         self.utilities = utilities # consists of a dictionary {nameUtilty: [bounds]}
         self.boolDict = boolDict  # is a tuple, 1) where the bool comes from and 2) the name of the bool affecting the outputs
-        self.split = split  # TODO will probs be a dict
+        #self.split = split  # TODO will probs be a dict
         self.separationDict = separationDict  # dictionary defining separation fractions of each component
 
         # interval Variable name
@@ -240,21 +238,67 @@ class ReactorIntervalClass:
         self.separationVariables = separationVariables
 
         # spliting equations
-        # TODO, make splitting equations and add them to the list of equations to be read by pyomo
-        # Also going t ohave to make splitting variables which are fractions
+
+        if splitList:
+            if len(splitList) != 1 and len(splitList) != 2:
+                raise Exception('look at reactor row {} in the connection matrix, it looks like you are missing a split '
+                                'statement'.format(addOn4Variables))
+
+        splitFractionVariables = []
+        splitComponentVariables = []
+        splittingEquations = []
+
+        for splitStream in splitList:
+            splitFractionVar = 'split_fraction_{}'.format(splitStream)
+            splitFractionVariables.append(splitFractionVar)
+            for component in outputs:  # the self.outputs are the original names given to the outputs of the reactor
+
+                split1 = component + '_' + splitStream + '_' + 'split1'
+                split2 = component + '_' + splitStream + '_' +'split2'
+                splitComponentVariables.append(split1)
+                splitComponentVariables.append(split2)
+
+                component2split = component + '_' + splitStream
+                eqSplit1 =  '{} == {} * {}'.format(split1, splitFractionVar, component2split)
+                eqSplit2 = '{} == (1 - {}) * {}'.format(split2, splitFractionVar, component2split)
+                splittingEquations.append([eqSplit1, eqSplit2])
+
+                eqSplit1Pyo = "model.var['{}'] == model.FractionVar['{}'] * model.var['{}']".format(split1, splitFractionVar, component2split)
+                eqSplit2Pyo = "model.var['{}'] == (1 - model.FractionVar['{}']) * model.var['{}']".format(split1, splitFractionVar, component2split)
+                pyomoEq.append(eqSplit1Pyo)
+                pyomoEq.append(eqSplit2Pyo)
+
+
 
         # mixing equations
         # see def make_mixing_equations()
 
         # define wat is leaving the reactor
         # can either be from the reactor, the separation process or the spliting
-        if not split and not separationDict:
+        if not splitList and not separationDict:
             self.leavingInterval = reactionVariablesOutput
-        elif separationDict:
+        elif separationDict and not splitList:
             self.leavingInterval = separationVariables
-        elif split:  # todo next!!
-            pass
-        # todo combination of split and separation after a reaction, how to do that?
+        elif splitList and not separationDict:
+            self.leavingInterval = splitComponentVariables
+        elif splitList and separationDict:
+            VariablesGoingOutSep = separationVariables
+            toRemove = []
+            for i in splitList:
+                separationStream = ''
+                if 'sep' in i:
+                    indexSep = i.find('sep')
+                    separationStream = i[indexSep:indexSep + 4] # the separation stream that is going te get knocked out
+                for j in VariablesGoingOutSep:
+                    if separationStream in j:
+                        toRemove.append(j)
+
+            # remove unwanted variables
+            for i in toRemove:
+                VariablesGoingOutSep.remove(i)
+
+            self.leavingInterval = VariablesGoingOutSep + splitComponentVariables
+
 
         # put all self.VARIABLES that pyomo needs to declare here
         self.reactionVariablesOutput = reactionVariablesOutput
@@ -287,6 +331,12 @@ class ReactorIntervalClass:
         for i in boundryInputVar: # this is for when you want to add a specifice bound to a reaction variable SEE EXCEL
             boundaryDict[i] = boundryInputVar[i]
 
+        for i in splitComponentVariables:
+            boundaryDict.update({i: 'positiveReals'})
+
+        for i in splitFractionVariables:
+            boundaryDict.update({i: 'fraction'})
+
         self.boundaries = boundaryDict
 
         # make a list with all the variables
@@ -294,7 +344,8 @@ class ReactorIntervalClass:
         booleanVariables = self.boolVariables
                             # + self.activationVariable don't need to add this, already in the previous interval under boolVariables
         self.allVariables = {'continuous': continuousVariables,
-                             'boolean': booleanVariables}
+                             'boolean': booleanVariables,
+                             'fraction': splitFractionVariables}
                                 # add fraction variables
 
         # make a list with all the equations
@@ -328,7 +379,7 @@ class ReactorIntervalClass:
         eqMixPyo2Add = []
         for i, ins in enumerate(initialInputNames):
             intervalName = list(self.nameDict.keys())[0]
-            mixVar = ins + "_{}_mix".format(intervalName)
+            mixVar = "{}_{}_mix".format(ins,intervalName)
             eqMix = mixVar + " == "
             startMixEq = eqMix
             # pyomo version

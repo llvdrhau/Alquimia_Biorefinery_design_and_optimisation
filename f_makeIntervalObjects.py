@@ -19,7 +19,8 @@ List of possible errors
 * make sure all separations are acounted for 
 * make sure all names of the intervals are the same in each excel sheet 
 * make sure the abbreviations of the output intervals are in the equations 
-write all error you encounter here 
+Write all error you encounter here 
+Make sure only split, sep bool ands mix are the only words in the connection matrix 
 """
 def validate_seperation_coef(coef, intervalName, amountOfSep, connectionMatrix):
     coefList  = split_remove_spaces(coef, ';')
@@ -44,11 +45,15 @@ def validate_seperation_coef(coef, intervalName, amountOfSep, connectionMatrix):
     # check if all the seperation processes are accounted for in the connenction matrix
     rowId = list(connectionMatrix['process_intervals']).index(intervalName)
     rowMatrix = connectionMatrix.iloc[rowId].drop(['process_intervals'])
-    counter = 0
+    counterSeparation = 0
+    counterSplit = 0
     for i in rowMatrix:
         if 'sep' in str(i):
-            counter += 1
-    if counter != amountOfSep:
+            counterSeparation += 1
+        if 'split' in str(i):
+            counterSplit += 1
+
+    if counterSeparation - counterSplit/2 != amountOfSep:
         raise Exception("Check interval {} there is a separation process missing in the connection matrix".format(intervalName))
 def check_excel_file(excelName):
     loc = os.getcwd()
@@ -304,9 +309,26 @@ def make_reactor_intervals(excelName):
         if len(boolVariable) > 1:
             raise Exception("Currently the iterval bloks can only except a bool stream from one location, not multiple")
 
+        splitList = [] # find the reactor or separation stream to split
+        for j, info in enumerate(intervalRow):
+            if isinstance(info, str) and 'split' in info and 'sep' in info:
+                indexSep = info.find('sep')
+                separationStream = info[indexSep:indexSep + 4]
+                splitList.append('{}_{}'.format(intervalName,separationStream))
+
+            elif isinstance(info, str) and 'split' in info and not 'sep' in info:
+                splitList.append(intervalName)
+
+        # trick to get unique values
+        setSplits = set(splitList)
+        listSplits = list(setSplits)
+
+
         # make initial interval object
-        objectReactor = ReactorIntervalClass(inputs = inputsReactor, boundryInputVar = boundsComponent,outputs = outputsReactor,  reactionEquations= equations, nameDict =nameDict,
-                             mix= mixDict, utilities=utilityDict, separationDict=seperationDict, boolActivation= boolVariable, boolDict= boolDict)
+        objectReactor = ReactorIntervalClass(inputs = inputsReactor, boundryInputVar = boundsComponent,
+                                             outputs = outputsReactor,  reactionEquations= equations, nameDict =nameDict,
+                                             mix= mixDict, utilities=utilityDict, separationDict=seperationDict,
+                                             splitList= listSplits, boolActivation= boolVariable, boolDict= boolDict)
         # put the object in the dictionary
         objectDictionary.update({intervalName:objectReactor})
     return objectDictionary
@@ -362,7 +384,25 @@ def make_output_intervals(excelName):
         objectDictionary.update({intervalName:objectReactor})
     return objectDictionary
 
+def define_connect_info(connectInfo):
+    sepKey = ''
+    splitKey = ''
+    boolKey = ''
+    connectKey = False
+    if isinstance(connectInfo,int):
+        connectKey = True
+    else:
+        if 'sep' in connectInfo:
+            sepIndex = connectInfo.find('sep')
+            sepKey = connectInfo[sepIndex: sepIndex + 4]
+        if 'split' in connectInfo:
+            splitIndex = connectInfo.find('split')
+            splitKey = connectInfo[splitIndex: splitIndex + 6]
+        if 'bool' in connectInfo:
+            bIndex = connectInfo.find('split')
+            boolKey = connectInfo[bIndex: bIndex + 4]
 
+    return  connectKey, sepKey,splitKey, boolKey
 # ============================================================================================================
 # Functions to update the interval objects
 # ============================================================================================================
@@ -386,31 +426,54 @@ def update_intervals(allIntervalObjectsDict,excelName):
 
         if label == 'reactor':
             # get the connection info if there is only one connecting interval
+            simpleConcention = False
             if len(connectedIntervals) == 1:
                 connectInfo = list(connectedIntervals.values())[0]
-            else:
-                connectInfo = []
+                reactorKey ,sepKey, splitKey , boolKey = define_connect_info(connectInfo)
+                if reactorKey or boolKey and not sepKey or not splitKey:
+                    simpleConcention = True # just connecting from one reactor to the next with the connection possibly being a bool
 
-            #update_reactor_equations: current interval connected by 1 interval
-            if len(connectedIntervals) == 1: # and connectInfo == 1 or if it is 'bool' (does not matter)
-                previousIntervalName = list(connectedIntervals.keys())[0]
-                previousIntervalObject = allIntervalObjectsDict[previousIntervalName]
-                newReactorInputs4Interval = previousIntervalObject.leavingInterval
-                intervalObject.update_reactor_equations(newReactorInputs4Interval)
+                #update_reactor_equations: current interval connected by 1 interval
+                if simpleConcention: # and connectInfo == 1 or if it is 'bool' (does not matter)
+                    previousIntervalName = list(connectedIntervals.keys())[0]
+                    previousIntervalObject = allIntervalObjectsDict[previousIntervalName]
+                    newReactorInputs4Interval = previousIntervalObject.leavingInterval
+                    intervalObject.update_reactor_equations(newReactorInputs4Interval)
+
+                # connected by a separation stream and splits
+                if sepKey and splitKey:
+                    previousIntervalName = list(connectedIntervals.keys())[0]
+                    previousIntervalObject = allIntervalObjectsDict[previousIntervalName]
+                    allSepVars = previousIntervalObject.leavingInterval
+                    newReactorInputs4Interval = []
+                    for var in allSepVars:
+                        if sepKey in var and splitKey in var:
+                            newReactorInputs4Interval.append(var)
+                    intervalObject.update_reactor_equations(newReactorInputs4Interval)
+
+                elif sepKey and not splitKey:
+                    previousIntervalName = list(connectedIntervals.keys())[0]
+                    previousIntervalObject = allIntervalObjectsDict[previousIntervalName]
+                    allSepVars = previousIntervalObject.leavingInterval
+                    newReactorInputs4Interval = []
+                    for var in allSepVars:
+                        if sepKey in var:
+                            newReactorInputs4Interval.append(var)
+                    intervalObject.update_reactor_equations(newReactorInputs4Interval)
+
+                elif splitKey and not sepKey: # only splitting remains
+                    previousIntervalName = list(connectedIntervals.keys())[0]
+                    previousIntervalObject = allIntervalObjectsDict[previousIntervalName]
+                    allSepVars = previousIntervalObject.leavingInterval
+                    newReactorInputs4Interval = []
+                    for var in allSepVars:
+                        if splitKey in var:
+                            newReactorInputs4Interval.append(var)
+                    intervalObject.update_reactor_equations(newReactorInputs4Interval)
 
 
-            # connected by a separation stream
-            if isinstance(connectInfo,str) and 'sep' in connectInfo:
-                previousIntervalName = list(connectedIntervals.keys())[0]
-                previousIntervalObject = allIntervalObjectsDict[previousIntervalName]
-                allSepVars = previousIntervalObject.leavingInterval
-                newReactorInputs4Interval = []
-                for var in allSepVars:
-                    if connectInfo in var:
-                        newReactorInputs4Interval.append(var)
-                intervalObject.update_reactor_equations(newReactorInputs4Interval)
 
-
+            # TODO look at effects of splitting on mixing
             # update_reactor_equations: current interval is connected by multiple intervals by MIXING (including mixing separated streams)
             if len(connectedIntervals) > 1: # so here is mixing
                 objectDict2mix = {nameObjConect:(allIntervalObjectsDict[nameObjConect], connectedIntervals[nameObjConect]) for nameObjConect in connectedIntervals}

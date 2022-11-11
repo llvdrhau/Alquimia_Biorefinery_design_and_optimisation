@@ -9,8 +9,8 @@ import pyomo.environ as pe
 import pyomo.opt as po
 
 # todo 1) make correct surrogate for the model of alberte in grams of C
-excelFile = r'\data_propionibacteria.xlsx'
-#excelFile = r'\play.xlsx' #just for testing
+#excelFile = r'\data_propionibacteria.xlsx'
+excelFile = r'\play.xlsx' #just for testing
 check_excel_file(excelFile)
 superstructure = make_super_structure(excelFile= excelFile)
 
