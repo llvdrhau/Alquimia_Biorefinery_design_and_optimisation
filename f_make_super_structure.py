@@ -39,20 +39,21 @@ def make_super_structure(excelFile):
     """
     def boundsRule(model,i):
         boudVar = bounds[i]
-        lowerBound = 0
-        upperBound = None
+        lowerBound = 0 # default
+        upperBound = None # default
         if isinstance(boudVar,list):
             lowerBound = boudVar[0]
             upperBound = boudVar[1]
-        elif isinstance(boudVar,str): # and 'bool' in boudVar or 'positiveReal'
+        elif isinstance(boudVar,str): #  'bool' or 'positiveReal' in boudVar
             lowerBound = 0
             upperBound = None
         return (lowerBound,upperBound)
 
     model.var = pe.Var(variables['continuous'], domain=pe.PositiveReals, bounds=boundsRule)
-    model.boolVar = pe.Var(variables['boolean'], domain=pe.Boolean)
-    #model.fractionVar = pe.Var(variables['fractions'], domain=pe.PercentFraction)
-
+    if variables['boolean']:
+        model.boolVar = pe.Var(variables['boolean'], domain=pe.Boolean)
+    if variables['fraction']:
+        model.fractionVar = pe.Var(variables['fraction'], domain=pe.PercentFraction)
 
     # introduce the equations to pyomo
     model.constraints = pe.ConstraintList()

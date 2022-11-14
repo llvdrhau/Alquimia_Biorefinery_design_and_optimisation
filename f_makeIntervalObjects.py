@@ -9,6 +9,7 @@ email: lucas.vanderhauwaert@usc.es
 import os
 import pandas as pd
 import numpy as np
+from collections import OrderedDict
 from classes_intervals import InputIntervalClass, ReactorIntervalClass, OutputIntervalClass
 
 # ============================================================================================================
@@ -255,11 +256,10 @@ def make_reactor_intervals(excelName):
 
         seperationDict = {}
         if DFreactors.has_seperation[i] >= 2: #and DFreactors.has_seperation[i] < 2 :
-            nrSeperations = DFreactors.has_seperation[i]
             outputsStr = DFreactors.outputs[i]
             amountOfSeperations = DFreactors.has_seperation[i]
             coefStr = DFreactors.seperation_coef[i]
-            validate_seperation_coef(coefStr,intervalName,nrSeperations, DFconnectionMatrix)
+            validate_seperation_coef(coefStr,intervalName,amountOfSeperations, DFconnectionMatrix)
             coefList = split_remove_spaces(coefStr, ';')
             for j in range(amountOfSeperations):
                 seperationName = intervalName + '_sep{}'.format(j+1)
@@ -471,9 +471,6 @@ def update_intervals(allIntervalObjectsDict,excelName):
                             newReactorInputs4Interval.append(var)
                     intervalObject.update_reactor_equations(newReactorInputs4Interval)
 
-
-
-            # TODO look at effects of splitting on mixing
             # update_reactor_equations: current interval is connected by multiple intervals by MIXING (including mixing separated streams)
             if len(connectedIntervals) > 1: # so here is mixing
                 objectDict2mix = {nameObjConect:(allIntervalObjectsDict[nameObjConect], connectedIntervals[nameObjConect]) for nameObjConect in connectedIntervals}
@@ -498,6 +495,7 @@ def get_vars_eqs_bounds(objectDict):
     variables = {}
     continuousVariables = []
     booleanVariables = []
+    fractionVariables = []
     equations = []
     boundsContinousVars = {}
     for objName in objectDict:
@@ -505,18 +503,22 @@ def get_vars_eqs_bounds(objectDict):
         equations += obj.pyomoEquations
         continuousVariables += obj.allVariables['continuous']
         booleanVariables += obj.allVariables['boolean']
-        # fractionVariables += obj.fractionVariables #TODO add fraction vars in class_intervals (when introducing splitting equations)
+        fractionVariables += obj.allVariables['fraction']
         boundsContinousVars = boundsContinousVars | obj.boundaries
 
     # remove double variables in the list of continuous variables
-    # insert the list to the set
-    variables_set = set(continuousVariables)
-    # convert the set to the list
-    unique_list_var = (list(variables_set))
+
+    unique_list_var = list(OrderedDict.fromkeys(continuousVariables)) # preserves order (easier to group the equations per interval this way)
+
+    # # insert the list to the set
+    # variables_set = set(continuousVariables)
+    # # convert the set to the list
+    # unique_list_var = (list(variables_set))
 
     # dictionary to bundel  all the varibles
     variables = {'continuous' : unique_list_var,
-                 'boolean' : booleanVariables}
+                 'boolean' : booleanVariables,
+                 'fraction': fractionVariables}
 
 
     return variables,equations, boundsContinousVars

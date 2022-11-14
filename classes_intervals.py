@@ -9,7 +9,26 @@ email: lucas.vanderhauwaert@usc.es
 # ============================================================================================================
 # Input, reactor and output Classes
 # ============================================================================================================
+#from f_makeIntervalObjects import define_connect_info
+def define_connect_info(connectInfo):
+    sepKey = ''
+    splitKey = ''
+    boolKey = ''
+    connectKey = False
+    if isinstance(connectInfo,int):
+        connectKey = True
+    else:
+        if 'sep' in connectInfo:
+            sepIndex = connectInfo.find('sep')
+            sepKey = connectInfo[sepIndex: sepIndex + 4]
+        if 'split' in connectInfo:
+            splitIndex = connectInfo.find('split')
+            splitKey = connectInfo[splitIndex: splitIndex + 6]
+        if 'bool' in connectInfo:
+            bIndex = connectInfo.find('split')
+            boolKey = connectInfo[bIndex: bIndex + 4]
 
+    return  connectKey, sepKey,splitKey, boolKey
 class InputIntervalClass:
     def __init__(self, inputName, compositionDict, inputPrice, boundryInputVar ,boolDict = None,
                  split=None, separationDict=None):
@@ -81,7 +100,8 @@ class InputIntervalClass:
         #fractionVariables = []
 
         self.allVariables = {'continuous' : continuousVariables,
-                             'boolean' : boolVariables }
+                             'boolean' : boolVariables,
+                             'fraction': []}
                                 # fraction variables
 
         # make BOUNDRIES for all variables
@@ -225,13 +245,13 @@ class ReactorIntervalClass:
             for componentSep in separationDict[sep]:
                 var = rctVarOutD[componentSep]  # helpìng dictionary to get the right variable
                 sepVar  = componentSep + '_' + sep
-                eqSep = sepVar + " == {} * {} ".format(separationDict[sep][componentSep], var)
+                eqSep =  "{} == {} * {} ".format(sepVar,separationDict[sep][componentSep], var)
                 separationEquations.append(eqSep)
                 separationVariables.append(sepVar)
 
                 # pyomo version
                 sepVarPyo = "model.var['{}']".format(sepVar)
-                eqSepPyo = sepVarPyo + " == {} * model.var['{}']".format(separationDict[sep][componentSep], var)
+                eqSepPyo = "{} == {} * model.var['{}']".format(sepVarPyo,separationDict[sep][componentSep], var)
                 pyomoEq.append(eqSepPyo)
 
         self.separationEquations = separationEquations
@@ -263,8 +283,8 @@ class ReactorIntervalClass:
                 eqSplit2 = '{} == (1 - {}) * {}'.format(split2, splitFractionVar, component2split)
                 splittingEquations.append([eqSplit1, eqSplit2])
 
-                eqSplit1Pyo = "model.var['{}'] == model.FractionVar['{}'] * model.var['{}']".format(split1, splitFractionVar, component2split)
-                eqSplit2Pyo = "model.var['{}'] == (1 - model.FractionVar['{}']) * model.var['{}']".format(split1, splitFractionVar, component2split)
+                eqSplit1Pyo = "model.var['{}'] == model.fractionVar['{}'] * model.var['{}']".format(split1, splitFractionVar, component2split)
+                eqSplit2Pyo = "model.var['{}'] == (1 - model.fractionVar['{}']) * model.var['{}']".format(split2, splitFractionVar, component2split)
                 pyomoEq.append(eqSplit1Pyo)
                 pyomoEq.append(eqSplit2Pyo)
 
@@ -282,7 +302,7 @@ class ReactorIntervalClass:
         elif splitList and not separationDict:
             self.leavingInterval = splitComponentVariables
         elif splitList and separationDict:
-            VariablesGoingOutSep = separationVariables
+            VariablesGoingOutSep = separationVariables.copy()
             toRemove = []
             for i in splitList:
                 separationStream = ''
@@ -340,7 +360,7 @@ class ReactorIntervalClass:
         self.boundaries = boundaryDict
 
         # make a list with all the variables
-        continuousVariables = self.reactionVariablesOutput + [self.intervalVariable] + self.separationVariables
+        continuousVariables = [self.intervalVariable] + self.reactionVariablesOutput + separationVariables + splitComponentVariables # self.separationVariables
         booleanVariables = self.boolVariables
                             # + self.activationVariable don't need to add this, already in the previous interval under boolVariables
         self.allVariables = {'continuous': continuousVariables,
@@ -363,13 +383,23 @@ class ReactorIntervalClass:
         for objName in objects2mix:
             obj = objects2mix[objName][0] # first element in tuple is the object
             connectInfo = objects2mix[objName][1] # first element in tuple is connection info
+            reactorKey ,sepKey, splitKey , boolKey = define_connect_info(connectInfo)
 
             # if there is a separation process
-            if isinstance(connectInfo, str) and 'sep' in connectInfo:
+            if isinstance(connectInfo, str) and sepKey or splitKey:
                 allSepVars = obj.leavingInterval
                 for var in allSepVars:
-                    if connectInfo in var:
-                        leavingVars.append(var)
+                    if sepKey and splitKey:
+                        if sepKey in var and splitKey in var:
+                            leavingVars.append(var)
+
+                    if sepKey and not splitKey:
+                        if sepKey in var:
+                            leavingVars.append(var)
+
+                    if splitKey and not sepKey:
+                        if splitKey in var:
+                            leavingVars.append(var)
             # otherwise just add the leaving variables
             else:
                 leavingVars += obj.leavingInterval
@@ -471,7 +501,8 @@ class OutputIntervalClass:
             self.outputBound = outputBound
         self.outputVariable = outputVariable  # eg: acetate is output name but is refered to as ace in all the reactions
         self.allVariables = {'continuous':[outputName],
-                             'boolean' : []} # there are no boolean variables for output intervals
+                             'boolean' : [],  # there are no boolean variables for output intervals
+                             'fraction': []}  # there are no fraction variables for output intervals
         self.boundaries = {outputName:self.outputBound}
     def make_end_equations(self, objects2mix):
 
