@@ -15,7 +15,7 @@ import pyomo.opt as po
 #import warnings
 #import importlib
 import os
-from f_makeIntervalObjects import make_input_intervals, make_reactor_intervals
+from f_make_interval_objects import make_input_intervals, make_reactor_intervals
 
 def removeSpacesInSeries(seriesOfStr):
     newList = []

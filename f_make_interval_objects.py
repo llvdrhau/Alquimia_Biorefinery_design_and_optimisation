@@ -11,6 +11,8 @@ import pandas as pd
 import numpy as np
 from collections import OrderedDict
 from classes_intervals import InputIntervalClass, ReactorIntervalClass, OutputIntervalClass
+from f_make_str_equations import  make_str_eq_smbl
+from f_usefull_functions import *
 
 # ============================================================================================================
 # Validate the Excel file sheets, checks and error messages
@@ -22,7 +24,8 @@ List of possible errors
 * make sure the abbreviations of the output intervals are in the equations 
 Write all error you encounter here 
 Make sure only split, sep bool ands mix are the only words in the connection matrix 
-"""
+make sure all abbreviations have a definition in the abbreviations sheet otherwise error
+ """
 def validate_seperation_coef(coef, intervalName, amountOfSep, connectionMatrix):
     coefList  = split_remove_spaces(coef, ';')
     arraysOfCoef = []
@@ -56,6 +59,7 @@ def validate_seperation_coef(coef, intervalName, amountOfSep, connectionMatrix):
 
     if counterSeparation - counterSplit/2 != amountOfSep:
         raise Exception("Check interval {} there is a separation process missing in the connection matrix".format(intervalName))
+
 def check_excel_file(excelName):
     loc = os.getcwd()
     posAlquimia = loc.find('Alquimia')
@@ -87,52 +91,6 @@ def check_excel_file(excelName):
         raise Exception('The names in the connection matrix sheet or the interval sheet are not the same')
 
 # ============================================================================================================
-# Usefull functions
-# ============================================================================================================
-def split_remove_spaces(expr2split,splitCharacter):
-    expresions = expr2split.split(splitCharacter)
-    exprList = []
-    for i in expresions:
-        i = i.replace(' ', '')
-        exprList.append(i)
-    return exprList
-
-def stringbounds_2_tuplebounds(stringBound):
-    stringBound = stringBound.replace('[', '')
-    stringBound = stringBound.replace(']', '')
-    bounds = stringBound.split(',')
-    boundsList = []
-    for i in bounds:
-        boundsList.append(float(i))
-    return boundsList
-
-def load_objectes_from_dictionary(dict):
-    for i in dict:
-        locals()[i] = dict[i]
-
-def remove_spaces(listOfInterest):
-    exprList = []
-    for i in listOfInterest:
-        i = i.replace(' ','')
-        exprList.append(i)
-    return exprList
-
-def get_connected_intervals(intervalName,conectionMatrix):
-    conectionCol = conectionMatrix[intervalName]
-    posConnect = conectionCol != 0
-    nameConnectedIntervals = list(conectionMatrix['process_intervals'][posConnect])
-    connectionInfo = list(conectionMatrix[intervalName][posConnect])
-    connectionDict = {nameConnectedIntervals[i]:connectionInfo[i] for i in range(len(connectionInfo))}
-    return  connectionDict
-
-def str_2_dict(string,intervalname):
-    D = eval(string)
-    inputBoundsDict = {}
-    for i in D:
-        inputBoundsDict.update({i+'_'+intervalname : D[i]})
-    return inputBoundsDict
-
-# ============================================================================================================
 # Functions to make the interval objects
 # ============================================================================================================
 
@@ -143,8 +101,8 @@ def make_input_intervals(excelName):
     loc = loc[0:posAlquimia+8]
     loc = loc + r'\excel files' + excelName
 
-    DFIntervals = pd.read_excel(loc, sheet_name='Intervals')
-    DFconnectionMatrix = pd.read_excel(loc, sheet_name='ConnectionMatrix')
+    DFIntervals = pd.read_excel(loc, sheet_name='input_output_intervals')
+    DFconnectionMatrix = pd.read_excel(loc, sheet_name='connection_matrix')
     # inputs
     inputPrices = DFIntervals.input_price.to_numpy()
     posInputs = inputPrices != 0    #find where the input interval are (they have an input price)
@@ -211,11 +169,12 @@ def make_reactor_intervals(excelName):
     loc = loc + r'\excel files' + excelName
 
     #read excel info
-    DFIntervals = pd.read_excel(loc, sheet_name='Intervals')
-    DFreactors = pd.read_excel(loc, sheet_name='Reactors')
-    DFconnectionMatrix = pd.read_excel(loc, sheet_name='ConnectionMatrix')
+    #DFIntervals = pd.read_excel(loc, sheet_name='input_output_intervals')
+    DFconnectionMatrix = pd.read_excel(loc, sheet_name='connection_matrix')
+    DFreactors = pd.read_excel(loc, sheet_name='reactor_intervals')
+    DFsbml =  pd.read_excel(loc, sheet_name='sbml_models')
 
-    reactorIntervals = DFreactors.reactor_name
+    reactorIntervals = DFreactors.process_intervals
     objectDictionary = {} # preallcoate a dictionary with the interval names and the interval objects
     for i, intervalName in enumerate(reactorIntervals):
         intervalName = intervalName.replace(' ', '') # remove annoying spaces
@@ -225,15 +184,31 @@ def make_reactor_intervals(excelName):
         #outputs of the reactor
         outputsReactor = DFreactors.outputs[i]
         outputsReactor = split_remove_spaces(outputsReactor,',')
-        #find the equation of the reactor
-        equations = DFreactors.equations[i]
-        equations = split_remove_spaces(equations,',')
         # find the bounds of the interval
-        listIntervals = remove_spaces(list(DFIntervals.process_intervals))
-        index = listIntervals.index(intervalName)
-        lowerBound = DFIntervals.lower_bound[index]
-        upperBound = DFIntervals.upper_bound[index]
-        nameDict = {intervalName:[lowerBound,upperBound]}
+        boundsReactor = eval(DFreactors.interval_bounds[i])
+        nameDict = {intervalName:boundsReactor}
+
+        #find the equation of the reactor
+        if DFreactors.is_SBML[i]:
+            modelName = DFreactors.reaction_model[i]
+            nameList = list(DFsbml.model_name)
+            try:
+                indexModelName = nameList.index(modelName)
+            except:
+                raise Exception('make sure the name {} is identical in the sheet sbml_models and reactor_intervals'.format(modelName))
+
+            inputID = DFsbml.SBML_input_ID[indexModelName]
+            outputID = DFsbml.SBML_output_ID[indexModelName]
+            outputID = split_remove_spaces(outputID,',')
+            equationInfo =DFsbml.iloc[indexModelName]
+
+            equations = make_str_eq_smbl(modelName= modelName, substrate_exchange_rnx= inputID,
+                                         product_exchange_rnx=outputID, equationInfo= equationInfo)
+
+        else:
+            equations = DFreactors.reaction_model[i]
+            equations = split_remove_spaces(equations,',')
+
         # find special component bounds like that for pH
         boundsComponentStr = DFreactors.input_bounds[i]
         if not isinstance(boundsComponentStr,str):
@@ -245,22 +220,20 @@ def make_reactor_intervals(excelName):
         utilityDict = {}
         if DFreactors.has_utility[i] != 0 :
             utilityVariableNames = DFreactors.has_utility[i]
-            utilityVariableNames = split_remove_spaces(utilityVariableNames,';')
-            utilityBounds = DFreactors.utility_bounds[i]
-            utilityBounds = split_remove_spaces(utilityBounds,';')
-            for j, unitName in enumerate(utilityVariableNames):
-                unitBound = utilityBounds[j]
-                tupleUnitBounds = stringbounds_2_tuplebounds(unitBound)
-                utilityDict.update({unitName:tupleUnitBounds})
+            utilityVariableNames = split_remove_spaces(utilityVariableNames,',')
+            utilityPrice = DFreactors.utility_price[i]
+            utilityPrice = split_remove_spaces(utilityPrice,',')
+            for j, utilityName in enumerate(utilityVariableNames):
+                utilityDict.update({utilityName:utilityPrice[j]})
 
 
         seperationDict = {}
-        if DFreactors.has_seperation[i] >= 2: #and DFreactors.has_seperation[i] < 2 :
+        if DFreactors.seperation_coef[i] != 0: #and DFreactors.has_seperation[i] < 2 :
             outputsStr = DFreactors.outputs[i]
-            amountOfSeperations = DFreactors.has_seperation[i]
             coefStr = DFreactors.seperation_coef[i]
-            validate_seperation_coef(coefStr,intervalName,amountOfSeperations, DFconnectionMatrix)
             coefList = split_remove_spaces(coefStr, ';')
+            amountOfSeperations = len(coefList)
+            validate_seperation_coef(coefStr,intervalName,amountOfSeperations, DFconnectionMatrix)
             for j in range(amountOfSeperations):
                 seperationName = intervalName + '_sep{}'.format(j+1)
                 coefTuple = stringbounds_2_tuplebounds(coefList[j])
@@ -341,9 +314,8 @@ def make_output_intervals(excelName):
     loc = loc + r'\excel files' + excelName
 
     #read excel info
-    DFIntervals = pd.read_excel(loc, sheet_name='Intervals')
-    #DFreactors = pd.read_excel(loc, sheet_name='Reactors')
-    DFconnectionMatrix = pd.read_excel(loc, sheet_name='ConnectionMatrix')
+    DFIntervals = pd.read_excel(loc, sheet_name='input_output_intervals')
+    DFconnectionMatrix = pd.read_excel(loc, sheet_name='connection_matrix')
 
     # find the output interval names
     outputPrices = DFIntervals.output_price.to_numpy()
@@ -413,8 +385,8 @@ def update_intervals(allIntervalObjectsDict,excelName):
     loc = loc[0:posAlquimia + 8]
     loc = loc + r'\excel files' + excelName
     # read excel info
-    DFreactors = pd.read_excel(loc, sheet_name='Reactors')
-    connectionMatrix = pd.read_excel(loc, sheet_name='ConnectionMatrix')
+    DFreactors = pd.read_excel(loc, sheet_name='reactor_intervals')
+    connectionMatrix = pd.read_excel(loc, sheet_name='connection_matrix')
     #reactorIntervals = DFreactors.reactor_name
 
     pyomoEquations = []

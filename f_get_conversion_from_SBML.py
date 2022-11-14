@@ -23,10 +23,12 @@ def find_carbons_in_formula(formula):
                 continue
     return nrOfCarbons
 
-def get_conversion_sbml(modelLocations, substrate_exchange_rnx, product_exchange_rnx, objectiveReaction = None, pFBA = None):
+def get_conversion_sbml(modelLocations, substrate_exchange_rnx, product_exchange_rnx, objectiveReaction = None,
+                        pFBA = None, printEq = False):
     allYields_pFBA =[]
     allYields_FBA =[]
     objectiveBiomass = []
+    allEquations = []
     modelNames = []
     for i in modelLocations:
         model = cobra.io.read_sbml_model(i)
@@ -43,7 +45,7 @@ def get_conversion_sbml(modelLocations, substrate_exchange_rnx, product_exchange
         modelName = modelName.replace(".xml","")
         modelNames.append(modelName)
         # run pFBA
-        if pFBA: #Todo fix flux to grams c for pFBA
+        if pFBA: # Todo fix flux to grams c for pFBA
             pfba_solution = cobra.flux_analysis.pfba(model)
             substrate_flux = pfba_solution.fluxes[substrate_exchange_rnx]
             product_flux = pfba_solution.fluxes[product_exchange_rnx]
@@ -58,7 +60,7 @@ def get_conversion_sbml(modelLocations, substrate_exchange_rnx, product_exchange
             substrateFormula = substrateMet.formula
             Csub = find_carbons_in_formula(substrateFormula)
             strEqlist = []
-            print(modelName)
+
             for i in product_exchange_rnx:
                 productMet = model.reactions.get_by_id(i).reactants[0]
                 productName = productMet.name
@@ -69,18 +71,21 @@ def get_conversion_sbml(modelLocations, substrate_exchange_rnx, product_exchange
 
                 allYields_FBA.append(FBA_yield)
                 strEq = '{} == {} * {}'.format(productName,FBA_yield,substrateName)
-                print(strEq)
+                allEquations.append(strEq)
+                if printEq:
+                    print(modelName)
+                    print(strEq)
 
-    return allYields_FBA
+    return allEquations, allYields_FBA
 
+if __name__ == '__main__':
+    loc = os.getcwd()
+    loc_acidi = loc + r'\SBML models\PAC_4875_model.xml'
+    loc_acnes = loc + r'\SBML models\P_acnes_model.xml'
+    loc_prop = loc + r'\SBML models\P_propionicum_model.xml'
+    loc_avidum = loc + r'\SBML models\P_avidum_model.xml'
+    loc_sher = loc + r'\SBML models\P_sherm_model.xml'
+    microorganisms = [loc_acidi, loc_acnes, loc_prop, loc_avidum, loc_sher] # all microorganisms
 
-loc = os.getcwd()
-loc_acidi = loc + r'\SBML models\PAC_4875_model.xml'
-loc_acnes = loc + r'\SBML models\P_acnes_model.xml'
-loc_prop = loc + r'\SBML models\P_propionicum_model.xml'
-loc_avidum = loc + r'\SBML models\P_avidum_model.xml'
-loc_sher = loc + r'\SBML models\P_sherm_model.xml'
-microorganisms = [loc_acidi, loc_acnes, loc_prop, loc_avidum, loc_sher] # all microorganisms
-
-products = ['Ex_S_cpd00029_ext', 'Ex_S_cpd00141_ext'] # acetate and propionate
-aa = get_conversion_sbml(modelLocations= microorganisms,substrate_exchange_rnx= 'Ex_S_cpd00027_ext', product_exchange_rnx= products)
+    products = ['Ex_S_cpd00029_ext', 'Ex_S_cpd00141_ext'] # acetate and propionate
+    aa = get_conversion_sbml(modelLocations= microorganisms,substrate_exchange_rnx= 'Ex_S_cpd00027_ext', product_exchange_rnx= products, printEq= True)

@@ -2,16 +2,16 @@
 """
 @author: Lucas Van der Hauwaert lucas.vanderhauwaert@usc.es
 """
-from Model_Constructor import makeModelWithCompositions
-from f_makeIntervalObjects import check_excel_file
+#from Model_Constructor import makeModelWithCompositions
+#from f_make_interval_objects import check_excel_file
 from f_make_super_structure import make_super_structure
 import pyomo.environ as pe
 import pyomo.opt as po
 
 # todo 1) make correct surrogate for the model of alberte in grams of C
 #excelFile = r'\data_propionibacteria.xlsx'
-excelFile = r'\play.xlsx' #just for testing
-check_excel_file(excelFile)
+#excelFile = r'\play.xlsx' #just for testing
+excelFile = r'\propionate_production.xlsx'
 superstructure = make_super_structure(excelFile= excelFile)
 
 #model = makeModelWithCompositions(r'\data_propionibacteria.xlsx', "library_propionate")
