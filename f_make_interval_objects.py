@@ -66,26 +66,30 @@ def check_excel_file(excelName):
     loc = loc[0:posAlquimia+8]
     loc = loc + r'\excel files' + excelName
 
-    DFIntervals = pd.read_excel(loc, sheet_name='Intervals')
-    DFReactors =  pd.read_excel(loc, sheet_name='ConnectionMatrix')
-    DFConnectionMatrix = pd.read_excel(loc, sheet_name='ConnectionMatrix')
+    DFIntervals = pd.read_excel(loc, sheet_name='input_output_intervals')
+    DFReactors =  pd.read_excel(loc, sheet_name='reactor_intervals')
+    DFConnectionMatrix = pd.read_excel(loc, sheet_name='connection_matrix')
 
     # check interval names in the connection matrix and interval list
-    intervalNamesItervals = remove_spaces(DFIntervals['process_intervals'].to_list())
+    intervalNamesIn = remove_spaces(DFIntervals.process_intervals[DFIntervals.input_price != 0].to_list())
+    intervalNamesReactors = remove_spaces(DFReactors['process_intervals'].to_list())
+    intervalNamesOut = remove_spaces(DFIntervals.process_intervals[DFIntervals.output_price != 0].to_list())
+    intervalNames = intervalNamesIn + intervalNamesReactors + intervalNamesOut
+
     intervalNamesConnenctionMatrixRow = remove_spaces(list(DFConnectionMatrix.columns))
     intervalNamesConnenctionMatrixRow.remove('process_intervals')
     intervalNamesConnenctionMatrixCol = remove_spaces(DFConnectionMatrix['process_intervals'].to_list())
 
     # check length
-    if len(intervalNamesConnenctionMatrixCol) == len(intervalNamesConnenctionMatrixRow) == len(intervalNamesItervals):
+    if len(intervalNamesConnenctionMatrixCol) == len(intervalNamesConnenctionMatrixRow) == len(intervalNames):
         pass
     else:
         raise Exception('Interval name is missing in the connection matrix sheet or the interval sheet')
     # check names
-    if intervalNamesItervals == intervalNamesConnenctionMatrixRow == intervalNamesConnenctionMatrixCol:
+    if intervalNames == intervalNamesConnenctionMatrixRow == intervalNamesConnenctionMatrixCol:
         pass
     else:
-        positonError = [errorList for i, errorList in enumerate(intervalNamesItervals) if not intervalNamesItervals[i]
+        positonError = [errorList for i, errorList in enumerate(intervalNames) if not intervalNames[i]
                                     == intervalNamesConnenctionMatrixRow[i] == intervalNamesConnenctionMatrixCol[i]]
         print(positonError)
         raise Exception('The names in the connection matrix sheet or the interval sheet are not the same')

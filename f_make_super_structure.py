@@ -18,7 +18,7 @@ from f_make_interval_objects import make_reactor_intervals, make_input_intervals
 
 def make_super_structure(excelFile):
     model = pe.ConcreteModel()
-    # check_excel_file(excelName= excelFile)
+    check_excel_file(excelName= excelFile)
 
     objectsInputDict = make_input_intervals(excelFile)
     objectsReactorDict = make_reactor_intervals(excelFile)

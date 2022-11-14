@@ -3,7 +3,7 @@
 @author: Lucas Van der Hauwaert lucas.vanderhauwaert@usc.es
 """
 #from Model_Constructor import makeModelWithCompositions
-#from f_make_interval_objects import check_excel_file
+from f_make_interval_objects import check_excel_file
 from f_make_super_structure import make_super_structure
 import pyomo.environ as pe
 import pyomo.opt as po
