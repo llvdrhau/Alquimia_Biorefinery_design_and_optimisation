@@ -7,24 +7,66 @@ This is a temporary script file.
 import pyomo.environ as pyo
 import pyomo.opt as po
 
-sc = 3
+scr = 2
 
 model = pyo.ConcreteModel()
+# variables
+
 # input
-model.glu = pyo.Var(bounds=(0, 15))
+model.glu = pyo.Var(bounds=(0, 100))
 # output
-model.prop = pyo.Var()
-model.prop2 = pyo.Var()
+model.prop_R1 = pyo.Var()
+model.ace_R1 = pyo.Var()
+model.prop_R2 = pyo.Var()
+model.ace_R2 = pyo.Var()
+model.fuel = pyo.Var()
+# reactor (or the sum of the outputs)
+model.R1 = pyo.Var()
+model.R2 = pyo.Var()
+model.R3 = pyo.Var()
 # boolean vars
 model.y1 = pyo.Var(domain=pyo.Boolean)
 model.y2 = pyo.Var(domain=pyo.Boolean)
 
+# constraints
 model.ConstraintsR = pyo.ConstraintList()
-model.ConstraintsR.add(expr=model.prop == 0.5 * model.glu * model.y1)
-model.ConstraintsR.add(expr=model.prop2 == 0.25 * model.glu * model.y2)
-model.ConstraintsR.add(expr=model.y1 + model.y2 == 1)
+# outputs
+model.ConstraintsR.add(expr=model.prop_R1 <= 0.5 * model.glu)
+model.ConstraintsR.add(expr=model.ace_R1 <= 0.2 * model.glu)
 
-objective = model.prop + model.prop2  # * 2 + model.p2 * 3
+model.ConstraintsR.add(expr=model.fuel <= 0.4 * model.prop_R1 + 0.1* model.ace_R1 )
+
+model.ConstraintsR.add(expr=model.prop_R2 <= 0.25 * model.glu)
+model.ConstraintsR.add(expr=model.ace_R2 <= 0.4 * model.glu)
+
+
+
+if scr == 1:
+    model.ConstraintsR.add(expr= model.R1 == (model.prop_R1 + model.ace_R1) * model.y1)
+    model.ConstraintsR.add(expr= model.R2 == (model.prop_R2 + model.ace_R2) * model.y2)
+    model.ConstraintsR.add(expr=model.R3 == model.fuel)
+    model.ConstraintsR.add(expr=model.y1 + model.y2 == 1)
+
+elif scr == 2:
+    model.ConstraintsR.add(expr= model.R1 == (model.prop_R1 + model.ace_R1))
+    model.ConstraintsR.add(expr= model.R2 == (model.prop_R2 + model.ace_R2))
+    model.ConstraintsR.add(expr=model.R3 == model.fuel)
+
+    model.ConstraintsR.add(expr=model.y1 + model.y2 == 1)
+
+    model.ConstraintsR.add(expr= model.prop_R1 <= 1000 * model.y1)
+    model.ConstraintsR.add(expr=model.ace_R1 <= 1000 * model.y1)
+    #model.ConstraintsR.add(expr= model.y1 * 0 <= model.R1)
+
+    model.ConstraintsR.add(expr= model.prop_R2 <= 1000 * model.y2)
+    model.ConstraintsR.add(expr=model.ace_R2 <= 1000 * model.y2)
+    #model.ConstraintsR.add(expr= model.y2 * 0 <= model.R2)
+
+
+
+
+objective =  + model.R3 * 0.5 + model.R2 * 3 - model.glu * 0.5
+#objective =   model.R1 * 0.7 + model.R2 * 0.5
 model.obj = pyo.Objective(sense=pyo.maximize, expr=objective)
 
 solvername = 'gams'

@@ -130,6 +130,7 @@ class InputIntervalClass:
             old_key = oldKeys[i]
             self.compositionDict[new_key] = self.compositionDict.pop(old_key)
 
+# TODO change activation constraints see notes marker
 class ReactorIntervalClass:
     def __init__(self, inputs, outputs, reactionEquations, boundryInputVar ,nameDict, mix=None, utilities=None, boolActivation = None,
                  boolDict=None, splitList = None, separationDict=None):
@@ -258,7 +259,6 @@ class ReactorIntervalClass:
         self.separationVariables = separationVariables
 
         # spliting equations
-
         if splitList:
             if len(splitList) != 1 and len(splitList) != 2:
                 raise Exception('look at reactor row {} in the connection matrix, it looks like you are missing a split '
@@ -350,6 +350,7 @@ class ReactorIntervalClass:
 
         for i in boundryInputVar: # this is for when you want to add a specifice bound to a reaction variable SEE EXCEL
             boundaryDict[i] = boundryInputVar[i]
+        self.boundryInputVar = boundryInputVar
 
         for i in splitComponentVariables:
             boundaryDict.update({i: 'positiveReals'})
@@ -472,7 +473,12 @@ class ReactorIntervalClass:
 
         # add variables to boundry dictionary
         for i in reactionVariablesInputs:
-            self.boundaries.update({i: (0, None)})
+                self.boundaries.update({i: (0, None)})
+
+        # replace the variables which have spcifice bounds e.g pH variables
+        boundryInputVar = self.boundryInputVar
+        for i in boundryInputVar: # this is for when you want to add a specifice bound to a reaction variable SEE EXCEL
+            self.boundaries[i] = boundryInputVar[i]
 
     def get_replacement_dict(self,initialVars, newVars):
         replacementDict = {}

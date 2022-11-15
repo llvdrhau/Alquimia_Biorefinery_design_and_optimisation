@@ -1,7 +1,7 @@
 import cobra.io
 import os
 import re
-import numpy as np
+
 
 def find_carbons_in_formula(formula):
     metFormula = formula
@@ -70,7 +70,7 @@ def get_conversion_sbml(modelLocations, substrate_exchange_rnx, product_exchange
                 FBA_yield = abs((FBA_product_flux/FBA_substrate_flux) * (Cprod *12) /(Csub* 12)) # in gramsC / grams C: 12 gCarbon/mol
 
                 allYields_FBA.append(FBA_yield)
-                strEq = '{} == {} * {}'.format(productName,FBA_yield,substrateName)
+                strEq = '{} <= {} * {}'.format(productName,FBA_yield,substrateName)
                 allEquations.append(strEq)
                 if printEq:
                     print(modelName)

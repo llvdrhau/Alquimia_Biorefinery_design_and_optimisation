@@ -3,10 +3,18 @@
 # ============================================================================================================
 def split_remove_spaces(expr2split,splitCharacter):
     exprList = []
-    if not isinstance(expr2split, str): # so a float or int just one number
+    if not isinstance(expr2split, str) and not isinstance(expr2split,list): # so a float or int just one number
         return [float(expr2split)]   # if mulptiple prices for utilty you're gona have to change str to floats
 
-    else:
+    elif isinstance(expr2split,list):
+        for exp in expr2split:
+            expresions = exp.split(splitCharacter)
+            for i in expresions:
+                i = i.replace(' ', '')  # remove annoying spaces
+                exprList.append(i)
+        return exprList
+
+    elif isinstance(expr2split, str):
         expresions = expr2split.split(splitCharacter)
         for i in expresions:
             i = i.replace(' ', '') # remove annoying spaces

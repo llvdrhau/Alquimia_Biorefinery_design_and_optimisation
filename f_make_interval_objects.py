@@ -69,6 +69,7 @@ def check_excel_file(excelName):
     DFIntervals = pd.read_excel(loc, sheet_name='input_output_intervals')
     DFReactors =  pd.read_excel(loc, sheet_name='reactor_intervals')
     DFConnectionMatrix = pd.read_excel(loc, sheet_name='connection_matrix')
+    DFAbbr = pd.read_excel(loc, sheet_name='abbr')
 
     # check interval names in the connection matrix and interval list
     intervalNamesIn = remove_spaces(DFIntervals.process_intervals[DFIntervals.input_price != 0].to_list())
@@ -94,6 +95,20 @@ def check_excel_file(excelName):
         print(positonError)
         raise Exception('The names in the connection matrix sheet or the interval sheet are not the same')
 
+    # check if all abbreviations are defined
+    abbreviations = split_remove_spaces(list(DFReactors.inputs),',') \
+                  + split_remove_spaces(list(DFReactors.outputs),',') \
+                  + split_remove_spaces(list(DFIntervals.components),',')
+
+    #uniqueListAbr = list(OrderedDict.fromkeys(abbreviations))
+    abbrSet = set(abbreviations)
+    abbrExcel = set(split_remove_spaces(list(DFAbbr.abbreviation),','))
+
+    missingAbbr = abbrSet - abbrExcel
+    if  missingAbbr:
+        raise Exception('You are missing a definition for the following abbreviations: {}'.format(missingAbbr) )
+    else:
+        pass
 # ============================================================================================================
 # Functions to make the interval objects
 # ============================================================================================================

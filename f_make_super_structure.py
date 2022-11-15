@@ -62,6 +62,42 @@ def make_super_structure(excelFile):
         expresion = eval(eq)
         model.constraints.add(expresion)
 
+
+    # define the objective
+
+    # inputs
+    perchaseExpresion = ''
+    for nameObj in objectsInputDict:
+        inObj = objectsInputDict[nameObj]
+        inputPrice = inObj.inputPrice
+        inputVar = inObj.inputName
+        if not inputPrice:
+            raise Exception('Hey you forgot to give a price for the input interval {}'.format(inputVar))
+        else:
+            perchaseExpresion += "model.var['{}'] * {} + ".format(inputVar,inputPrice)
+
+    posPlus = perchaseExpresion.rfind('+')
+    perchaseExpresion = perchaseExpresion[0:posPlus]
+    perchaseExpresion = '(' +  perchaseExpresion + ')'
+
+    # outputs
+    sellExpresion = ''
+    for nameObj in objectsOutputDict:
+        outObj = objectsOutputDict[nameObj]
+        outputPrice = outObj.outputPrice
+        outVar = outObj.outputName
+        if not outputPrice:
+            raise Exception('Hey you forgot to give a price for the output interval {}'.format(outVar))
+        else:
+            sellExpresion += "model.var['{}'] * {} + ".format(outVar, outputPrice)
+
+    posPlus = sellExpresion.rfind('+')
+    sellExpresion = sellExpresion[0:posPlus]
+    sellExpresion = '(' + sellExpresion + ')'
+
+    objectiveExpr = sellExpresion + ' - ' + perchaseExpresion
+    print(objectiveExpr)
+    model.profit = pe.Objective(expr = eval(objectiveExpr), sense= pe.maximize)
     model.pprint() # debug check
 
     return model
