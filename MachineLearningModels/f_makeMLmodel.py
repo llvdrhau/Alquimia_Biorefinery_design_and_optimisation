@@ -10,7 +10,7 @@ import pickle
 
 # info at https://scikit-learn.org/stable/modules/linear_model.html#elastic-net
 # https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNetCV.html#sklearn.linear_model.ElasticNetCV
-def makeElasticNetModel (ExcelName, iterations = 1000, modelName = '', plotSwitch = 0):
+def makeElasticNetModel (ExcelName, iterations = 1000, modelName = '', plotSwitch = 0, case = 'ridge'):
     X = pd.read_excel(ExcelName,sheet_name='inputs')
     inputnames = X.keys()
     y = pd.read_excel(ExcelName,sheet_name='outputs')
@@ -27,9 +27,16 @@ def makeElasticNetModel (ExcelName, iterations = 1000, modelName = '', plotSwitc
 
         ######## find correct hyper parameters: alfa (regularisation parameter)
         # and l1_ratio => how is the alfa parameter devided over the L1 and L2 norm
-        ratios = np.arange(0, 1.1, 0.1)
+        if case == 'elastic':
+            ratios = np.arange(0, 1.1, 0.1)
+            # ratios = [0, .1, .5, .7, .9, .95, .99, 1]
+        elif case == 'lasso':
+            ratios = 1
+        else: # if case is ridge regression
+            ratios = 0
+
         alphas = [1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 0.0, 1.0, 10.0, 100.0]
-        #ratios = [0, .1, .5, .7, .9, .95, .99, 1]
+        alphas = [1e-1, 0.0, 1.0, 10.0, 100.0]
         model = ElasticNetCV(l1_ratio=ratios, alphas=alphas, normalize = True , max_iter = iterations,n_jobs=-1)
 
         # fit model
@@ -72,7 +79,8 @@ def makeElasticNetModel (ExcelName, iterations = 1000, modelName = '', plotSwitc
 
 
 if __name__ == '__main__':
-    output = makeElasticNetModel('GelatineData_elastic_net.xlsx', modelName= 'SAVE TEST')
+    #output = makeElasticNetModel('GelatineData_elastic_net.xlsx') #, modelName= 'SAVE TEST')
+    output = makeElasticNetModel('Gelatine_Glucose_Data.xlsx')
     # print equations
     eq = output[0]
     for i in eq:

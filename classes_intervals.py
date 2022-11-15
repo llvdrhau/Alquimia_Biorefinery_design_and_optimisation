@@ -189,9 +189,18 @@ class ReactorIntervalClass:
                 newOutputNamePyo = "model.var['{}']".format(newOutputName)
                 eqPyo = eqPyo.replace(out, newOutputNamePyo)
 
+
                 if newOutputName not in reactionVariablesOutput:
                     reactionVariablesOutput.append(newOutputName)
                     rctVarOutD.update({out:newOutputName}) # helpìng dictionary for the serparation equations
+
+            if boolActivation:
+                eq = eq.replace('==', '== (')
+                eq = eq + ') * ' + boolActivation[0]
+
+                eqPyo = eqPyo.replace('==', '== (')
+                eqPyo = eqPyo + ') * ' + "model.boolVar['{}']".format(boolActivation[0])
+
             allReactorEquations.append(eq)
             allReactorEquationsPyomo.append(eqPyo)
 
@@ -208,19 +217,20 @@ class ReactorIntervalClass:
         pyomoEq.append(eqPyoMass)
 
         # bool activation constraints
+        # has been disactivated. bool variables are now in the reaction equations (solver is more efficient that way)
         boolActivationEquations = []
-        if boolActivation: # if there is an activation constraint
-            bounds = nameDict[originalIntervalName]
-            lowerActivationEq = "{} * {} <= {}".format(boolActivation[0],bounds[0],intervalVariable)
-            upperActivationEq = "{} <= {} * {}".format(intervalVariable,boolActivation[0], bounds[1])
-            boolActivationEquations.append(lowerActivationEq)
-            boolActivationEquations.append(upperActivationEq)
-
-            # pyomo version
-            lowerActivationEqPyo = "model.boolVar['{}'] * {} <= model.var['{}']".format(boolActivation[0], bounds[0], intervalVariable)
-            upperActivationEqPyo = "model.var['{}'] <= model.boolVar['{}'] * {}".format(intervalVariable, boolActivation[0], bounds[1])
-            pyomoEq.append(lowerActivationEqPyo)
-            pyomoEq.append(upperActivationEqPyo)
+        # if boolActivation: # if there is an activation constraint
+        #     bounds = nameDict[originalIntervalName]
+        #     lowerActivationEq = "{} * {} <= {}".format(boolActivation[0],bounds[0],intervalVariable)
+        #     upperActivationEq = "{} <= {} * {}".format(intervalVariable,boolActivation[0], bounds[1])
+        #     boolActivationEquations.append(lowerActivationEq)
+        #     boolActivationEquations.append(upperActivationEq)
+        #
+        #     # pyomo version
+        #     lowerActivationEqPyo = "model.boolVar['{}'] * {} <= model.var['{}']".format(boolActivation[0], bounds[0], intervalVariable)
+        #     upperActivationEqPyo = "model.var['{}'] <= model.boolVar['{}'] * {}".format(intervalVariable, boolActivation[0], bounds[1])
+        #     pyomoEq.append(lowerActivationEqPyo)
+        #     pyomoEq.append(upperActivationEqPyo)
 
         self.boolActivationEquations =  boolActivationEquations
 
