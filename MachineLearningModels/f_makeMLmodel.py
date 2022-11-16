@@ -133,9 +133,9 @@ def ridge_regression(ExcelName, showPLot = True, save = False, saveName = 'data.
         # subplot to evaluate goodness of fit
         ax = plt.subplot(rows, cols, i + 1)
         ax.plot(y_test, y_pred_en, 'k*')
-        xlims = list(ax.get_xlim())
-        ylims = list(ax.get_ylim())
-        ax.plot(xlims, ylims, 'r')
+        # xlims = list(ax.get_xlim())
+        # ylims = list(ax.get_ylim())
+        ax.plot([-2, 2], [-2, 2], 'r')
         ax.set_title(outName)
         ax.set_xlabel("real")
         ax.set_ylabel("predicted")

@@ -6,7 +6,7 @@ from f_makeMLmodel import make_elasticNet_model, ridge_regression
 
 # open fermentation only using glucose
 excelFile =  'Glucose_open_fermentation.xlsx'
-model = ridge_regression(excelFile, save=True,saveName='Glucose_open_fermentation.json' ,showPLot= False)
+model = ridge_regression(excelFile, save=True, saveName='Glucose_open_fermentation.json', showPLot= False)
 # output = makeElasticNetModel(excelFile)
 
 ##################################################################################################
