@@ -11,8 +11,9 @@ import pandas as pd
 import numpy as np
 from collections import OrderedDict
 from classes_intervals import InputIntervalClass, ReactorIntervalClass, OutputIntervalClass
-from f_make_str_equations import  make_str_eq_smbl
+from f_make_str_equations import  make_str_eq_smbl, make_str_eq_json
 from f_usefull_functions import *
+import json
 
 # ============================================================================================================
 # Validate the Excel file sheets, checks and error messages
@@ -184,14 +185,14 @@ def make_reactor_intervals(excelName):
     # read Excel file
     loc = os.getcwd()
     posAlquimia = loc.find('Alquimia')
-    loc = loc[0:posAlquimia + 8]
-    loc = loc + r'\excel files' + excelName
+    locAlquimia = loc[0:posAlquimia + 8]
+    loc = locAlquimia + r'\excel files' + excelName
 
     #read excel info
     #DFIntervals = pd.read_excel(loc, sheet_name='input_output_intervals')
     DFconnectionMatrix = pd.read_excel(loc, sheet_name='connection_matrix')
     DFreactors = pd.read_excel(loc, sheet_name='reactor_intervals')
-    DFsbml =  pd.read_excel(loc, sheet_name='sbml_models')
+    DFmodels =  pd.read_excel(loc, sheet_name='models')
 
     reactorIntervals = DFreactors.process_intervals
     objectDictionary = {} # preallcoate a dictionary with the interval names and the interval objects
@@ -208,25 +209,45 @@ def make_reactor_intervals(excelName):
         nameDict = {intervalName:boundsReactor}
 
         #find the equation of the reactor
-        if DFreactors.is_SBML[i]:
+        if 'xml' in DFreactors.reaction_model[i]:
             modelName = DFreactors.reaction_model[i]
-            nameList = list(DFsbml.model_name)
+            nameList = list(DFmodels.model_name)
             try:
                 indexModelName = nameList.index(modelName)
             except:
                 raise Exception('make sure the name {} is identical in the sheet sbml_models and reactor_intervals'.format(modelName))
 
-            inputID = DFsbml.SBML_input_ID[indexModelName]
-            outputID = DFsbml.SBML_output_ID[indexModelName]
+            inputID = DFmodels.SBML_input_ID[indexModelName]
+            outputID = DFmodels.SBML_output_ID[indexModelName]
             outputID = split_remove_spaces(outputID,',')
-            equationInfo =DFsbml.iloc[indexModelName]
+            equationInfo =DFmodels.iloc[indexModelName]
 
             equations = make_str_eq_smbl(modelName= modelName, substrate_exchange_rnx= inputID,
                                          product_exchange_rnx=outputID, equationInfo= equationInfo)
 
+        elif 'json' in DFreactors.reaction_model[i]:
+            jsonFile = DFreactors.reaction_model[i]
+            nameList = list(DFmodels.model_name)
+            try:
+                indexModelName = nameList.index(jsonFile)
+            except:
+                raise Exception(
+                    'make sure the name for the json file {} is identical in the sheet __models__ and __reactor_interval'
+                    's__'.format(jsonFile))
+
+            jsonLoc = locAlquimia + r'\json models\{}'.format(jsonFile)
+            with open(jsonLoc) as file:
+                reactionObject = json.load(file)
+
+            equationInfo = DFmodels.iloc[indexModelName]
+            equations = make_str_eq_json(reactionObject,equationInfo)
+
         else:
             equations = DFreactors.reaction_model[i]
             equations = split_remove_spaces(equations,',')
+            if not '==' in equations[0]:
+                raise Exception('take a look at the reaction model mate, there is no json, xml or correct reaction given'
+                                'for reactor {}'.format(intervalName))
 
         # find special component bounds like that for pH
         boundsComponentStr = DFreactors.input_bounds[i]
@@ -244,7 +265,6 @@ def make_reactor_intervals(excelName):
             utilityPrice = split_remove_spaces(utilityPrice,',')
             for j, utilityName in enumerate(utilityVariableNames):
                 utilityDict.update({utilityName:utilityPrice[j]})
-
 
         seperationDict = {}
         if DFreactors.seperation_coef[i] != 0: #and DFreactors.has_seperation[i] < 2 :
