@@ -2,15 +2,14 @@
 """
 @author: Lucas Van der Hauwaert lucas.vanderhauwaert@usc.es
 """
-#from Model_Constructor import makeModelWithCompositions
-from f_make_interval_objects import check_excel_file
+
 from f_make_super_structure import make_super_structure
 import pyomo.environ as pe
 import pyomo.opt as po
 
 # todo 1) make correct surrogate for the model of alberte in grams of C
 
-excelFile = r'\propionate_production.xlsx'
+excelFile = r'\propionate_production_pure_cultures.xlsx'
 superstructure = make_super_structure(excelFile= excelFile)
 
 switchSolver = True

@@ -7,8 +7,6 @@ library of reactors for the case study of propionate production
 email: lucas.vanderhauwaert@usc.es
 '''
 
-from Model_Constructor import *
-
 # Input
 objInputDict = makeInputIntervals(r'\data_propionibacteria.xlsx')
 # loop over the dictionary to put the names of the intervals in the script

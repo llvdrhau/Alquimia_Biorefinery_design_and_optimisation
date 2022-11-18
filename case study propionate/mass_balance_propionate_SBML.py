@@ -35,5 +35,5 @@ carbonBalanceInOut(modelLocation=microViviane, metIDsMissingCarbon=[], tol=1e-4)
 ok so we can see the following, for the P. species have a carbon balance which is 60% to 70% compleet
 so compare to other species  P. thermoglucosidasius (Viviane et al 2020) and lactococus (from BIGG) 70 and 80% compleet 
 respectively so where does the biomass in those models go?? Do internal metabolites consitute for rest of the missing carbon?
-wat is the deal man?? 
+what is the deal man?? 
 """
