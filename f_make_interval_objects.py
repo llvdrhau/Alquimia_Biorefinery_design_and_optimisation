@@ -224,7 +224,7 @@ def make_reactor_intervals(excelName):
 
             equations = make_str_eq_smbl(modelName= modelName, substrate_exchange_rnx= inputID,
                                          product_exchange_rnx=outputID, equationInfo= equationInfo)
-
+            #print('s')
         elif 'json' in DFreactors.reaction_model[i]:
             jsonFile = DFreactors.reaction_model[i]
             nameList = list(DFmodels.model_name)

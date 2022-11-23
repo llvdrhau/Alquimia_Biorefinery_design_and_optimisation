@@ -61,12 +61,12 @@ def get_conversion_sbml(modelLocations, substrate_exchange_rnx, product_exchange
             Csub = find_carbons_in_formula(substrateFormula)
             strEqlist = []
 
-            for i in product_exchange_rnx:
-                productMet = model.reactions.get_by_id(i).reactants[0]
+            for j in product_exchange_rnx:
+                productMet = model.reactions.get_by_id(j).reactants[0]
                 productName = productMet.name
                 productFormula = productMet.formula
                 Cprod = find_carbons_in_formula(productFormula)
-                FBA_product_flux = solution.fluxes[i]
+                FBA_product_flux = solution.fluxes[j]
                 FBA_yield = abs((FBA_product_flux/FBA_substrate_flux) * (Cprod *12) /(Csub* 12)) # in gramsC / grams C: 12 gCarbon/mol
 
                 allYields_FBA.append(FBA_yield)

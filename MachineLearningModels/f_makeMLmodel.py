@@ -87,26 +87,29 @@ def make_elasticNet_model(ExcelName, iterations = 1000, modelName = '', plotSwit
 
     return stringEquationVector,plt
 
-def ridge_regression(ExcelName, showPLot = True, save = False, saveName = 'data.json'):
+def ridge_regression(ExcelName, showPLot = True, save = False, saveName = 'data.json', normalise = False):
 
     # features
     X = pd.read_excel(ExcelName, sheet_name='inputs')
-    # normalise
-    for input in X:
-        meanInput = X[input].mean()
-        stdInput = X[input].std()
-        inputNormalised = (X[input] - meanInput) / stdInput
-        X[input] = inputNormalised
     inputNames = list(X.keys())
     # target values (the reactor outputs)
     Y = pd.read_excel(ExcelName, sheet_name='outputs')
-    outputNames =  list(Y.keys())
-    # normalise
-    for output in Y:
-        meanInput = Y[output].mean()
-        stdInput = Y[output].std()
-        outputNormalised = (Y[output] - meanInput) / stdInput
-        Y[output] = outputNormalised
+    outputNames = list(Y.keys())
+
+    if normalise:
+        # normalise
+        for input in X:
+            meanInput = X[input].mean()
+            stdInput = X[input].std()
+            inputNormalised = (X[input] - meanInput) / stdInput
+            X[input] = inputNormalised
+
+        # normalise
+        for output in Y:
+            meanInput = Y[output].mean()
+            stdInput = Y[output].std()
+            outputNormalised = (Y[output] - meanInput) / stdInput
+            Y[output] = outputNormalised
 
     # plot variables
     rows = 2
@@ -133,9 +136,9 @@ def ridge_regression(ExcelName, showPLot = True, save = False, saveName = 'data.
         # subplot to evaluate goodness of fit
         ax = plt.subplot(rows, cols, i + 1)
         ax.plot(y_test, y_pred_en, 'k*')
-        # xlims = list(ax.get_xlim())
-        # ylims = list(ax.get_ylim())
-        ax.plot([-2, 2], [-2, 2], 'r')
+        minimum = min([min(y_test),min(y_pred_en)])
+        maximum = max([max(y_test),max(y_pred_en)])
+        ax.plot([minimum, maximum], [minimum, maximum], 'r') # plot diagonal
         ax.set_title(outName)
         ax.set_xlabel("real")
         ax.set_ylabel("predicted")
@@ -149,6 +152,7 @@ def ridge_regression(ExcelName, showPLot = True, save = False, saveName = 'data.
             coefArry[i,j] = model.coef_[j]
         eq = eq + ' + {}'.format(model.intercept_)
         intercepts.update({outName: model.intercept_})
+        print(model.alpha_)
         print(eq)
 
     if showPLot:

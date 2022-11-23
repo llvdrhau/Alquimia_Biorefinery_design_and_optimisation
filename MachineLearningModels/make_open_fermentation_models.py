@@ -4,9 +4,15 @@ This script is intended to make surrogate models for the open fermentation model
 
 from f_makeMLmodel import make_elasticNet_model, ridge_regression
 
-# open fermentation only using glucose
-excelFile =  'Glucose_open_fermentation.xlsx'
-model = ridge_regression(excelFile, save=True, saveName='Glucose_open_fermentation.json', showPLot= False)
+# open fermentation only using glucose formulation 1
+#excelFile =  'Glucose_open_fermentation.xlsx'
+#model = ridge_regression(excelFile, save=True, saveName='Glucose_open_fermentation.json', showPLot= False)
+# output = makeElasticNetModel(excelFile)
+
+##################################################################################################
+# open fermentation only using glucose formulation 2
+excelFile =  'Glucose_PH_Data.xlsx'
+model = ridge_regression(excelFile, normalise= False ,save=False, saveName='Glucose_pH_open_fermentation.json', showPLot= True)
 # output = makeElasticNetModel(excelFile)
 
 ##################################################################################################

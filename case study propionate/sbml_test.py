@@ -102,8 +102,12 @@ def plot_flux_solutions(modelLocation, substrate_exchange_rnx, product_exchange_
     height_ = np.multiply(allYields_FVA_upper, conversionFactor)
     x_cordinates = range(len(modelLocation))
     plt.bar(x = x_cordinates, height=height_, width=0.8, bottom=bottom_,tick_label = modelNames)
-    plt.plot(x_cordinates,np.multiply(allYields_pFBA,conversionFactor),'y*', markersize = 18)
-    plt.plot(x_cordinates, np.multiply(allYields_FBA, conversionFactor),'r*', markersize = 10)
+    if pFBA:
+        plt.plot(x_cordinates,np.multiply(allYields_pFBA,conversionFactor),'y*', markersize = 18)
+    if FBA:
+        fbas = np.multiply(allYields_FBA, conversionFactor)
+        print(fbas)
+        plt.plot(x_cordinates, fbas,'r*', markersize = 10)
     plt.grid()
     plt.ylabel(yLabel)
     plt.legend(['pFBA','FBA','FVA'])
@@ -115,15 +119,15 @@ def plot_flux_solutions(modelLocation, substrate_exchange_rnx, product_exchange_
 if __name__ == '__main__':
 
     loc = os.getcwd()
-    loc_acidi = loc + r'\SBML models\PAC_4875_model.xml'
-    loc_acnes = loc + r'\SBML models\P_acnes_model.xml'
-    loc_prop = loc + r'\SBML models\P_propionicum_model.xml'
-    loc_avidum = loc + r'\SBML models\P_avidum_model.xml'
-    loc_sher = loc + r'\SBML models\P_sherm_model.xml'
+    loc_acidi = r'C:\Users\lucas\PycharmProjects\Alquimia\SBML models\PAC_4875_model.xml' #loc + r'\SBML models\PAC_4875_model.xml'
+    loc_acnes = r'C:\Users\lucas\PycharmProjects\Alquimia\SBML models\P_acnes_model.xml'
+    loc_prop = r'C:\Users\lucas\PycharmProjects\Alquimia\SBML models\P_propionicum_model.xml'
+    loc_avidum = r'C:\Users\lucas\PycharmProjects\Alquimia\SBML models\P_avidum_model.xml'
+    loc_sher = r'C:\Users\lucas\PycharmProjects\Alquimia\SBML models\P_sherm_model.xml'
 
     #microorganisms = [loc_acidi, loc_acnes, loc_prop]
-    #microorganisms = [loc_acidi, loc_acnes, loc_prop, loc_avidum, loc_sher]
-    microorganisms = [loc_acidi, loc_sher]
+    microorganisms = [loc_acidi, loc_acnes, loc_prop, loc_avidum, loc_sher]
+    #microorganisms = [loc_acnes, loc_sher]
 
     glucose_exchange_rnx = 'Ex_S_cpd00027_ext'
     propionate_exchange_rnx = 'Ex_S_cpd00141_ext'
@@ -134,8 +138,8 @@ if __name__ == '__main__':
 
     plotFig = True
     if plotFig:
-        pltGlu, objetiveGlu = plot_flux_solutions(microorganisms, substrate_exchange_rnx=glucose_exchange_rnx,
-                            product_exchange_rnx=propionate_exchange_rnx,conversionFactor= 74/180)
+        pltGlu, objetiveGlu = plot_flux_solutions(microorganisms, substrate_exchange_rnx=fructose_exchange_rnx,
+                            product_exchange_rnx=propionate_exchange_rnx,conversionFactor= 0.5, pFBA= False,yLabel= 'frutose yields ')
         # pltGlu, objetiveGlu = plot_flux_solutions(microorganisms, substrate_exchange_rnx=glucose_exchange_rnx,
         #                     product_exchange_rnx=propionate_exchange_rnx, objectiveReaction= "Ex_S_biomass_ext"
         #                     ,conversionFactor= 74/180)
