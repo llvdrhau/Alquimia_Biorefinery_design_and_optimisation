@@ -3,12 +3,16 @@ import os
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import math
+
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import ElasticNetCV
 from sklearn.linear_model import RidgeCV
+from sklearn.linear_model import LassoCV
+from sklearn.preprocessing import PolynomialFeatures
+
 import pickle
 import json
+import math
 
 class SurrogateModel:
     def __init__(self,name, outputs, coef, intercept):
@@ -87,11 +91,32 @@ def make_elasticNet_model(ExcelName, iterations = 1000, modelName = '', plotSwit
 
     return stringEquationVector,plt
 
-def ridge_regression(ExcelName, showPLot = True, save = False, saveName = 'data.json', normalise = False):
+def regression(ExcelName, showPLot = True, save = False, saveName = 'data.json', normalise = False,
+                     case = 'Ridge',polynomial=None):
+    if polynomial is None:
+        polynomial = {}
 
     # features
     X = pd.read_excel(ExcelName, sheet_name='inputs')
     inputNames = list(X.keys())
+
+    for name in inputNames:
+        polynomialKeys = list(polynomial.keys())
+        if len(polynomialKeys) > 1:
+            raise Exception('so something to fix, you can not have more then two variables makes it messy fix the code '
+                            'if you have time, if not put the features als polynomials in the excel file xoxox Lucas of the past')
+        if name in polynomialKeys:
+            x = X[name].to_numpy()
+            nPolynoms = polynomial[name]
+            X_new = PolynomialFeatures(nPolynoms).fit_transform(x.reshape((len(x), 1)))
+            dict2Pandas = {}
+            for nr, col in enumerate(X_new.T): # don't forget to transpose the matrix to loop over the cols
+                key = name +'_{}'.format(nr)
+                dict2Pandas.update({key:col})
+            X = pd.DataFrame(dict2Pandas)
+            #X = X_new # todo shiiiit wat if more then one variable!!
+
+
     # target values (the reactor outputs)
     Y = pd.read_excel(ExcelName, sheet_name='outputs')
     outputNames = list(Y.keys())
@@ -120,24 +145,34 @@ def ridge_regression(ExcelName, showPLot = True, save = False, saveName = 'data.
     coefficients = {}
     intercepts = {}
     coefArry = np.zeros(shape=(len(Y.keys()), len(X.keys()))) # columns are the inputs (= features) rows the output variables
+    modelDictionary = {}
     for i,outName in enumerate(Y):
         # select output
         output = Y[outName]
         # split training data/ test data
         X_train, X_test, y_train, y_test = train_test_split(X, output, test_size=0.2,random_state = 2) # random_state = 2, so consistent results are obtained (2 being the seed)
         # define model
-        model = RidgeCV(alphas=(1e-2, 1e-1, 1.0, 10.0, 100.0))
+        alfas = (1e-2, 1e-1, 1.0, 10.0, 100.0)
+        if case == 'Ridge':
+            model = RidgeCV(alphas= alfas)
+        elif case == 'Lasso':
+            model = LassoCV(alphas= alfas, max_iter=10000)
+        else:
+            raise Exception("The Variable __case__ can only be 'Lasso' or 'Ridge'")
+        #model = Ridge(alpha=1)
         # fit model
         model.fit(X_train, y_train)
 
         ##### check if the fit is OK
         # Make predictions using the testing set
-        y_pred_en = model.predict(X_test)
+        y_predicted =  model.predict(X)
+        y_observed = output
+
         # subplot to evaluate goodness of fit
         ax = plt.subplot(rows, cols, i + 1)
-        ax.plot(y_test, y_pred_en, 'k*')
-        minimum = min([min(y_test),min(y_pred_en)])
-        maximum = max([max(y_test),max(y_pred_en)])
+        ax.plot(y_observed, y_predicted, 'k*')
+        minimum = min([min(y_observed),min(y_predicted)])
+        maximum = max([max(y_observed),max(y_predicted)])
         ax.plot([minimum, maximum], [minimum, maximum], 'r') # plot diagonal
         ax.set_title(outName)
         ax.set_xlabel("real")
@@ -146,14 +181,20 @@ def ridge_regression(ExcelName, showPLot = True, save = False, saveName = 'data.
         yName = outName
         outputVariables.append(yName)
         eq = yName + ' == '
-        for j, xname in enumerate(inputNames):
+        for j, xname in enumerate(X):
             eq = eq + ' + ' + xname + ' * {0}'.format(model.coef_[j])
             coefficients.update()
             coefArry[i,j] = model.coef_[j]
         eq = eq + ' + {}'.format(model.intercept_)
         intercepts.update({outName: model.intercept_})
         print(model.alpha_)
+        print('the model coef are {}'.format(model.coef_))
+        print('the model intercept is {}'.format(model.intercept_))
+        normFactor = 1/(max(y_predicted)- min(y_predicted))
+        NMSE = math.sqrt(sum((y_observed - y_predicted) ** 2) / len(y_observed)) * normFactor
+        print('the NMSE is: {}'.format(NMSE))
         print(eq)
+        modelDictionary.update({outName:(model,X,output)})  # X are the inputs
 
     if showPLot:
         plt.show()
@@ -179,7 +220,8 @@ def ridge_regression(ExcelName, showPLot = True, save = False, saveName = 'data.
         #with open("/path/to/file.json", "w+") as f:
         #    json.dump(object_to_write, f)
 
-    return surrogateModel
+
+    return surrogateModel,modelDictionary
 
 
 

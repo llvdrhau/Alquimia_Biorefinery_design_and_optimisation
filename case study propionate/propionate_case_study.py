@@ -23,8 +23,8 @@ if switchSolver:
     # =============================================================================
     #     Possible solver are: 'BARON', 'ANTIGONE', 'CPLEX', 'DICOPT'
     # =============================================================================
-    results = opt.solve(superstructure, solver='BARON', keepfiles=True, tee=True)
-    #results = opt.solve(superstructure, keepfiles=True, tee=True)
+    #results = opt.solve(superstructure, solver='BARON', keepfiles=True, tee=True)
+    results = opt.solve(superstructure, keepfiles=True, tee=True)
     for v in superstructure.component_objects(ctype=pe.Var):
         for index in v:
             if pe.value(v[index]) > 0:

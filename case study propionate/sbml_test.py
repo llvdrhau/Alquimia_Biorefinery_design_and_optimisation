@@ -131,6 +131,7 @@ if __name__ == '__main__':
 
     glucose_exchange_rnx = 'Ex_S_cpd00027_ext'
     propionate_exchange_rnx = 'Ex_S_cpd00141_ext'
+    acetate_exchange_rnx = 'Ex_S_cpd00029_ext'
     fructose_exchange_rnx = 'Ex_S_cpd00082_ext'
     glycerol_exchange_rnx = 'Ex_S_cpd00100_ext'
     # model.exchanges[0].id # is the objective reaction for propioni models
@@ -138,13 +139,40 @@ if __name__ == '__main__':
 
     plotFig = True
     if plotFig:
+        pltGlu, objetiveGlu = plot_flux_solutions(microorganisms, substrate_exchange_rnx=glucose_exchange_rnx,
+                                                  product_exchange_rnx=propionate_exchange_rnx, conversionFactor=3/6,
+                                                  pFBA=False, yLabel= 'glucose-prop yields ')
+        print('glucose-prop yields ')
+        #print(objetiveGlu)
+        pltGlu.show()
+
+        pltGlu, objetiveGlu = plot_flux_solutions(microorganisms, substrate_exchange_rnx=glucose_exchange_rnx,
+                                                  product_exchange_rnx=acetate_exchange_rnx, conversionFactor=2/6,
+                                                  pFBA=False, yLabel= 'glucose-ace yields ')
+        print('glucose-ace yields ')
+        # print(objetiveGlu)
+        pltGlu.show()
+
         pltGlu, objetiveGlu = plot_flux_solutions(microorganisms, substrate_exchange_rnx=fructose_exchange_rnx,
-                            product_exchange_rnx=propionate_exchange_rnx,conversionFactor= 0.5, pFBA= False,yLabel= 'frutose yields ')
+                            product_exchange_rnx=propionate_exchange_rnx,conversionFactor= 3/6, pFBA= False,
+                                                  yLabel= 'frutose-prop yields ')
+        print('fructose-prop yields ')
+        # print(objetiveGlu)
+        pltGlu.show()
+
+        pltGlu, objetiveGlu = plot_flux_solutions(microorganisms, substrate_exchange_rnx=fructose_exchange_rnx,
+                            product_exchange_rnx=acetate_exchange_rnx,conversionFactor= 2/6, pFBA= False,
+                                                  yLabel= 'frutose-acetate yields ')
+
+        print('fructose-acetate yields ')
+        # print(objetiveGlu)
+        pltGlu.show()
+
         # pltGlu, objetiveGlu = plot_flux_solutions(microorganisms, substrate_exchange_rnx=glucose_exchange_rnx,
         #                     product_exchange_rnx=propionate_exchange_rnx, objectiveReaction= "Ex_S_biomass_ext"
         #                     ,conversionFactor= 74/180)
-        print(objetiveGlu)
-        pltGlu.show()
+        #print(objetiveGlu)
+        #pltGlu.show()
 
         # # # # # # # # #  glycerol plot# # # # # # # # # # # #
         # pltGly, objetiveGly = plot_flux_solutions(microorganisms,substrate_exchange_rnx=glycerol_exchange_rnx,
