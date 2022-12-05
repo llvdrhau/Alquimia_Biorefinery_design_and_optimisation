@@ -174,7 +174,6 @@ def make_input_intervals(excelName):
                 boolVar = 'y_' + attachInterval + '_' + intervalName
                 boolDict.update({attachInterval: boolVar})
 
-
         # create object
         objectInput = InputIntervalClass(inputName=intervalName,compositionDict=compsitionDictionary,
                                          inputPrice=inputPrice,boundryInputVar=boundryInput,boolDict= boolDict)
@@ -189,7 +188,7 @@ def make_reactor_intervals(excelName):
     loc = locAlquimia + r'\excel files' + excelName
 
     #read excel info
-    #DFIntervals = pd.read_excel(loc, sheet_name='input_output_intervals')
+    DFInOutIntervals = pd.read_excel(loc, sheet_name='input_output_intervals')
     DFconnectionMatrix = pd.read_excel(loc, sheet_name='connection_matrix')
     DFreactors = pd.read_excel(loc, sheet_name='reactor_intervals')
     DFmodels =  pd.read_excel(loc, sheet_name='models')
@@ -311,15 +310,28 @@ def make_reactor_intervals(excelName):
                 boolVar = 'y_' + intervalName + '_' +  attachInterval
                 boolDict.update({attachInterval: boolVar})
 
-        # get the boolean variable which the reactor is dependent on (LOOKING AT THE COLUMN)
+        # get the boolean variables which the reactor is dependent on (LOOKING AT THE COLUMN)
         col = reactorCol.to_list()
-        boolVariable = []
+        boolActivationVariable = []
+        boolActivationDict = {}
+        inOutNames = DFInOutIntervals.process_intervals.to_list()
+        # processInvervalNames is the variable with list of reactor intervalnames
         for index, infoCol in enumerate(col):
             if isinstance(infoCol,str) and 'bool' in infoCol:
                 connectingInterval = processInvervalNames[index]
-                boolVariable.append('y_' + intervalName + '_' + connectingInterval)
-        if len(boolVariable) > 1:
-            raise Exception("Currently the iterval bloks can only except a bool stream from one location, not multiple")
+                boolVariable = 'y_' + intervalName + '_' + connectingInterval
+                boolActivationVariable.append(boolVariable)
+                if connectingInterval in inOutNames:
+                    index_concented = inOutNames.index(connectingInterval)
+                    inputDependent = split_remove_spaces(DFInOutIntervals.components[index_concented],',')
+                else: # if it's not in the inputs/output intervals, then it is in the reactor process intervals
+                    index_concented = processInvervalNames.index(connectingInterval)
+                    inputDependent = split_remove_spaces(DFreactors.inputs[index_concented], ',')
+
+                boolActivationDict.update({boolVariable:inputDependent})
+        # if len(boolActivationVariable) > 1:
+        #     #print('CAREFULL DOUBLE BOOL CONSTRAINTS')
+        #     raise Exception("Currently the iterval bloks can only except a bool stream from one location, not multiple")
 
         splitList = [] # find the reactor or separation stream to split
         for j, info in enumerate(intervalRow):
@@ -340,7 +352,7 @@ def make_reactor_intervals(excelName):
         objectReactor = ReactorIntervalClass(inputs = inputsReactor, boundryInputVar = boundsComponent,
                                              outputs = outputsReactor,  reactionEquations= equations, nameDict =nameDict,
                                              mix= mixDict, utilities=utilityDict, separationDict=seperationDict,
-                                             splitList= listSplits, boolActivation= boolVariable, boolDict= boolDict)
+                                             splitList= listSplits, boolActivation= boolActivationDict, boolDict= boolDict)
         # put the object in the dictionary
         objectDictionary.update({intervalName:objectReactor})
     return objectDictionary

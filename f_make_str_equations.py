@@ -24,6 +24,8 @@ def make_str_eq_smbl(modelName, substrate_exchange_rnx, product_exchange_rnx, eq
     #modelLocations = loc + r'\excel files\' + modelName
     modelLocations = [loc + r"\SBML models\{}".format(modelName)]
 
+    # TODO make extended reaction equtions for sbml models or maybe even make them into JSON files? idk
+    # would run quicker in stead of having to read the xlm files each time
     equations, yields = get_conversion_sbml(modelLocations, substrate_exchange_rnx, product_exchange_rnx)
 
     # make abbreviations dictionary
@@ -51,7 +53,7 @@ def make_str_eq_json(modelObject, equationInfo):
     coef = modelObject['coef']
     intercept = modelObject['intercept']
     name = modelObject['name']
-
+    yieldOf = equationInfo['yield_of']
     # make abbreviations dictionary
     abbrDict = {}
     varName = split_remove_spaces(equationInfo.input_name, ',') + split_remove_spaces(equationInfo.output_name, ',')
@@ -62,17 +64,27 @@ def make_str_eq_json(modelObject, equationInfo):
     equationList = []
     for out in outputs:
         outAbrr = abbrDict[out]
-        eq = '{} == '.format(outAbrr)
+        #eqY = '{} == '.format(outAbrr)
         coefOfOutputs = coef[out]
+        yieldEq = '('
         for feature in coefOfOutputs:
-            featureAbbr = abbrDict[feature]
+            ### this for loop to replace all the full variable names with the abbreviuations
+            featureAbbr = ''
+            for v in varName:
+                if v in feature:
+                    featureAbbr = feature.replace(v,abbrDict[v])
+            if not featureAbbr:
+                raise Exception('the feature {} has no abbreviation check the JSON file and the sheet models, '
+                                'are names and abrr correct?'.format(feature))
+            ###
             featureCoef = coefOfOutputs[feature]
-            eq += ' + {} * {} '.format(featureAbbr,featureCoef)
-        eq += ' + {}'.format(intercept[out])
+            yieldEq += ' + {} * {} '.format(featureAbbr,featureCoef)
+        yieldEq += ' + {})'.format(intercept[out])
+        equation = '{} == {}*{}'.format(outAbrr,yieldEq,yieldOf)
         print(name)
         print('')
-        print(eq)
-        equationList.append(eq)
+        print(equation)
+        equationList.append(equation)
 
     return equationList
 

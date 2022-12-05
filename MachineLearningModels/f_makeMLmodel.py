@@ -8,6 +8,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import ElasticNetCV
 from sklearn.linear_model import RidgeCV
 from sklearn.linear_model import LassoCV
+from sklearn.linear_model import Lasso
+from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 
 import pickle
@@ -109,9 +111,10 @@ def regression(ExcelName, showPLot = True, save = False, saveName = 'data.json',
             x = X[name].to_numpy()
             nPolynoms = polynomial[name]
             X_new = PolynomialFeatures(nPolynoms).fit_transform(x.reshape((len(x), 1)))
+            #X_new = X_new[:,1:len(X_new)]
             dict2Pandas = {}
             for nr, col in enumerate(X_new.T): # don't forget to transpose the matrix to loop over the cols
-                key = name +'_{}'.format(nr)
+                key = name + '**{}'.format(nr)
                 dict2Pandas.update({key:col})
             X = pd.DataFrame(dict2Pandas)
             #X = X_new # todo shiiiit wat if more then one variable!!
@@ -129,12 +132,18 @@ def regression(ExcelName, showPLot = True, save = False, saveName = 'data.json',
             inputNormalised = (X[input] - meanInput) / stdInput
             X[input] = inputNormalised
 
+    if polynomial and normalise:
+        inputNames = list(X.keys())
+        dropName = inputNames[0] # the bais is what you want to make into ones
+        X[dropName] = np.zeros(shape=(len(X),1)) # bais should be ones not nan if normalised
+
+
         # normalise
-        for output in Y:
-            meanInput = Y[output].mean()
-            stdInput = Y[output].std()
-            outputNormalised = (Y[output] - meanInput) / stdInput
-            Y[output] = outputNormalised
+        # for output in Y:
+        #     meanInput = Y[output].mean()
+        #     stdInput = Y[output].std()
+        #     outputNormalised = (Y[output] - meanInput) / stdInput
+        #     Y[output] = outputNormalised
 
     # plot variables
     rows = 2
@@ -146,19 +155,25 @@ def regression(ExcelName, showPLot = True, save = False, saveName = 'data.json',
     intercepts = {}
     coefArry = np.zeros(shape=(len(Y.keys()), len(X.keys()))) # columns are the inputs (= features) rows the output variables
     modelDictionary = {}
+    jsonDict = {}
+
     for i,outName in enumerate(Y):
         # select output
         output = Y[outName]
         # split training data/ test data
         X_train, X_test, y_train, y_test = train_test_split(X, output, test_size=0.2,random_state = 2) # random_state = 2, so consistent results are obtained (2 being the seed)
         # define model
-        alfas = (1e-2, 1e-1, 1.0, 10.0, 100.0)
+        alfas_ridge = (1e-2, 1e-1, 1.0, 10.0, 100.0)
+        alfas_lasso = (1e-12, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1.0, 10.0, 100.0, 500, 800,1000)
         if case == 'Ridge':
-            model = RidgeCV(alphas= alfas)
+            model = RidgeCV(alphas= alfas_ridge)
         elif case == 'Lasso':
-            model = LassoCV(alphas= alfas, max_iter=10000)
+            model = LassoCV(alphas= alfas_lasso, max_iter=10000)
+            #model = Lasso(alpha= 1, max_iter= 4000)
+        elif case == 'Linear':
+            model = LinearRegression()
         else:
-            raise Exception("The Variable __case__ can only be 'Lasso' or 'Ridge'")
+            raise Exception("The string variable _case_ can only be 'Linear, 'Lasso' or 'Ridge'")
         #model = Ridge(alpha=1)
         # fit model
         model.fit(X_train, y_train)
@@ -186,8 +201,11 @@ def regression(ExcelName, showPLot = True, save = False, saveName = 'data.json',
             coefficients.update()
             coefArry[i,j] = model.coef_[j]
         eq = eq + ' + {}'.format(model.intercept_)
+
         intercepts.update({outName: model.intercept_})
-        print(model.alpha_)
+
+        if case == 'Lasso'  or case == 'Ridge':
+            print(model.alpha_)
         print('the model coef are {}'.format(model.coef_))
         print('the model intercept is {}'.format(model.intercept_))
         normFactor = 1/(max(y_predicted)- min(y_predicted))
@@ -202,11 +220,14 @@ def regression(ExcelName, showPLot = True, save = False, saveName = 'data.json',
     coefDict = {}
     for i, out in enumerate(outputNames):
         featureCoefDict = {}
-        for j, feature in enumerate(inputNames):
+        for j, feature in enumerate(X):
             coefOfFeature = coefArry[i,j]
             featureCoefDict.update({feature:coefOfFeature}) # can't put a np array in a json file
         coefDict.update({out:featureCoefDict})
     #coefficients.update({'coefficients':coefDict})
+    jsonDict.update({'lable': case,
+                     'Name': saveName,
+                     'CV_Equations': {'coef':coefDict, 'intercept': model.intercept_}})
 
     surrogateModel = SurrogateModel(name=saveName ,outputs= outputVariables, coef=coefDict, intercept=intercepts)
     if save:

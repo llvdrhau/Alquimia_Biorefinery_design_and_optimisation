@@ -64,7 +64,7 @@ class InputIntervalClass:
         for i in initialCompositionNames:  # maybe don't place the warning here
             if i in inputName:
                 raise Exception("the component {} is in interval name {}, change the component name of the reactor to "
-                                "avoid conflict with the equations")
+                                "avoid conflict with the equations".format(inputName, i))
 
         # make the component equations as string equations
         eqList = []
@@ -195,11 +195,17 @@ class ReactorIntervalClass:
                     rctVarOutD.update({out:newOutputName}) # helpìng dictionary for the serparation equations
 
             if boolActivation:
-                eq = eq.replace('==', '== (')
-                eq = eq + ') * ' + boolActivation[0]
+                for boolVar in boolActivation:
+                    inputsDependent = boolActivation[boolVar]
+                    for input in inputsDependent:
+                        rplc = '{} * {}'.format(input,boolVar)
+                        eq = eq.replace(input,rplc)
 
-                eqPyo = eqPyo.replace('==', '== (')
-                eqPyo = eqPyo + ') * ' + "model.boolVar['{}']".format(boolActivation[0])
+                # eq = eq.replace('==', '== (')
+                # eq = eq + ') * ' + boolActivation[0]
+                #
+                # eqPyo = eqPyo.replace('==', '== (')
+                # eqPyo = eqPyo + ') * ' + "model.boolVar['{}']".format(boolActivation[0])
 
             allReactorEquations.append(eq)
             allReactorEquationsPyomo.append(eqPyo)

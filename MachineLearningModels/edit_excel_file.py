@@ -1,8 +1,5 @@
 import pandas as pd
 
-
-
-
 def manipulate_excel(ExcelName,feature,threshold, newExcelName):
     X = pd.read_excel(ExcelName, sheet_name='inputs')
     Y = pd.read_excel(ExcelName, sheet_name='outputs')

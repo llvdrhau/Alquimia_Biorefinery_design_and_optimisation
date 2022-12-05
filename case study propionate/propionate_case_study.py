@@ -9,7 +9,7 @@ import pyomo.opt as po
 
 # todo 1) make correct surrogate for the model of alberte in grams of C
 # todo 2) double input bool one reactor can only accept one or more of the initial inputs
-
+#excelFile = r'\Escape_case_study.xlsx'
 excelFile = r'\Escape_case_study_glucose.xlsx'
 #excelFile = r'\Escape_case_study_fructose.xlsx'
 #excelFile = r'\propionate_production_openfermentation.xlsx'
