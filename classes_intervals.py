@@ -200,6 +200,9 @@ class ReactorIntervalClass:
                     for input in inputsDependent:
                         rplc = '{} * {}'.format(input,boolVar)
                         eq = eq.replace(input,rplc)
+                        # pyomo version
+                        rplcPyo = " {} * model.boolVar['{}'] ".format(input, boolVar)
+                        eqPyo = eqPyo.replace(input, rplcPyo)
 
                 # eq = eq.replace('==', '== (')
                 # eq = eq + ') * ' + boolActivation[0]
@@ -237,7 +240,6 @@ class ReactorIntervalClass:
         #     upperActivationEqPyo = "model.var['{}'] <= model.boolVar['{}'] * {}".format(intervalVariable, boolActivation[0], bounds[1])
         #     pyomoEq.append(lowerActivationEqPyo)
         #     pyomoEq.append(upperActivationEqPyo)
-
         self.boolActivationEquations =  boolActivationEquations
 
 
@@ -342,10 +344,12 @@ class ReactorIntervalClass:
         self.intervalVariable = intervalVariable
         boolVariables = list(boolDict.values())
         self.boolVariables = boolVariables
-        if boolActivation: # if it is present
-            self.activationVariable = [boolActivation[0]]
-        else: #redundant i think
-            self.activationVariable = [] # just an empty list
+
+        # redundant i think
+        # if boolActivation: # if it is present
+        #     self.activationVariable = [boolActivation[0]]
+        # else:
+        #     self.activationVariable = [] # just an empty list
 
         # define the bounds of the variables
         boundaryDict = {}  # intervals have bounds

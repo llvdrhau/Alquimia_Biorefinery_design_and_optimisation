@@ -1,0 +1,22 @@
+{
+    "name": "P_acnes_model.xml",
+    "outputs": [
+        "Propionate",
+        "Acetate"
+    ],
+    "coef": {
+        "Propionate": {
+            "D-Glucose": 0.4565216598258217,
+            "D-Fructose": 0.45652165982582105
+        },
+        "Acetate": {
+            "D-Glucose": 0.08149597714500288,
+            "D-Fructose": 0.034876785908205754
+        }
+    },
+    "intercept": {
+        "Propionate": "",
+        "Acetate": ""
+    },
+    "lable": "SBML"
+}

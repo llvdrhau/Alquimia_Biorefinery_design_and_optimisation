@@ -1,7 +1,7 @@
 import cobra.io
 import os
 import re
-
+from f_find_carbons import carbon_balance_in_out
 
 def find_carbons_in_formula(formula):
     metFormula = formula
@@ -23,7 +23,7 @@ def find_carbons_in_formula(formula):
                 continue
     return nrOfCarbons
 
-def get_conversion_sbml(modelLocations, substrate_exchange_rnx, product_exchange_rnx, objectiveReaction = None,
+def get_conversion_sbml(modelLocations, substrate_exchange_rnx, product_exchange_rnx, substrate2zero= 'Ex_S_cpd00027_ext', newObjectiveReaction = None,
                         pFBA = None, printEq = False):
     allYields_pFBA =[]
     allYields_FBA =[]
@@ -33,11 +33,12 @@ def get_conversion_sbml(modelLocations, substrate_exchange_rnx, product_exchange
     for i in modelLocations:
         model = cobra.io.read_sbml_model(i)
         # make sure the right objective is set
-        if objectiveReaction:
-            model.objective = objectiveReaction
+        if newObjectiveReaction:
+            model.objective = newObjectiveReaction
         # change the glucose reaction to zero
-        glucose_exchange_rnx = 'Ex_S_cpd00027_ext'
-        model.reactions.get_by_id(glucose_exchange_rnx).bounds = 0,0
+        exchange_rnx_2_zero = substrate2zero
+        model.reactions.get_by_id(exchange_rnx_2_zero).bounds = 0,0
+
         # change bound of new substrate to -10 mol/h/gDW
         model.reactions.get_by_id(substrate_exchange_rnx).bounds = -10, 0
         # get names of the models
@@ -88,4 +89,6 @@ if __name__ == '__main__':
     microorganisms = [loc_acidi, loc_acnes, loc_prop, loc_avidum, loc_sher] # all microorganisms
 
     products = ['Ex_S_cpd00029_ext', 'Ex_S_cpd00141_ext'] # acetate and propionate
-    aa = get_conversion_sbml(modelLocations= microorganisms,substrate_exchange_rnx= 'Ex_S_cpd00027_ext', product_exchange_rnx= products, printEq= True)
+    substrates = ['Ex_S_cpd00027_ext', 'Ex_S_cpd00082_ext']
+    #aa = get_conversion_sbml(modelLocations= microorganisms,substrate_exchange_rnx= 'Ex_S_cpd00027_ext', product_exchange_rnx= products, printEq= True)
+    #a = get_conversion_sbml2(modelLocation= loc_acidi , substrate_exchange_rnx= substrates, product_exchange_rnx= products, printEq=True, checkCarbon=True)

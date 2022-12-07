@@ -53,6 +53,7 @@ def make_str_eq_json(modelObject, equationInfo):
     coef = modelObject['coef']
     intercept = modelObject['intercept']
     name = modelObject['name']
+    lable = modelObject['lable']
     yieldOf = equationInfo['yield_of']
     # make abbreviations dictionary
     abbrDict = {}
@@ -62,11 +63,12 @@ def make_str_eq_json(modelObject, equationInfo):
         abbrDict.update({varN: Abrr[i]})
 
     equationList = []
+    print(name)
     for out in outputs:
         outAbrr = abbrDict[out]
         #eqY = '{} == '.format(outAbrr)
         coefOfOutputs = coef[out]
-        yieldEq = '('
+        yieldEq = ''
         for feature in coefOfOutputs:
             ### this for loop to replace all the full variable names with the abbreviuations
             featureAbbr = ''
@@ -79,15 +81,15 @@ def make_str_eq_json(modelObject, equationInfo):
             ###
             featureCoef = coefOfOutputs[feature]
             yieldEq += ' + {} * {} '.format(featureAbbr,featureCoef)
-        yieldEq += ' + {})'.format(intercept[out])
-        equation = '{} == {}*{}'.format(outAbrr,yieldEq,yieldOf)
-        print(name)
-        print('')
+        if lable == 'SBML':
+            equation = '{} == {}'.format(outAbrr, yieldEq)
+        else:
+            yieldEq += ' + {}'.format(intercept[out])
+            equation = '{} == ({}) * {}'.format(outAbrr,yieldEq,yieldOf)
         print(equation)
+        print('')
         equationList.append(equation)
 
     return equationList
-
-
 
 

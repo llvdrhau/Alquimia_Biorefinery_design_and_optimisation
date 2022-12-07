@@ -7,10 +7,8 @@ from f_make_super_structure import make_super_structure
 import pyomo.environ as pe
 import pyomo.opt as po
 
-#excelFile = r'\Escape_case_study.xlsx'
-excelFile = r'\Escape_case_study_glucose.xlsx'
-#excelFile = r'\Escape_case_study_fructose.xlsx'
-#excelFile = r'\propionate_production_openfermentation.xlsx'
+
+excelFile = r'\Escape_case_study.xlsx'
 superstructure = make_super_structure(excelFile= excelFile)
 
 switchSolver = True

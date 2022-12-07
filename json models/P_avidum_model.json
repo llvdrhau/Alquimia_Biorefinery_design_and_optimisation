@@ -1,0 +1,22 @@
+{
+    "name": "P_avidum_model.xml",
+    "outputs": [
+        "Propionate",
+        "Acetate"
+    ],
+    "coef": {
+        "Propionate": {
+            "D-Glucose": 0.36171553416644237,
+            "D-Fructose": 0.3617155341664421
+        },
+        "Acetate": {
+            "D-Glucose": 0.05379283346627411,
+            "D-Fructose": 0.053792833466273525
+        }
+    },
+    "intercept": {
+        "Propionate": "",
+        "Acetate": ""
+    },
+    "lable": "SBML"
+}

@@ -148,10 +148,14 @@ def findCarbonsOfReaction(model,reactionID):
     carbonProduct = sumOfCarbons / coefOfProduct
     return carbonProduct[0], carbonOfEachMolecule, coefOfReactants
 
-def carbonBalanceInOut(modelLocation, metIDsMissingCarbon=None, tol = 1e-4):
-    model = cobra.io.read_sbml_model(modelLocation)
-    modelName = modelLocation.split("\\")[-1]
-    modelName = modelName.replace(".xml", "")
+def carbon_balance_in_out(modelLocation, metIDsMissingCarbon=None, tol = 1e-4):
+    if isinstance(modelLocation,str):
+        model = cobra.io.read_sbml_model(modelLocation)
+        modelName = modelLocation.split("\\")[-1]
+        modelName = modelName.replace(".xml", "")
+    else:
+        model = modelLocation #then it will be the passed on model
+        modelName = 'derp idk look if the model has a name in its struture'
 
     if metIDsMissingCarbon is None:
         metIDsMissingCarbon = []
