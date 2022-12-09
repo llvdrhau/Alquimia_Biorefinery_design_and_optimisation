@@ -108,11 +108,10 @@ class InputIntervalClass:
             pyomoEq.append(sumInputActivationEqPyo)
 
         if activationVariable:
-            if boundryInputVar[0] != 0:
-                raise Exception('the lower bound of {} must be ZERO if it is dependent on a boolean activation '
-                                'variable (look at the inputs in the connection matrix)'.format(inputName))
-            activationEqPyo = "model.var['{}'] <= {} * model.boolVar['{}'] ".format(self.inputName, boundryInputVar[1],activationVariable[0])
-            pyomoEq.append(activationEqPyo)
+            activationEqPyoUB = "model.var['{}'] <= {} * model.boolVar['{}'] ".format(self.inputName, boundryInputVar[1],activationVariable[0])
+            activationEqPyoLB = "{} * model.boolVar['{}']  <= model.var['{}'] ".format(boundryInputVar[0], activationVariable[0],self.inputName)
+            pyomoEq.append(activationEqPyoLB)
+            pyomoEq.append(activationEqPyoUB)
 
 
         #  put all VARIABLES that pyomo needs to declare here
