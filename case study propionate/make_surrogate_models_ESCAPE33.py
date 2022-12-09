@@ -8,8 +8,11 @@ out = regression_2_json(excelFile, normalise= False ,save=True, saveName='open_f
                          showPLot= False, polynomial= {'pH':polynomial}, case= 'Ridge')
 
 # SBML surrogates
-substrates = ['Ex_S_cpd00027_ext', 'Ex_S_cpd00082_ext']
-products = ['Ex_S_cpd00141_ext', 'Ex_S_cpd00029_ext']
+substrates = ['Ex_S_cpd00027_ext', # glucose
+              'Ex_S_cpd00082_ext'] # fructose
+products = ['Ex_S_cpd00141_ext',   # acetate
+            'Ex_S_cpd00029_ext']   # propionate
+
 loc_acidi = 'PAC_4875_model.xml'
 loc_acnes = 'P_acnes_model.xml'
 loc_prop = 'P_propionicum_model.xml'

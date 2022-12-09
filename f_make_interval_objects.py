@@ -122,7 +122,7 @@ def make_input_intervals(excelName):
     loc = loc + r'\excel files' + excelName
 
     DFIntervals = pd.read_excel(loc, sheet_name='input_output_intervals')
-    DFconnectionMatrix = pd.read_excel(loc, sheet_name='connection_matrix')
+    DFconnectionMatrix = pd.read_excel(loc, sheet_name='connection_matrix', index_col=0)
     # inputs
     inputPrices = DFIntervals.input_price.to_numpy()
     posInputs = inputPrices != 0    #find where the input interval are (they have an input price)
@@ -139,18 +139,43 @@ def make_input_intervals(excelName):
     # define fixed parameters cost raw material
     inputPriceDict = {intervalNames[i]: inputPrices[i] for i in range(len(inputPrices))}  # make dictionary
     boundryDict = {intervalNames[i]: [inBoundsLow[i], inBoundsUpper[i]] for i in range(len(inputPrices))}  # make dictionary
-    ####
+
+    '''
+    We need to find out which inputs are bound to boolean variables amongst the input variable themselves 
+    i.e., if only certain inputs can be chosen among multiple possible inputs
+    in other words we need to find the boolean variables from the connenction matrix (diagonals of the matrix) so the 
+    activation equation sum(y) == 1 can be made. this is what the nex for loop is used for
+    '''
+    inputActivationVariables = [] # prealloccate
+    for i,intervalName in enumerate(intervalNames):
+        inputBoolVar = DFconnectionMatrix[intervalName][intervalName] # this is the diagonal position of the connention matrix
+        if isinstance(inputBoolVar, str):
+            inputActivationVariables.append(inputBoolVar)
+
+    if inputActivationVariables: # if there exist bool inputs, make a unique list
+        inputActivationVariables = list(OrderedDict.fromkeys(inputActivationVariables)) # makes a unique list (only need to difine a variable once)
+
     objectDictionary = {}
     #loop over all the inputs and make a class of each one
     for i, intervalName in enumerate(intervalNames):
+        if i == 0: # so in the first input object the equaitons for the choice of
+            inputActivationVariables4eq = inputActivationVariables
+        else:
+            inputActivationVariables4eq = []
+
+        # pass the bool variable responsible for activating an input if present
+        activationBool = []  # this is the diagonal position of the connention matrix
+        if isinstance(DFconnectionMatrix[intervalName][intervalName], str):
+            activationBool.append(DFconnectionMatrix[intervalName][intervalName])
+
         inputPrice = inputPriceDict[intervalName]
         boundryInput = boundryDict[intervalName]
         componentsOfInterval = componentsList[i].split(",")
         compositionsofInterval = compositionsList[i] # string or 1, depending if there are different components
         compsitionDictionary = {} # preallocate dictionary
-        if compositionsofInterval == 1:  # if it is one no need to loop over the dictionary, there is only one compound
+        if compositionsofInterval == 1:  # if it is one, no need to loop over the dictionary, there is only one compound
             component = componentsOfInterval[0].replace(' ','')
-            fraction = compositionsofInterval # should allways be one i there is one component in the stream
+            fraction = compositionsofInterval # should always be one component in the stream
             compsitionDictionary.update({component: fraction})
         else:
             compositionsofInterval = compositionsList[i].split(",")
@@ -163,11 +188,8 @@ def make_input_intervals(excelName):
 
         # check if it is an input to other intervals as a bool
         boolDict = {}
-        processInvervalNames = DFconnectionMatrix['process_intervals'].to_list()
-        rowIndex = processInvervalNames.index(intervalName)
-        intervalRow = DFconnectionMatrix.iloc[rowIndex].to_list() # looking at the row will show to which intervals the curretn section is connencted to
-        intervalRow.pop(0) # get rind of the intervall name
-        # intervalRow = DFconnectionMatrix.loc[processInvervalNames == intervalName].to_dict()
+        processInvervalNames = DFconnectionMatrix.index.to_list()
+        intervalRow = DFconnectionMatrix.loc[intervalName].to_list() # looking at the row will show to which intervals the current section is connencted to
         for j, info in enumerate(intervalRow):
             if isinstance(info,str) and 'bool' in info:
                 attachInterval = processInvervalNames[j]
@@ -176,6 +198,7 @@ def make_input_intervals(excelName):
 
         # create object
         objectInput = InputIntervalClass(inputName=intervalName,compositionDict=compsitionDictionary,
+                                         inputActivationVariables= inputActivationVariables4eq, activationVariable= activationBool,
                                          inputPrice=inputPrice,boundryInputVar=boundryInput,boolDict= boolDict)
         objectDictionary.update({intervalName:objectInput})
     return objectDictionary
@@ -531,7 +554,8 @@ def get_vars_eqs_bounds(objectDict):
 
     # remove double variables in the list of continuous variables
 
-    unique_list_var = list(OrderedDict.fromkeys(continuousVariables)) # preserves order (easier to group the equations per interval this way)
+    unique_list_var_continous = list(OrderedDict.fromkeys(continuousVariables)) # preserves order (easier to group the equations per interval this way)
+    unique_list_var_bool = list(OrderedDict.fromkeys(booleanVariables))
 
     # # insert the list to the set
     # variables_set = set(continuousVariables)
@@ -539,8 +563,8 @@ def get_vars_eqs_bounds(objectDict):
     # unique_list_var = (list(variables_set))
 
     # dictionary to bundel  all the varibles
-    variables = {'continuous' : unique_list_var,
-                 'boolean' : booleanVariables,
+    variables = {'continuous' : unique_list_var_continous,
+                 'boolean' : unique_list_var_bool,
                  'fraction': fractionVariables}
 
 

@@ -9,7 +9,7 @@ email: lucas.vanderhauwaert@usc.es
 # ============================================================================================================
 # Input, reactor and output Classes
 # ============================================================================================================
-#from f_makeIntervalObjects import define_connect_info
+# from f_makeIntervalObjects import define_connect_info
 def define_connect_info(connectInfo):
     sepKey = ''
     splitKey = ''
@@ -31,13 +31,18 @@ def define_connect_info(connectInfo):
     return  connectKey, sepKey,splitKey, boolKey
 class InputIntervalClass:
     def __init__(self, inputName, compositionDict, inputPrice, boundryInputVar ,boolDict = None,
-                 split=None, separationDict=None):
+                 split=None, separationDict=None, inputActivationVariables= None, activationVariable= None):
         if separationDict is None:
             separationDict = {}
         if split is None:
             split = []
         if boolDict is None:
             boolDict = {}
+        if inputActivationVariables is None:
+            inputActivationVariables =[]
+        if activationVariable is None :
+            activationVariable = []
+
 
         # declare (preallocate) empty pyomo equations list
         pyomoEq = []
@@ -82,22 +87,38 @@ class InputIntervalClass:
         self.separationDict = separationDict # necesary?
         self.leavingInterval = componentVariables
 
-        eqSumOfBoolsHelp = "1 == "
-        eqPyBool = "1 == "
+
         eqSumOfBools = [] # empty if there is no bool equation
         if boolDict:
+            eqSumOfBoolsHelp = "1 == "
+            eqPyBool = "1 == "
             for interval in boolDict:
                 eqSumOfBoolsHelp += " + " + boolDict[interval]
                 eqPyBool += " + " + "model.boolVar['{}']".format(boolDict[interval])
-
             eqSumOfBools = [eqSumOfBoolsHelp]
             pyomoEq.append(eqPyBool)
         self.eqSumOfBools = eqSumOfBools
 
+        # activation of an input by a inputActivationVariable (i.e., a boolean variable) (choice between one substrate or another)
+
+        if inputActivationVariables: # if it's not empty make the sum equation (only the first input object makes this equation)
+            sumInputActivationEqPyo = "1 == "
+            for var in inputActivationVariables:
+                sumInputActivationEqPyo += " + " + "model.boolVar['{}']".format(var)
+            pyomoEq.append(sumInputActivationEqPyo)
+
+        if activationVariable:
+            if boundryInputVar[0] != 0:
+                raise Exception('the lower bound of {} must be ZERO if it is dependent on a boolean activation '
+                                'variable (look at the inputs in the connection matrix)'.format(inputName))
+            activationEqPyo = "model.var['{}'] <= {} * model.boolVar['{}'] ".format(self.inputName, boundryInputVar[1],activationVariable[0])
+            pyomoEq.append(activationEqPyo)
+
+
         #  put all VARIABLES that pyomo needs to declare here
-        boolVariables = list(boolDict.values())
+        boolVariables = list(boolDict.values()) + inputActivationVariables
         continuousVariables = componentVariables + [self.inputName]
-        #fractionVariables = []
+
 
         self.allVariables = {'continuous' : continuousVariables,
                              'boolean' : boolVariables,
@@ -130,10 +151,9 @@ class InputIntervalClass:
             old_key = oldKeys[i]
             self.compositionDict[new_key] = self.compositionDict.pop(old_key)
 
-# TODO change activation constraints see notes marker
 class ReactorIntervalClass:
-    def __init__(self, inputs, outputs, reactionEquations, boundryInputVar ,nameDict, mix=None, utilities=None, boolActivation = None,
-                 boolDict=None, splitList = None, separationDict=None):
+    def __init__(self, inputs, outputs, reactionEquations, boundryInputVar ,nameDict, mix = None, utilities = None, boolActivation = None,
+                 boolDict = None, splitList = None, separationDict = None):
         if utilities is None:
             utilities = {}
         if separationDict is None:
@@ -162,7 +182,6 @@ class ReactorIntervalClass:
         self.mix = mix  # found by the Excel file (don't need to specify in this script)
         self.utilities = utilities # consists of a dictionary {nameUtilty: [bounds]}
         self.boolDict = boolDict  # is a tuple, 1) where the bool comes from and 2) the name of the bool affecting the outputs
-        #self.split = split  # TODO will probs be a dict
         self.separationDict = separationDict  # dictionary defining separation fractions of each component
 
         # interval Variable name
@@ -306,8 +325,6 @@ class ReactorIntervalClass:
                 pyomoEq.append(eqSplit1Pyo)
                 pyomoEq.append(eqSplit2Pyo)
 
-
-
         # mixing equations
         # see def make_mixing_equations()
 
@@ -345,7 +362,7 @@ class ReactorIntervalClass:
         boolVariables = list(boolDict.values())
         self.boolVariables = boolVariables
 
-        # redundant i think
+        # redundant I think
         # if boolActivation: # if it is present
         #     self.activationVariable = [boolActivation[0]]
         # else:
@@ -457,9 +474,11 @@ class ReactorIntervalClass:
         for i in mixingVariables:
             self.boundaries.update({i: (0, None)})
 
+        ''' 
         # now the reaction equations need to be updated because
         # they're the mix variables are now the inputs of the reaction equations!
         # see function update_reactor_intervals & class function update_reactor_equations
+        '''
 
         # add the variables and equations to the allVar/equations object
         self.allEquations += mixEquations
@@ -495,7 +514,7 @@ class ReactorIntervalClass:
         for i in reactionVariablesInputs:
                 self.boundaries.update({i: (0, None)})
 
-        # replace the variables which have spcifice bounds e.g pH variables
+        # replace the variables which have specific bounds e.g., pH variables
         boundryInputVar = self.boundryInputVar
         for i in boundryInputVar: # this is for when you want to add a specifice bound to a reaction variable SEE EXCEL
             self.boundaries[i] = boundryInputVar[i]
