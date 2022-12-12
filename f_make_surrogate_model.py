@@ -87,7 +87,7 @@ def regression_2_json(ExcelName, showPLot = True, save = False, saveName = 'data
                 key = name + '**{}'.format(nr)
                 dict2Pandas.update({key:col})
             X = pd.DataFrame(dict2Pandas)
-            #X = X_new # todo shiiiit wat if more then one variable!!
+            #X = X_new # todo shiiiit what if more then one variable!!
 
 
     # target values (the reactor outputs)

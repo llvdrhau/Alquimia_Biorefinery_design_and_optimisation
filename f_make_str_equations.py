@@ -24,7 +24,7 @@ def make_str_eq_smbl(modelName, substrate_exchange_rnx, product_exchange_rnx, eq
     #modelLocations = loc + r'\excel files\' + modelName
     modelLocations = [loc + r"\SBML models\{}".format(modelName)]
 
-    # TODO make extended reaction equtions for sbml models or maybe even make them into JSON files? idk
+    #  make extended reaction equtions for sbml models or maybe even make them into JSON files? idk
     # would run quicker in stead of having to read the xlm files each time
     equations, yields = get_conversion_sbml(modelLocations, substrate_exchange_rnx, product_exchange_rnx)
 

@@ -521,7 +521,7 @@ class ReactorIntervalClass:
     def get_replacement_dict(self,initialVars, newVars):
         replacementDict = {}
         for i in initialVars:
-            if i == 'pH':  # TODO find a better way to do this: pH always stays pH_intervalName
+            if i == 'pH':  #  TODO find a better way to do this: pH always stays pH_intervalName
                 reactorName = list(self.nameDict.keys())[0]
                 replacementDict.update({i: 'pH_{}'.format(reactorName)})
             for j in newVars:
