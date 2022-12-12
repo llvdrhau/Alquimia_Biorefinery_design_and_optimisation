@@ -18,7 +18,7 @@ microorganisms = [loc_acidi, loc_acnes, loc_prop, loc_avidum, loc_sher]
 objectiveMetID = 'S_biomass_ext'
 
 for i in microorganisms:
-    carbonBalanceInOut(modelLocation=i, metIDsMissingCarbon=objectiveMetID, tol=1e-4)
+    carbon_balance_in_out(modelLocation=i, metIDsMissingCarbon=objectiveMetID, tol=1e-4)
 
 #####################################################################################
 # test other micro organisms
@@ -29,7 +29,7 @@ print(validat[0])
 print('')
 print(validat[1]['SBML_FATAL'])
 # model = cobra.io.read_sbml_model(microViviane)
-carbonBalanceInOut(modelLocation=microViviane, metIDsMissingCarbon=[], tol=1e-4)
+carbon_balance_in_out(modelLocation=microViviane, metIDsMissingCarbon=[], tol=1e-4)
 
 """
 ok so we can see the following, for the P. species have a carbon balance which is 60% to 70% compleet

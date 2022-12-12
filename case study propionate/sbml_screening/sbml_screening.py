@@ -39,7 +39,7 @@ def carbonBalance(model, case = 'secretion' ,tol = 1e-4):
                     else: continue
 
             carbonNrAll.append(nrOfCarbons)
-            # TODO should also be multiplied by the stoichiometric coef.
+            #  TODO should also be multiplied by the stoichiometric coef
             gramsC = nrOfCarbons * 12 * reactionDF.flux[i]
             gramsCAll.append(gramsC)
 
