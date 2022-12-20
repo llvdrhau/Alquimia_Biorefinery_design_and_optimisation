@@ -148,7 +148,7 @@ def findCarbonsOfReaction(model,reactionID):
     carbonProduct = sumOfCarbons / coefOfProduct
     return carbonProduct[0], carbonOfEachMolecule, coefOfReactants
 
-def carbon_balance_in_out(modelLocation, metIDsMissingCarbon=None, tol = 1e-4):
+def carbon_balance_in_out(modelLocation, metIDsMissingCarbon=None, tol = 0):
     if isinstance(modelLocation,str):
         model = cobra.io.read_sbml_model(modelLocation)
         modelName = modelLocation.split("\\")[-1]
@@ -172,8 +172,10 @@ def carbon_balance_in_out(modelLocation, metIDsMissingCarbon=None, tol = 1e-4):
                 missingCarbonDict.update({metID:rctIDMissingCarbon})
 
     df = model.summary()
+    #exchangeRxn = model.exchanges
     uptake = df.uptake_flux
     secretion = df.secretion_flux
+
     dfUptake = carbonBalance(model= model , reactionDF= uptake, missingCarbonDict= missingCarbonDict, tol = tol)
     dfSecretion = carbonBalance(model= model , reactionDF= secretion, missingCarbonDict= missingCarbonDict, tol = tol)
     totalCarbonIn = sum(dfUptake['flux (gram-C/g-DW/h)'])
@@ -194,7 +196,7 @@ def carbon_balance_in_out(modelLocation, metIDsMissingCarbon=None, tol = 1e-4):
     print(dfSecretion)
     return dfUptake, dfSecretion
 
-def carbonBalance(model, reactionDF, missingCarbonDict, tol=1e-4):
+def carbonBalance(model, reactionDF, missingCarbonDict, tol=0):
     metNamesAll = []
     carbonNrAll = []
     gramsCAll = []

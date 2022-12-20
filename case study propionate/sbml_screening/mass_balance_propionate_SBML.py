@@ -18,7 +18,7 @@ microorganisms = [loc_acidi, loc_acnes, loc_prop, loc_avidum, loc_sher]
 objectiveMetID = 'S_biomass_ext'
 
 for i in microorganisms:
-    carbon_balance_in_out(modelLocation=i, metIDsMissingCarbon=objectiveMetID, tol=1e-4)
+    carbon_balance_in_out(modelLocation=i, metIDsMissingCarbon=objectiveMetID, tol=-1e-8)
 
 #####################################################################################
 # test other micro organisms
