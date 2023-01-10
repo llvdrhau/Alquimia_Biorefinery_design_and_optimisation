@@ -1,6 +1,8 @@
 # ============================================================================================================
 # Usefull functions
 # ============================================================================================================
+import os
+
 def split_remove_spaces(expr2split,splitCharacter):
     exprList = []
     if not isinstance(expr2split, str) and not isinstance(expr2split,list): # so a float or int just one number
@@ -55,3 +57,23 @@ def str_2_dict(string,intervalname):
     for i in D:
         inputBoundsDict.update({i+'_'+intervalname : D[i]})
     return inputBoundsDict
+
+def get_location(file):
+    loc = os.getcwd()
+    posAlquimia = loc.find('Alquimia')
+    loc = loc[0:posAlquimia + 8]
+
+    if '/' in loc: # in the case of mac OS
+        file = r"/{}".format(file)
+        if 'xslx' in file:
+            loc = loc + r'/excel files' + file
+        elif 'xml' in file:
+            loc = loc + r'/SBML models' + file
+
+    elif r'\\' in loc: # in the case of Windows OS
+        file = r"\{}".format(file)
+        if 'xslx' in file:
+            loc = loc + r'\excel files' + file
+        elif 'xml' in file:
+            loc = loc + r'\SBML models' + file
+    return loc

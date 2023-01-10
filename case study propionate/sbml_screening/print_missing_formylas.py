@@ -1,8 +1,11 @@
 
 import cobra
 import pandas as pd
+from f_usefull_functions import get_location
 
-loc_sher = r"C:\Users\lucas\PycharmProjects\Alquimia\SBML models\P_sherm_model.xml"
+
+modelName = "P_sherm_model.xml"
+loc_sher = get_location(modelName)
 model = cobra.io.read_sbml_model(loc_sher)
 metabolites = model.metabolites
 # blockedRxn = cobra.flux_analysis.find_blocked_reactions(model= model)
@@ -18,5 +21,5 @@ for met in metabolites:
 DictMetabolites = {'ID': metID, 'Name' : metName}
 DFmetabolites = pd.DataFrame(DictMetabolites)
 print(DFmetabolites)
-DFmetabolites.to_excel('missing_metabolites.xlsx')
+DFmetabolites.to_excel('missing_metabolites2.xlsx')
 
