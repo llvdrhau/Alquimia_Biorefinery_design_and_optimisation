@@ -65,15 +65,15 @@ def get_location(file):
 
     if '/' in loc: # in the case of mac OS
         file = r"/{}".format(file)
-        if 'xslx' in file:
+        if '.xslx' in file:
             loc = loc + r'/excel files' + file
-        elif 'xml' in file:
+        elif '.xml' in file:
             loc = loc + r'/SBML models' + file
 
-    elif r'\\' in loc: # in the case of Windows OS
+    elif "\\" in loc : # in the case of Windows OS
         file = r"\{}".format(file)
-        if 'xslx' in file:
+        if '.xslx' in file:
             loc = loc + r'\excel files' + file
-        elif 'xml' in file:
+        elif '.xml' in file:
             loc = loc + r'\SBML models' + file
     return loc

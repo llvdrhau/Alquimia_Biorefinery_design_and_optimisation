@@ -200,8 +200,12 @@ def carbonBalance(model, reactionDF, missingCarbonDict, tol=0):
     metNamesAll = []
     carbonNrAll = []
     gramsCAll = []
+    fluxAll = []
     for i, metID in enumerate(reactionDF.metabolite):
+        # tttt = abs(reactionDF.flux[i])
+        # t = tol
         if abs(reactionDF.flux[i]) > tol:
+            fluxAll.append(reactionDF.flux[i])
             met = model.metabolites.get_by_id(metID)
             metName = met.name
             metNamesAll.append(metName)
@@ -221,6 +225,7 @@ def carbonBalance(model, reactionDF, missingCarbonDict, tol=0):
 
     dictReactions = {'Metabolite': metNamesAll,
                      '# of C': carbonNrAll,
+                     'flux (mmol/g-DW/h)':fluxAll ,
                      'flux (gram-C/g-DW/h)': gramsCAll}
 
     dataFrameReactions = pd.DataFrame(dictReactions)
