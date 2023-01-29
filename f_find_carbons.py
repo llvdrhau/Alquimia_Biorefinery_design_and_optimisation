@@ -24,46 +24,39 @@ def findCarbonsMissingMetabolite(model, metID):
     return  CarbonsMissingMet
 
 def countCarbonInFormula(metFormula):
-    splitFormula = re.split('(\d+)', metFormula)
-    nrOfCarbons = 0  # just in case something wierd happens
-    if 'C' not in metFormula:  # if there is no carbon in the formula
-        nrOfCarbons = 0
+    if not metFormula or 'C' not in metFormula:  # if there is no carbon in the formula or the formula is of type NONE
+        allCarbons = 0
+
+    #nrOfCarbons = 0  # just in case something wierd happens
     else:
+        splitFormula = re.split('(\d+)', metFormula)
+        allCarbons = 0
         for j, element in enumerate(splitFormula):
+            element = element.replace(' ','')
             if 'C' in element and len(element) == 1:
-                nrOfCarbons = int(splitFormula[j + 1])
+                allCarbons += int(splitFormula[j + 1])
             elif 'C' in element and len(element) > 1:
                 posCarbon = element.index('C')
-                if element[posCarbon + 1].isupper():  # for case like CH4 there is no 1 next to the C
-                    nrOfCarbons = 1  # only one carbon
-                else:
-                    continue  # for cases like Co (cobalt) just skip
+                if (posCarbon+1) == len(element): # e.g., ['RC' '11'] then there are 11 carbons to be counted
+                    if splitFormula[j+1].isnumeric():
+                        allCarbons += int(splitFormula[j + 1])
+                    else:
+                        allCarbons += 1 # the next element is the next atom so only add one carbon
+                elif (posCarbon+1) != len(element):
+                    if element[posCarbon + 1].isupper():  # for case like CH4 there is no 1 next to the C
+                        allCarbons += 1  # only one carbon
+                    elif element[posCarbon + 1].islower(): # for cases like Co (cobalt) or Cu
+                        continue
             else:
                 continue
-    return nrOfCarbons
+    return allCarbons
 
 def countCarbonInList(reaction, reactionList):
     carbonNrAll = []
     for met in reactionList:
         stoiCoef_i = abs(reaction.metabolites[met])
         metFormula = met.formula
-        splitFormula = re.split('(\d+)', metFormula)
-        nrOfCarbons = 0  # just in case something wierd happens
-        if 'C' not in metFormula:  # if there is no carbon in the formula
-            nrOfCarbons = 0
-        else:
-            for j, element in enumerate(splitFormula):
-                if 'C' in element and len(element) == 1:
-                    nrOfCarbons = int(splitFormula[j + 1])
-                elif 'C' in element and len(element) > 1:
-                    posCarbon = element.index('C')
-                    if element[posCarbon + 1].isupper():  # for case like CH4 there is no 1 next to the C
-                        nrOfCarbons = 1  # only one carbon
-                    else:
-                        continue  # for cases like Co (cobalt) just skip
-                else:
-                    continue
-
+        nrOfCarbons = countCarbonInFormula(metFormula)
         carbonNrAll.append(nrOfCarbons*stoiCoef_i)
     totaalCarbonAtoms = sum(carbonNrAll)
     return  totaalCarbonAtoms

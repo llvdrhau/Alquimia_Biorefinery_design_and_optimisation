@@ -1,15 +1,14 @@
-'''
-This function import information of the model to an Excel file to check the missing carbon in the metabolic reactions
-the percent of missing carbon can also  be attributed to the reactions to check on their importants of the reactions to
-the outcome of the FBA
-'''
 import pandas as pd
 import cobra
 import numpy as np
 from f_usefull_functions import get_location
 from f_find_carbons import carbon_balance_in_out, countCarbonInFormula
 #from cobra import Metabolite
-
+'''
+This function imports information of the model to an Excel file to check the missing carbon in the metabolic reactions
+the percent of missing carbon can also  be attributed to the reactions to check on their importants of the reactions to
+the outcome of the FBA
+'''
 def string_reactions(reaction, case = 'names'):
     rxn = reaction
     reactants = rxn.reactants
@@ -42,7 +41,9 @@ def string_reactions(reaction, case = 'names'):
 
     reactionStr = "{} = {}".format(reactantStr, productStr)
     return reactionStr
-def print_SBML_info_2_excel(modelName):
+
+
+def print_SBML_info_2_excel(modelName, idMissingCarbon = None):
     if isinstance(modelName, str):
         modelLocation = get_location(modelName)
         model = cobra.io.read_sbml_model(modelLocation)
@@ -116,8 +117,7 @@ def print_SBML_info_2_excel(modelName):
     #print(DFmetRnx)
 
     # find the ingoing and outgoing fluxes
-    objectiveMetID = 'S_biomass_ext'
-    inputDF, outputDF  = carbon_balance_in_out(modelLocation=model, metIDsMissingCarbon=objectiveMetID, tol= 0.0001)
+    inputDF, outputDF  = carbon_balance_in_out(modelLocation=model, metIDsMissingCarbon= idMissingCarbon, tol= 0.0001)
 
     # calculate the percentage of carbon at goes missing in each reaction (exculed the exchage reactions?)
     #exclude the transfer (exchange reactions) reactions
@@ -181,5 +181,14 @@ if __name__ == '__main__':
     metbiomass = model.metabolites.get_by_id(metbiomassId)
     metbiomass.name = 'Biomass'
     metbiomass.formula = 'C15.12HNO'
+    print_SBML_info_2_excel(modelName=model, idMissingCarbon= metbiomassId)
 
-    print_SBML_info_2_excel(modelName= model)
+    modelList = ['P_propionicum_model.xml', 'PAC_4875_model.xml', 'P_acnes_model.xml', 'P_avidum_model.xml']
+    for modelName in modelList:
+        loc_sher = get_location(modelName)
+        model = cobra.io.read_sbml_model(loc_sher)
+        model.name = modelName
+        print_SBML_info_2_excel(modelName=model, idMissingCarbon= metbiomassId)
+
+
+

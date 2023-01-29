@@ -41,6 +41,9 @@ def check_reaction(model, reactionID):
     print(reactionEqNames)
     reac, prod = balance(reaction=reaction)
     print(reac, prod)
+    missing = prod + reac
+    print(missing)
+    return missing
 
 # p_sherm_model
 # rxnnew66_c0
@@ -50,9 +53,17 @@ loc_sher = get_location(modelName)
 model = cobra.io.read_sbml_model(loc_sher)
 model.name = "P_sherm_model"
 rxnID = ['rxnnew73_c0','rxnnew66_c0' ]
-check_reaction(model= model, reactionID= rxnID[1])
+for i in rxnID:
+    Cmissing = check_reaction(model= model, reactionID= i)
 
+#'S_cpdnew22_c0'
+#'Propionibacterium peptidoglycan'
 
+idProt = 'S_cpd11463_c0'
+#'Protein'
 
+metProtein = model.metabolites.get_by_id(idProt)
+print(metProtein.formula)
 
-
+# TODO find the missing carbons of the specified metabolites in the reaction
+#  with unbalanced carbon and ajust the formula with replace, make it so that O , H can also be balanced
