@@ -120,7 +120,7 @@ def get_location(file):
 ########################################################################################################################
 
 # originaly from the file f_find_carbons
-def findCarbonsMissingMetabolite(model, metID):
+def find_Carbons_Missing_Metabolite(model, metID):
     met = model.metabolites.get_by_id(metID)
     ProducingRct = getProducingReactions(model,metID)
     reaction = ProducingRct[0] # just need one producing reaction so you can stop at the first one
@@ -131,8 +131,8 @@ def findCarbonsMissingMetabolite(model, metID):
     reaction_products.remove(met)
     #remove the metabolite which we are looking that way you
     # can check with a reaction that does have the correct carbons if it works
-    carbonInReactants = countCarbonInList(reaction,  reactionList= reaction_reactants)
-    carbonInProducts = countCarbonInList(reaction, reactionList = reaction_products)
+    carbonInReactants = count_carbon_in_list(reaction,  reactionList= reaction_reactants)
+    carbonInProducts = count_carbon_in_list(reaction, reactionList = reaction_products)
 
     CarbonsMissingMet = (carbonInReactants-carbonInProducts)/stoiCoef_rct
     return  CarbonsMissingMet
@@ -165,7 +165,7 @@ def count_carbon_in_formula(metFormula):
                 continue
     return allCarbons
 
-def countCarbonInList(reaction, reactionList):
+def count_carbon_in_list(reaction, reactionList):
     carbonNrAll = []
     for met in reactionList:
         stoiCoef_i = abs(reaction.metabolites[met])
@@ -175,8 +175,8 @@ def countCarbonInList(reaction, reactionList):
     totaalCarbonAtoms = sum(carbonNrAll)
     return  totaalCarbonAtoms
 
-def getIDlistOfProducingMetabolties(model, metID):
-    reactions = getProducingReactions(model , metID)
+def get_IDlist_Of_Producing_Metabolties(model, metID):
+    reactions = get_Producing_Reactions(model , metID)
     ids = []
     coef = []
     r = reactions[0] # only interested in one reaction(doesn't matter which)
@@ -189,7 +189,7 @@ def getIDlistOfProducingMetabolties(model, metID):
 
     return ids, coef, coefProduct
 
-def getProducingReactions(model, metID):
+def get_Producing_Reactions(model, metID):
     met = model.metabolites.get_by_id(metID)
     frozenRct = met.reactions
 
@@ -205,7 +205,7 @@ def getProducingReactions(model, metID):
     reaction = ProducingRct[0]
     return ProducingRct
 
-def findCarbonsOfReaction(model,reactionID):
+def find_carbons_of_reaction(model,reactionID):
     reaction = model.reactions.get_by_id(reactionID)
     reactantList = reaction.reactants
     product =  reaction.products
@@ -221,18 +221,18 @@ def findCarbonsOfReaction(model,reactionID):
             carbonOfEachMolecule.append(nCarbon)
         else: #else go one reaction deeper to find the amount of carbons
             metID = met.id
-            nCarbon = findCarbonsMissingMetabolite(model=model, metID=metID)
+            nCarbon = find_Carbons_Missing_Metabolite(model=model, metID=metID)
             if nCarbon > 0:
                 carbonOfEachMolecule.append(nCarbon)
             else:
                 switch = True
                 # get missing metabolites and run
                 name = model.metabolites.get_by_id(metID).name
-                subMetabolites, coef, coefMet = getIDlistOfProducingMetabolties(model, metID)
+                subMetabolites, coef, coefMet = get_IDlist_Of_Producing_Metabolties(model, metID)
                 carbonSubReactions = []
                 for subMetID in subMetabolites:
                     namesubMet = model.metabolites.get_by_id(subMetID).name
-                    nSubCarbon = findCarbonsMissingMetabolite(model=model, metID=subMetID)
+                    nSubCarbon = find_Carbons_Missing_Metabolite(model=model, metID=subMetID)
                     carbonSubReactions.append(nSubCarbon)
 
                 control = [carbonSubReactions[i] >= 0 for i in range(len(carbonSubReactions))]
@@ -255,6 +255,41 @@ def findCarbonsOfReaction(model,reactionID):
     carbonProduct = sumOfCarbons / coefOfProduct
     return carbonProduct[0], carbonOfEachMolecule, coefOfReactants
 
+def carbon_balance(model, reactionDF, missingCarbonDict, tol=0):
+    metNamesAll = []
+    carbonNrAll = []
+    gramsCAll = []
+    fluxAll = []
+    for i, metID in enumerate(reactionDF.metabolite):
+        # tttt = abs(reactionDF.flux[i])
+        # t = tol
+        if abs(reactionDF.flux[i]) > tol:
+            fluxAll.append(reactionDF.flux[i])
+            met = model.metabolites.get_by_id(metID)
+            metName = met.name
+            metNamesAll.append(metName)
+            metFormula = met.formula
+            if metID in missingCarbonDict.keys():
+                rct = missingCarbonDict[metID]
+                rctID = rct.id
+                c = find_carbons_of_reaction(model=model, reactionID=rctID)
+                nrOfCarbons = c[0]
+            else:
+                nrOfCarbons  = count_carbon_in_formula(metFormula)
+
+            carbonNrAll.append(nrOfCarbons)
+            gramsC = nrOfCarbons * 12 * reactionDF.flux[i]
+            gramsCAll.append(gramsC)
+
+
+    dictReactions = {'Metabolite': metNamesAll,
+                     '# of C': carbonNrAll,
+                     'flux (mmol/g-DW/h)':fluxAll ,
+                     'flux (gram-C/g-DW/h)': gramsCAll}
+
+    dataFrameReactions = pd.DataFrame(dictReactions)
+    return dataFrameReactions
+
 def carbon_balance_in_out(modelLocation, metIDsMissingCarbon=None, tol = 0):
     if isinstance(modelLocation,str):
         model = cobra.io.read_sbml_model(modelLocation)
@@ -273,7 +308,7 @@ def carbon_balance_in_out(modelLocation, metIDsMissingCarbon=None, tol = 0):
         metIDsMissingCarbon = [metIDsMissingCarbon] #change ito a list if it is not
         if metIDsMissingCarbon: #if it is not empty
             for metID in metIDsMissingCarbon: #write a for loop to go over all the missing metabolites and find the producing reaction
-                reactions = getProducingReactions(model= model, metID=metID)
+                reactions = get_Producing_Reactions(model= model, metID=metID)
                 rctIDMissingCarbon = reactions[0] #only want the first reaction
                 allRctIDMissingCarbon.append(rctIDMissingCarbon)
                 missingCarbonDict.update({metID:rctIDMissingCarbon})
@@ -283,8 +318,8 @@ def carbon_balance_in_out(modelLocation, metIDsMissingCarbon=None, tol = 0):
     uptake = df.uptake_flux
     secretion = df.secretion_flux
 
-    dfUptake = carbonBalance(model= model , reactionDF= uptake, missingCarbonDict= missingCarbonDict, tol = tol)
-    dfSecretion = carbonBalance(model= model , reactionDF= secretion, missingCarbonDict= missingCarbonDict, tol = tol)
+    dfUptake = carbon_balance(model= model , reactionDF= uptake, missingCarbonDict= missingCarbonDict, tol = tol)
+    dfSecretion = carbon_balance(model= model , reactionDF= secretion, missingCarbonDict= missingCarbonDict, tol = tol)
     totalCarbonIn = sum(dfUptake['flux (gram-C/g-DW/h)'])
     CgramsOut = sum(dfSecretion['flux (gram-C/g-DW/h)'])
     CarbonBalance = abs(CgramsOut / totalCarbonIn)*100
@@ -303,37 +338,190 @@ def carbon_balance_in_out(modelLocation, metIDsMissingCarbon=None, tol = 0):
     print(dfSecretion)
     return dfUptake, dfSecretion
 
-def carbonBalance(model, reactionDF, missingCarbonDict, tol=0):
-    metNamesAll = []
-    carbonNrAll = []
-    gramsCAll = []
-    fluxAll = []
-    for i, metID in enumerate(reactionDF.metabolite):
-        # tttt = abs(reactionDF.flux[i])
-        # t = tol
-        if abs(reactionDF.flux[i]) > tol:
-            fluxAll.append(reactionDF.flux[i])
-            met = model.metabolites.get_by_id(metID)
-            metName = met.name
-            metNamesAll.append(metName)
-            metFormula = met.formula
-            if metID in missingCarbonDict.keys():
-                rct = missingCarbonDict[metID]
-                rctID = rct.id
-                c = findCarbonsOfReaction(model=model, reactionID=rctID)
-                nrOfCarbons = c[0]
-            else:
-                nrOfCarbons  = count_carbon_in_formula(metFormula)
+# originaly from the file print_model_2_excel
 
-            carbonNrAll.append(nrOfCarbons)
-            gramsC = nrOfCarbons * 12 * reactionDF.flux[i]
-            gramsCAll.append(gramsC)
+def string_reactions(reaction, case='names'):
+    """ returns the reaction as a string with the stoichiometry and prints it to the terminal
+    """
+
+    rxn = reaction
+    reactants = rxn.reactants
+    reactantStr = ''
+    stoiFactor = rxn.metabolites
+
+    for metReac in reactants:
+        if case == 'names':
+            reactName = metReac.name
+        else:
+            reactName = metReac.formula
+            if reactName == '':
+                reactName = "###"
+
+        stoi = stoiFactor[metReac]
+        reactantStr += '{} {} + '.format(stoi, reactName)
+
+    productStr = ""
+    products = rxn.products
+    for metProd in products:
+        if case == 'names':
+            prodName = metProd.name
+        else:
+            prodName = metProd.formula
+            if prodName == '':
+                prodName = "###"  # so it is easier to see if it is missing
+
+        stoi = stoiFactor[metProd]
+        productStr += '{} {} + '.format(stoi, prodName)
+
+    reactionStr = "{} = {}".format(reactantStr, productStr)
+    return reactionStr
+
+def print_SBML_info_2_excel(modelName, idMissingCarbon=None):
+    """
+    This function imports information of the model to an Excel file to check the missing carbon in the metabolic reactions
+    the percent of missing carbon can also  be attributed to the reactions to check on their importants of the reactions to
+    the outcome of the FBA
+
+    Inputs:
+    modelName: str name or location of the model, optional
+
+    idMissingCarbon: if you know a metabolite does not have carbon in it's formula you can specify it as a string and
+    the code will estimate it for you. default = None
+
+    blanace elements: list of elements to balance. default = ['C', 'O', 'H']
+
+    output:
+    Excel files with info
+    """
+    if isinstance(modelName, str):
+        modelLocation = get_location(modelName)
+        model = cobra.io.read_sbml_model(modelLocation)
+        saveName = modelName
+        saveName = saveName.replace('.xml', '')
+        saveName = '{}_analysis.xlsx'.format(saveName)
+    else:
+        model = modelName
+        saveName = model.name
+        saveName = saveName.replace('.xml', '')
+        saveName = '{}_analysis.xlsx'.format(saveName)
+
+    StoiMatrixDF = cobra.util.create_stoichiometric_matrix(model, array_type='DataFrame')  # [:,0:posExchangeRxn]
+    # print(StoiMatrixDF)
+
+    FBA = model.optimize()
+    fluxArray = FBA.fluxes  # [0:posExchangeRxn] #.to_numpy()
+
+    # fluxArray.drop(ExRxn, inplace=True)
+    # rxnFluxes = np.dot(StoiMatrixDF, fluxArray)
+    # metabolicFluxDF = pd.DataFrame(metabolicFlux, index=StoiMatrixDF.index)
+    # print(metabolicFluxDF)
+
+    metabolites = model.metabolites
+    metID = []
+    metName = []
+    metNameWithSpaces = []
+    strRxns = []
+    fluxRxn = []
+    stoiMetMissingFormula = []
+    carbonCount = []
+    for met in metabolites:
+        formula = met.formula
+        carbon = countCarbonInFormula(metFormula=formula)
+        carbonCount.append(carbon)
+        if not formula:
+            metID.append(met.id)
+            metName.append(met.name)
+            metNameWithSpaces.append(met.name)
+            frozenRct = met.reactions
+            # get the reaction that produces the metabolite
+            allRxn = list(frozenRct)
+
+            extraNames = [''] * (len(allRxn) - 1)
+            metNameWithSpaces = metNameWithSpaces + extraNames
+            # metName = metName + extraNames
+
+            # helpNames = metName + extraNames
+            # metNameWithSpaces = metNameWithSpaces + helpNames
+            # metName.append(extraNames)
+
+            for rxn in allRxn:
+                reactionStr = string_reactions(reaction=rxn)
+                strRxns.append(reactionStr)
+
+                fluxRxn.append(rxn.flux)
+                stoiFactor = rxn.metabolites
+                stoiMetMissingFormula.append(stoiFactor[met])
+
+    DictCarbons = {'ID metabolite': list(StoiMatrixDF.index), '# Carbons': carbonCount}
+    CarbonsDF = pd.DataFrame(DictCarbons)
+
+    DictMetabolites = {'ID': metID, 'Name': metName}
+    DFmetabolites = pd.DataFrame(DictMetabolites)
+    # print(DFmetabolites)
+
+    DictMetRnx = {'Name': metNameWithSpaces, 'Reactions': strRxns, 'Flux': fluxRxn,
+                  'Stoichiometry': stoiMetMissingFormula}
+    DFmetRnx = pd.DataFrame(DictMetRnx)
+    # print(DFmetRnx)
+
+    # find the ingoing and outgoing fluxes
+    inputDF, outputDF = carbon_balance_in_out(modelLocation=model, metIDsMissingCarbon=idMissingCarbon, tol=0.0001)
+
+    # calculate the percentage of carbon at goes missing in each reaction (exculed the exchage reactions?)
+    # exclude the transfer (exchange reactions) reactions
+    exchRxn = model.exchanges
+    # transform id's to a list
+    keysListExRxn = [rx.id for rx in exchRxn]
+
+    # to drop or not?
+    fluxArray.drop(keysListExRxn, inplace=True)
+    fluxArrayNp = np.array(fluxArray).reshape(-1, 1)
+    st = StoiMatrixDF.drop(keysListExRxn, axis='columns')  # ,inplace=False)
+    # st = StoiMatrixDF
+
+    carbonArray = np.array(carbonCount)
+    carbonArray = carbonArray.reshape(-1, 1)
+    StoiMatrixTranspose = np.transpose(st)
+
+    carbonBalance = np.dot(StoiMatrixTranspose, carbonArray)  # in mols of Carbon
+    # multiply by 12 gC/mol
+    carbonMassBalance = carbonBalance * 12
+    carbonMissing = carbonMassBalance * fluxArrayNp
+    rxnIDreduced = list(fluxArray.index)
+
+    DictMissingCarbonALL = {'Reaction Id': rxnIDreduced,
+                            'carbon (gCarbon)': carbonMissing.reshape(len(carbonMissing), )}
+    DFMissingCarbonALL = pd.DataFrame(DictMissingCarbonALL)
+
+    unbalancedId = []
+    unbalanced = []
+    rxnUnblanaced = []
+    for i, c in enumerate((carbonMissing)):
+        if abs(c) > 0:
+            unbalancedId.append(rxnIDreduced[i])
+            unbalanced.append(c[0])
+            reactionStr = string_reactions(model.reactions.get_by_id(rxnIDreduced[i]))
+            rxnUnblanaced.append(reactionStr)
+    DictMissingCarbon = {'Reaction Id': unbalancedId, 'carbon (gCarbon)': unbalanced, 'reaction': rxnUnblanaced}
+    DFUnbalancedCarbonReactions = pd.DataFrame(DictMissingCarbon)
+
+    # UnbalancedCarbonReactions
+    # carbonStoiMatrix
+    # carbonStoiMatrix = np.dot(np.array(carbonCount),np.transpose(StoiMatrixDF))
+    # numpy.array(carbonCount)
+
+    with pd.ExcelWriter(saveName) as writer:
+        StoiMatrixDF.to_excel(writer, sheet_name='StoichiometricMatrix')
+        fluxArray.to_excel(writer, sheet_name='ReactionFluxes')
+        CarbonsDF.to_excel(writer, sheet_name='CarbonsPerMetbolite')
+        DFmetRnx.to_excel(writer, sheet_name='MissingFormulaReactions')
+        DFUnbalancedCarbonReactions.to_excel(writer, sheet_name='Carbon Balance')
+        inputDF.to_excel(writer, sheet_name='Carbon Input')
+        outputDF.to_excel(writer, sheet_name='Carbon output')
 
 
-    dictReactions = {'Metabolite': metNamesAll,
-                     '# of C': carbonNrAll,
-                     'flux (mmol/g-DW/h)':fluxAll ,
-                     'flux (gram-C/g-DW/h)': gramsCAll}
-
-    dataFrameReactions = pd.DataFrame(dictReactions)
-    return dataFrameReactions
+########################################################################################################################
+# ============================================================================================================
+# formulating the superstructure
+# ============================================================================================================
+########################################################################################################################

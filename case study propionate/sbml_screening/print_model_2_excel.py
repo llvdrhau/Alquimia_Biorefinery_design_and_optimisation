@@ -4,12 +4,9 @@ import numpy as np
 from f_usefull_functions import get_location
 from f_find_carbons import carbon_balance_in_out, countCarbonInFormula
 #from cobra import Metabolite
-'''
-This function imports information of the model to an Excel file to check the missing carbon in the metabolic reactions
-the percent of missing carbon can also  be attributed to the reactions to check on their importants of the reactions to
-the outcome of the FBA
-'''
+
 def string_reactions(reaction, case = 'names'):
+    """ returns the reaction as a string with the stoichiometry and prints it to the terminal """
     rxn = reaction
     reactants = rxn.reactants
     reactantStr = ''
@@ -42,8 +39,23 @@ def string_reactions(reaction, case = 'names'):
     reactionStr = "{} = {}".format(reactantStr, productStr)
     return reactionStr
 
-
 def print_SBML_info_2_excel(modelName, idMissingCarbon = None):
+    """
+    This function imports information of the model to an Excel file to check the missing carbon in the metabolic reactions
+    the percent of missing carbon can also  be attributed to the reactions to check on their importants of the reactions to
+    the outcome of the FBA
+
+    Inputs:
+    modelName: str name or location of the model, optional
+
+    idMissingCarbon: if you know a metabolite does not have carbon in it's formula you can specify it as a string and
+    the code will estimate it for you. default = None
+
+    blanace elements: list of elements to balance. default = ['C', 'O', 'H']
+
+    output:
+    Excel files with info
+    """
     if isinstance(modelName, str):
         modelLocation = get_location(modelName)
         model = cobra.io.read_sbml_model(modelLocation)
