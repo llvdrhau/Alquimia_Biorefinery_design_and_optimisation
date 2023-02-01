@@ -6,15 +6,13 @@ import os
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from f_find_carbons import carbon_balance_in_out
+from functions import carbon_balance_in_out
 import cobra.io
 import re
 
 from sklearn.model_selection import train_test_split
-from sklearn.linear_model import ElasticNetCV
 from sklearn.linear_model import RidgeCV
 from sklearn.linear_model import LassoCV
-from sklearn.linear_model import Lasso
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 

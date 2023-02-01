@@ -4,7 +4,7 @@ This script is to check the carbon balance of the Propioni bacteria
 """
 
 # import modules
-from f_find_carbons import *
+from old_scripts.old2.f_find_carbons import *
 
 # get the location of the models
 loc = os.getcwd()

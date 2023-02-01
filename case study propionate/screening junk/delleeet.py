@@ -1,5 +1,5 @@
 
-from f_find_carbons import carbonBalanceInOut
+from old_scripts.old2.f_find_carbons import carbonBalanceInOut
 import cobra
 import os
 cdw = os.getcwd()

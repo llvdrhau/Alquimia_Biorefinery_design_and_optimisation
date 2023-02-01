@@ -1,7 +1,7 @@
 
 import cobra
 import numpy as np
-from f_find_carbons import countCarbonInFormula
+from old_scripts.old2.f_find_carbons import countCarbonInFormula
 import pandas as pd
 
 

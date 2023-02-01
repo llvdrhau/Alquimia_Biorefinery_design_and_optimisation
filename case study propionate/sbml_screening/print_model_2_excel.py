@@ -2,7 +2,7 @@ import pandas as pd
 import cobra
 import numpy as np
 from f_usefull_functions import get_location
-from f_find_carbons import carbon_balance_in_out, countCarbonInFormula
+from old_scripts.old2.f_find_carbons import carbon_balance_in_out, countCarbonInFormula
 #from cobra import Metabolite
 
 def string_reactions(reaction, case = 'names'):

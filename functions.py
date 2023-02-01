@@ -425,7 +425,8 @@ def get_list_metabolite_ids_names(model):
     DFidName = pd.DataFrame({'IDs':ids, 'Names':names})
     return DFidName
 
-def print_SBML_info_2_excel(modelName, idMissingCarbon=None, saveName = None, tolerance = 0.0001):
+def print_SBML_info_2_excel(modelName, idMissingCarbon=None, saveName = None, tolerance = 0.0001,
+                            print2Excel = True):
     """
     This function imports information of the model to an Excel file to check the missing carbon in the metabolic reactions
     the percent of missing carbon can also  be attributed to the reactions to check on their importants of the reactions to
@@ -551,18 +552,19 @@ def print_SBML_info_2_excel(modelName, idMissingCarbon=None, saveName = None, to
 
     DFMetIdNames = get_list_metabolite_ids_names(model)
 
-    saveLocation = r'C:\Users\lucas\PycharmProjects\Alquimia\case study propionate\compleet excel analysis\{}'.format(saveName)
-    with pd.ExcelWriter(saveLocation) as writer:
-        StoiMatrixDF.to_excel(writer, sheet_name='StoichiometricMatrix')
-        fluxArray.to_excel(writer, sheet_name='ReactionFluxes')
-        CarbonsDF.to_excel(writer, sheet_name='CarbonsPerMetbolite')
-        DFmetRnx.to_excel(writer, sheet_name='MissingFormulaReactions')
-        DFMetIdNames.to_excel(writer, sheet_name='ID 2 name')
-        DFcarbon.to_excel(writer, sheet_name='Carbon Balance')
-        DFoxygen.to_excel(writer, sheet_name= 'Oxygen Balance')
-        DFhydrogen.to_excel(writer, sheet_name= 'Hydrogen Balance')
-        inputDF.to_excel(writer, sheet_name='Carbon Input')
-        outputDF.to_excel(writer, sheet_name='Carbon output')
+    if print2Excel:
+        saveLocation = r'C:\Users\lucas\PycharmProjects\Alquimia\case study propionate\compleet excel analysis\{}'.format(saveName)
+        with pd.ExcelWriter(saveLocation) as writer:
+            StoiMatrixDF.to_excel(writer, sheet_name='StoichiometricMatrix')
+            fluxArray.to_excel(writer, sheet_name='ReactionFluxes')
+            CarbonsDF.to_excel(writer, sheet_name='CarbonsPerMetbolite')
+            DFmetRnx.to_excel(writer, sheet_name='MissingFormulaReactions')
+            DFMetIdNames.to_excel(writer, sheet_name='ID 2 name')
+            DFcarbon.to_excel(writer, sheet_name='Carbon Balance')
+            DFoxygen.to_excel(writer, sheet_name= 'Oxygen Balance')
+            DFhydrogen.to_excel(writer, sheet_name= 'Hydrogen Balance')
+            inputDF.to_excel(writer, sheet_name='Carbon Input')
+            outputDF.to_excel(writer, sheet_name='Carbon output')
 
 # functions to help fix the models
 def balance_element(reaction, element):
@@ -648,8 +650,73 @@ def estimate_formula(model, estimationDict):
         formulaDict.update({metID:formulaEstimate})
     return formulaDict
 
+def count_missing_formulas_in_rxn(rxnId, model):
+    reaction = model.reactions.get_by_id(rxnId)
+    # Get the list of metabolites involved in the reaction
+    metabolites = reaction.metabolites
+    # Initialize a counter for missing formulas
+    countMissingFormulas = 0
 
+    # Iterate over the metabolites
+    for metabolite in metabolites:
+        # Check if the metabolite formula is missing
+        if not metabolite.formula: # if the string is empty
+            # If the formula is missing, increment the counter
+            countMissingFormulas += 1
 
+    # Return the count of metabolites with missing formulas
+    return countMissingFormulas
+
+def fix_missing_formulas(model, fixDict, maxIterations = 10):
+    '''
+    fixes metaboliets that don't have a formula by looking at the reaction and counting the missing elements C H and O
+    this is a very rough estimation!!
+
+    Inputs:
+    model (COBRA model)
+    fixDict: dictionary with metabolites as keys and rxn IDs as values (the reaction id you want to fix the metabolite with)
+
+    output: model (cobra)
+    '''
+    estimateFormulas = {}
+    stopCriteria = True
+    iteration = 0
+    while stopCriteria and iteration < maxIterations:
+        toFix = {}
+        notSolved = {}
+        countCompleet = 0
+        iteration += 1
+        for metId in fixDict:
+            rxnId = fixDict[metId]
+            nMissing = count_missing_formulas_in_rxn(rxnId= rxnId, model=model)
+            if nMissing == 1:
+                toFix.update({metId:rxnId})
+
+            elif nMissing == 0:
+                countCompleet += 1
+
+            else:
+                notSolved.update({metId:rxnId})
+
+        a = countCompleet
+        b = len(fixDict)
+        if countCompleet == len(fixDict): # all the reactions have formulas now
+            stopCriteria = False
+        elif iteration == (maxIterations -1):
+            print(notSolved)
+            raise Exception('the above metabolite formulas could not be found, consider using a different reaction to find them')
+
+        else:
+            # estimate the formulas with reactions only missing 1 formula
+            batchEstimastes = estimate_formula(model=model, estimationDict=toFix)
+            estimateFormulas.update(batchEstimastes)
+            # update the metabolites of the model
+            for metId in batchEstimastes:
+                met2change = model.metabolites.get_by_id(metId)
+                formula = batchEstimastes[metId]
+                met2change.formula = formula
+
+    return model, estimateFormulas
 ########################################################################################################################
 # ============================================================================================================
 # formulating the superstructure

@@ -1,7 +1,7 @@
 import cobra.io
 import os
 import re
-from f_find_carbons import carbon_balance_in_out
+
 
 def find_carbons_in_formula(formula):
     metFormula = formula
