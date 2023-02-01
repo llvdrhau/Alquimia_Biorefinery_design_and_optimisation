@@ -83,7 +83,7 @@ print(estimastesFormuals)
 
 
 # check in the Excel file if mass balances now comply
-print_SBML_info_2_excel(modelName=model, print2Excel= True, saveName= 'test666.xlsx')
+print_SBML_info_2_excel(modelName=model, print2Excel= False, saveName= 'test666.xlsx')
 
 # save the model
 save = False

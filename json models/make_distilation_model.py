@@ -1,42 +1,9 @@
 import numpy as np
 
 
-def distillation_design(x_D, q, Cp, T_F, T_D, T_B):
-    """
-    Calculates the number of stages, reflux ratio, and energy requirements for a distillation column.
-
-    Parameters:
-        x_D (float): desired composition of the distillate component
-        q (float): flow rate of the incoming stream (kg/hr)
-        Cp (float): heat capacity of the components (J/kg-K)
-        T_F (float): temperature of the incoming stream (K)
-
-        T_D (float): desired temperature of the distillate (K)
-        T_B (float): desired temperature of the bottoms (K)
-
-    Returns:
-        N (int): number of stages
-        R (float): reflux ratio
-        Q (float): energy requirements (J/hr)
-    """
-
-    # calculate the flows of the Bottom and Distilate
-
-
-
-    # Calculate the number of stages using De Fenske equation
-    N = (np.log((1 - x_D) / x_D)) / (np.log(q * (Cp * (T_F - T_D)) / (q * Cp * (T_B - T_D))))
-
-    # Calculate the reflux ratio using Underwood equation
-    R = (1 - x_D) / (x_D - (1 - x_D) * np.exp(-N))
-
-    # Calculate the energy requirements
-    Q = q * Cp * (T_F - T_D) * N * R / (1 + R)
-
-    return int(round(N)), R, Q
-
-
-def distilation_check(x_D, F, x_F, alfa_f):
+def distilation_check(x_D, x_B, F, x_F, alfa_f,  # for mass balances
+                      Hvap_a, Hvap_b,       # FOR condenser duty
+                      T_F, T_D, T_B, Cp_a, Cp_b): # for reboiler duty
     """
         Calculates the flow of mass, number of stages, reflux ratio, and energy requirements for a distillation column.
 
@@ -44,7 +11,7 @@ def distilation_check(x_D, F, x_F, alfa_f):
             x_D (float): desired composition of the distillate component (mass%)
             F (float): flow rate of the incoming stream (kg/hr)
             x_F (float): composition of the feed component (mass %)
-            alfa_f (float): vapor presure the relative volatility is given by the ratio of vapor pressures, a1;2 ¼ Ps
+            alfa_f (float): vapor presure the relative volatility is given by the ratio of vapor pressures,
                              and thus is a function only of temperature.
             nex
 
@@ -56,18 +23,34 @@ def distilation_check(x_D, F, x_F, alfa_f):
         """
 
     # flow of mass
-    x_B = 1-x_D
     D = F*(x_F - x_B)/(x_D - x_B)
     B = F - D
     print(D)
     print(B)
 
     # reflux ratio
-    Lmin = F*( (D*x_D)/(F*x_F) - alfa_f * D*(1-x_D)/ (F*(1-x_F)) ) / (alfa_f -1)
-    L = 1.3 * Lmin
+    L = (F*( (D*x_D)/(F*x_F) - alfa_f * D*(1-x_D)/ (F*(1-x_F)) ) / (alfa_f -1)) * 1.3
+    V = L + D
     print(L)
+    print(V)
+
+    # condenser
+    Hvap = x_D * Hvap_a + (1-x_D) * Hvap_b
+    Qc = Hvap * V
+    print('Hvap: {}'.format(Hvap))
+    print('Qc: {}'.format(Qc))
+
+
+    # reboiler
+    hF = (x_F* Cp_a + (1-x_F) * Cp_b) *(T_F - T_D)
+    hB = (x_B* Cp_a + (1-x_B) * Cp_b) *(T_B - T_D)
+    Qr = B* hB + Qc -F*hF
+    print('Qr: {}'.format(Qr))
+
 
 
     return D, B, L
 
-distilation_check(x_D=0.95, F= 450, x_F= 0.6, alfa_f=3.1)
+distilation_check(x_D=0.95, x_B=0.05, F= 450, x_F= 0.6, alfa_f=3.1,
+                  Hvap_a= 33800, Hvap_b= 38000,
+                  T_F= 90 , T_D= 82 , T_B= 108, Cp_a= 133, Cp_b= 157 )
