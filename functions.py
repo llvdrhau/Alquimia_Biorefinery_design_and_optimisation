@@ -555,12 +555,26 @@ def print_SBML_info_2_excel(modelName, idMissingCarbon=None, saveName = None, to
 
     DFMetIdNames = get_list_metabolite_ids_names(model)
 
+    # get a list of metabolites that can be exchanged (ids and names)
+    exchangeMetID = []
+    exchangeName = []
+    exchangeRxnID = []
+    for exRxn in exchRxn:
+        exchangeRxnID.append(exRxn.id)
+        for exMet in exRxn.metabolites:
+            exchangeMetID.append(exMet.id)
+            exchangeName.append(exMet.name)
+
+    exchangeDict = {'Name': exchangeName, 'metabolite id': exchangeMetID, 'reaction id': exchangeRxnID}
+    DFexchange = pd.DataFrame(data=exchangeDict)
+
     if print2Excel:
         saveLocation = r'C:\Users\lucas\PycharmProjects\Alquimia\SBML screening\Excel analysis\{}'.format(saveName)
         with pd.ExcelWriter(saveLocation) as writer:
             StoiMatrixDF.to_excel(writer, sheet_name='StoichiometricMatrix')
             fluxArray.to_excel(writer, sheet_name='ReactionFluxes')
             CarbonsDF.to_excel(writer, sheet_name='CarbonsPerMetbolite')
+            DFexchange.to_excel(writer, sheet_name='Exchange reactions')
             DFmetRnx.to_excel(writer, sheet_name='MissingFormulaReactions')
             DFMetIdNames.to_excel(writer, sheet_name='ID 2 name')
             DFcarbon.to_excel(writer, sheet_name='Carbon Balance')
@@ -1500,7 +1514,7 @@ def check_excel_file(excelName):
     loc = loc + r'\excel files' + excelName
 
     DFIntervals = pd.read_excel(loc, sheet_name='input_output_intervals')
-    DFReactors =  pd.read_excel(loc, sheet_name='reactor_intervals')
+    DFReactors =  pd.read_excel(loc, sheet_name='process_intervals')
     DFConnectionMatrix = pd.read_excel(loc, sheet_name='connection_matrix')
     DFAbbr = pd.read_excel(loc, sheet_name='abbr')
 
@@ -1542,6 +1556,7 @@ def check_excel_file(excelName):
         raise Exception('You are missing a definition for the following abbreviations: {}'.format(missingAbbr) )
     else:
         pass
+
 # ============================================================================================================
 # Functions to make the interval objects
 # ============================================================================================================
@@ -1645,7 +1660,7 @@ def make_reactor_intervals(excelName):
     #read excel info
     DFInOutIntervals = pd.read_excel(loc, sheet_name='input_output_intervals')
     DFconnectionMatrix = pd.read_excel(loc, sheet_name='connection_matrix')
-    DFreactors = pd.read_excel(loc, sheet_name='reactor_intervals')
+    DFreactors = pd.read_excel(loc, sheet_name='process_intervals')
     DFmodels =  pd.read_excel(loc, sheet_name='models')
 
     reactorIntervals = DFreactors.process_intervals
@@ -1669,7 +1684,7 @@ def make_reactor_intervals(excelName):
             try:
                 indexModelName = nameList.index(modelName)
             except:
-                raise Exception('make sure the name {} is identical in the sheet sbml_models and reactor_intervals'.format(modelName))
+                raise Exception('make sure the name {} is identical in the sheet sbml_models and process_intervals'.format(modelName))
 
             inputID = DFmodels.SBML_input_ID[indexModelName]
             outputID = DFmodels.SBML_output_ID[indexModelName]
@@ -1872,7 +1887,7 @@ def update_intervals(allIntervalObjectsDict,excelName):
     loc = loc[0:posAlquimia + 8]
     loc = loc + r'\excel files' + excelName
     # read excel info
-    DFreactors = pd.read_excel(loc, sheet_name='reactor_intervals')
+    DFreactors = pd.read_excel(loc, sheet_name='process_intervals')
     connectionMatrix = pd.read_excel(loc, sheet_name='connection_matrix')
     #reactorIntervals = DFreactors.reactor_name
 

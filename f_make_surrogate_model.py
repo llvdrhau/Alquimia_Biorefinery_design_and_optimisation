@@ -238,6 +238,8 @@ def SBML_2_json(modelName, substrate_exchange_rnx, product_exchange_rnx, newObje
 
     coefDict = {}
     outputVariables = []
+    if printEq:
+        print(modelName)
     for product in product_exchange_rnx:
         productMet = model.reactions.get_by_id(product).reactants[0]
         productName = productMet.name
@@ -256,6 +258,11 @@ def SBML_2_json(modelName, substrate_exchange_rnx, product_exchange_rnx, newObje
             # do regular FBA
             solution = model.optimize()
             FBA_substrate_flux = solution.fluxes[substrate]
+
+            # if the model does not consume the substrate then there is a problem
+            if FBA_substrate_flux >= 0: # consuming reactions are negative, that's why >= is used
+                raise Exception('The model {} does not consume the substrate {} so a yield can not be obtained'.format(modelName, substrate))
+
             substrateMet = model.reactions.get_by_id(substrate).reactants[0]
             substrateName = substrateMet.name
             substrateFormula = substrateMet.formula
@@ -272,7 +279,7 @@ def SBML_2_json(modelName, substrate_exchange_rnx, product_exchange_rnx, newObje
             print(strEq)
 
     if printEq:
-        print(modelName)
+        print('') # extra space to make it more readable
 
     if checkCarbon:
         carbon_balance_in_out(modelLocation=model, metIDsMissingCarbon=missingCarbonId, tol=1e-4)

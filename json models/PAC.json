@@ -1,0 +1,31 @@
+{
+    "name": "PAC_4875_lvdh.xml",
+    "outputs": [
+        "Propionate",
+        "Acetate",
+        "Biomass"
+    ],
+    "coef": {
+        "Propionate": {
+            "D-Glucose": 0.39090611905995964,
+            "D-Fructose": 0.39090611905995987,
+            "Glycerol": 0.4641347023701565
+        },
+        "Acetate": {
+            "D-Glucose": 0.11318154734119121,
+            "D-Fructose": 0.11318154734119108,
+            "Glycerol": 0.056448104946664066
+        },
+        "Biomass": {
+            "D-Glucose": 0.513711592869812,
+            "D-Fructose": 0.5137115928698133,
+            "Glycerol": 0.4581930370109934
+        }
+    },
+    "intercept": {
+        "Propionate": "",
+        "Acetate": "",
+        "Biomass": ""
+    },
+    "lable": "SBML"
+}

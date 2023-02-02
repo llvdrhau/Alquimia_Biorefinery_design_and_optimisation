@@ -1,0 +1,28 @@
+{
+    "name": "P_sherm_lvdh.xml",
+    "outputs": [
+        "Propionate",
+        "Acetate",
+        "Biomass"
+    ],
+    "coef": {
+        "Propionate": {
+            "D-Glucose": 0.343902159372741,
+            "D-Fructose": 0.4245932861962213
+        },
+        "Acetate": {
+            "D-Glucose": 0.13339562387182513,
+            "D-Fructose": 0.15560227345942496
+        },
+        "Biomass": {
+            "D-Glucose": 0.4715619449846391,
+            "D-Fructose": 0.3536714587384816
+        }
+    },
+    "intercept": {
+        "Propionate": "",
+        "Acetate": "",
+        "Biomass": ""
+    },
+    "lable": "SBML"
+}

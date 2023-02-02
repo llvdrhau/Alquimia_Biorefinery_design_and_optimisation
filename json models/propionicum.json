@@ -1,0 +1,31 @@
+{
+    "name": "P_propionicum_lvdh.xml",
+    "outputs": [
+        "Propionate",
+        "Acetate",
+        "Biomass"
+    ],
+    "coef": {
+        "Propionate": {
+            "D-Glucose": 0.26506048489959355,
+            "D-Fructose": 0.2650604848995961,
+            "Glycerol": 0.30598030364253237
+        },
+        "Acetate": {
+            "D-Glucose": 0.08957069511880368,
+            "D-Fructose": 0.10467161900390748,
+            "Glycerol": 0.0
+        },
+        "Biomass": {
+            "D-Glucose": 0.6123563838757767,
+            "D-Fructose": 0.6123563838757746,
+            "Glycerol": 0.6067818070823044
+        }
+    },
+    "intercept": {
+        "Propionate": "",
+        "Acetate": "",
+        "Biomass": ""
+    },
+    "lable": "SBML"
+}

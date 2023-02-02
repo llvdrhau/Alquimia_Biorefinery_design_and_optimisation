@@ -1,6 +1,7 @@
 from functions import *
 
 modelList = ["P_sherm_model.xml", 'P_propionicum_model.xml', 'PAC_4875_model.xml', 'P_acnes_model.xml', 'P_avidum_model.xml']
+
 for modelName in modelList:
     loc_sher = get_location(modelName)
     model = cobra.io.read_sbml_model(loc_sher)
