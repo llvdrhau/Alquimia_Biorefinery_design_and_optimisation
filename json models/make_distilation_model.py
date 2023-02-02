@@ -1,3 +1,4 @@
+import mpmath
 import numpy as np
 
 
@@ -51,6 +52,7 @@ def distilation_check(x_D, x_B, F, x_F, alfa_f,  # for mass balances
 
     return D, B, L
 
+
 distilation_check(x_D=0.95, x_B=0.05, F= 450, x_F= 0.6, alfa_f=3.1,
                   Hvap_a= 33800, Hvap_b= 38000,
-                  T_F= 90 , T_D= 82 , T_B= 108, Cp_a= 133, Cp_b= 157 )
+                  T_F= 90, T_D= 82 , T_B= 108, Cp_a= 133, Cp_b= 157 )
