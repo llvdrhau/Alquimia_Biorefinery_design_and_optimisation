@@ -839,6 +839,13 @@ def make_str_eq_smbl(modelName, substrate_exchange_rnx, product_exchange_rnx, eq
     return allEquations
 
 def make_str_eq_json(modelObject, equationInfo):
+    """Reconstructs the surrogate model which is in a .json file into a equation that can be read by Pyomo
+    inputs:
+    model object (dict): is the unpacked .json file
+    equationInfo (DF): a pandas data frame containing the information from the Excel file about the surrogate model
+                        i.e., the abbreviations for the model parameters
+    """
+    # extract all the information
     outputs = modelObject['outputs']
     coef = modelObject['coef']
     intercept = modelObject['intercept']
@@ -847,9 +854,23 @@ def make_str_eq_json(modelObject, equationInfo):
     yieldOf = equationInfo['yield_of']
     # make abbreviations dictionary
     abbrDict = {}
-    varName = split_remove_spaces(equationInfo.input_name, ',') + split_remove_spaces(equationInfo.output_name, ',')
-    Abrr = split_remove_spaces(equationInfo.input_abrr, ',') + split_remove_spaces(equationInfo.output_abrr, ',')
-    for i, varN in enumerate(varName):
+
+    # get the variable names of the inputs and outputs in the reaction and their respecitive abbreviations
+    varNameInputs = split_remove_spaces(equationInfo.input_name, ',')
+    varNameOutputs = split_remove_spaces(equationInfo.output_name, ',')
+    varNames = varNameInputs + varNameOutputs
+
+    AbrrInputs = split_remove_spaces(equationInfo.input_abrr, ',')
+    AbrrOutputs = split_remove_spaces(equationInfo.output_abrr, ',')
+    Abrr = AbrrInputs + AbrrOutputs
+
+    # make sure there are as many abbreviations as well as variable inputs
+    if len(varNameInputs) != len(AbrrInputs):
+        raise Exception("Missing an abbreviation for one of the inputs of model {}. Check out the Excel sheet 'models'".format(name))
+    if len(varNameOutputs) != len(AbrrOutputs):
+        raise Exception("Missing an abbreviation for one of the outputs of model {}. Check out the Excel sheet 'models'".format(name))
+
+    for i, varN in enumerate(varNames):
         abbrDict.update({varN: Abrr[i]})
 
     equationList = []
@@ -862,7 +883,7 @@ def make_str_eq_json(modelObject, equationInfo):
         for feature in coefOfOutputs:
             ### this for loop to replace all the full variable names with the abbreviuations
             featureAbbr = ''
-            for v in varName:
+            for v in varNames:
                 if v in feature:
                     featureAbbr = feature.replace(v,abbrDict[v])
             if not featureAbbr:
@@ -1125,7 +1146,7 @@ class ReactorIntervalClass:
         pyomoEq.append(eqPyoMass)
 
         # bool activation constraints
-        # has been disactivated. bool variables are now in the reaction equations (solver is more efficient that way)
+        # has been desactivated. bool variables are now in the reaction equations (solver is more efficient that way)
         boolActivationEquations = []
         # if boolActivation: # if there is an activation constraint
         #     bounds = nameDict[originalIntervalName]
@@ -1151,9 +1172,9 @@ class ReactorIntervalClass:
                 eqSumOfBoolsHelp += " + " + boolDict[interval]
                 eqPyBool += " + " + "model.boolVar['{}']".format(boolDict[interval])
 
-            eqSumOfBools = [eqSumOfBoolsHelp]
-            pyomoEq.append([eqSumOfBools])
-        self.eqSumOfBools = eqSumOfBools
+            eqSumOfBools = eqSumOfBoolsHelp
+            pyomoEq.append(eqPyBool)
+        self.eqSumOfBools = [eqSumOfBools]
 
 
         # separation equations
@@ -1292,15 +1313,25 @@ class ReactorIntervalClass:
 
 
     def make_mix_equations(self, objects2mix):
+        '''
+        makes the mixing equations based on all the intervals that are seen to be mixed in the connection interval
+
+        parameters
+        objects2mix (dict): dictionary containing the intervall classes which are to be mixed with the current one
+
+        returns
+        the pyomo equations
+        '''
         mixEquations = []
         initialInputNames = self.inputs
-        intervalNames2Mix = objects2mix.keys()
+
+        #intervalNames2Mix = objects2mix.keys()
 
         # find the leaving variables
         leavingVars = []
         for objName in objects2mix:
             obj = objects2mix[objName][0] # first element in tuple is the object
-            connectInfo = objects2mix[objName][1] # first element in tuple is connection info
+            connectInfo = objects2mix[objName][1] # second element in tuple is connection info
             reactorKey ,sepKey, splitKey , boolKey = define_connect_info(connectInfo)
 
             # if there is a separation process
@@ -1349,6 +1380,7 @@ class ReactorIntervalClass:
 
         self.mixEquations = mixEquations
         self.mixingVariables = mixingVariables
+        #self.EnteringInterval
 
 
         for i in mixingVariables:
@@ -1474,6 +1506,13 @@ Make sure only split, sep bool ands mix are the only words in the connection mat
 make sure all abbreviations have a definition in the abbreviations sheet otherwise error
  """
 def validate_seperation_coef(coef, intervalName, amountOfSep, connectionMatrix):
+    """
+    makes sure the mass balances of the seperation processes are respected
+    not sure if this really makes sens for distilation where you have different compositions in top and bottom however...
+    revise is function
+    """
+    connectionMatrix = connectionMatrix.set_index('process_intervals')
+
     coefList  = split_remove_spaces(coef, ';')
     arraysOfCoef = []
     for i in coefList:
@@ -1494,8 +1533,14 @@ def validate_seperation_coef(coef, intervalName, amountOfSep, connectionMatrix):
         raise Exception("the sum of the seperation coefficients for {} do not add up to 1, check the excel file".format(intervalName))
 
     # check if all the seperation processes are accounted for in the connenction matrix
-    rowId = list(connectionMatrix['process_intervals']).index(intervalName)
-    rowMatrix = connectionMatrix.iloc[rowId].drop(['process_intervals'])
+    # rowId = list(connectionMatrix['process_intervals']).index(intervalName)
+    # rowMatrix = connectionMatrix.iloc[rowId].drop(['process_intervals'])
+    try:
+        rowMatrix = connectionMatrix.loc[intervalName]
+    except:
+        raise Exception("The interval name '{}' could not be found make sure the interval name doe not contain spaces "
+                        "and is written correctly".format(intervalName))
+
     counterSeparation = 0
     counterSplit = 0
     for i in rowMatrix:
@@ -1514,19 +1559,21 @@ def check_excel_file(excelName):
     loc = loc + r'\excel files' + excelName
 
     DFIntervals = pd.read_excel(loc, sheet_name='input_output_intervals')
-    DFReactors =  pd.read_excel(loc, sheet_name='process_intervals')
+    DFprocessIntervals =  pd.read_excel(loc, sheet_name='process_intervals')
     DFConnectionMatrix = pd.read_excel(loc, sheet_name='connection_matrix')
     DFAbbr = pd.read_excel(loc, sheet_name='abbr')
 
     # check interval names in the connection matrix and interval list
     intervalNamesIn = remove_spaces(DFIntervals.process_intervals[DFIntervals.input_price != 0].to_list())
-    intervalNamesReactors = remove_spaces(DFReactors['process_intervals'].to_list())
+    intervalNamesReactors = remove_spaces(DFprocessIntervals['process_intervals'].to_list())
     intervalNamesOut = remove_spaces(DFIntervals.process_intervals[DFIntervals.output_price != 0].to_list())
     intervalNames = intervalNamesIn + intervalNamesReactors + intervalNamesOut
 
     intervalNamesConnenctionMatrixRow = remove_spaces(list(DFConnectionMatrix.columns))
     intervalNamesConnenctionMatrixRow.remove('process_intervals')
+    intervalNamesConnenctionMatrixRow.remove('waste')
     intervalNamesConnenctionMatrixCol = remove_spaces(DFConnectionMatrix['process_intervals'].to_list())
+    intervalNamesConnenctionMatrixCol.remove('waste')
 
     # check length
     if len(intervalNamesConnenctionMatrixCol) == len(intervalNamesConnenctionMatrixRow) == len(intervalNames):
@@ -1543,8 +1590,8 @@ def check_excel_file(excelName):
         raise Exception('The names in the connection matrix sheet or the interval sheet are not the same')
 
     # check if all abbreviations are defined
-    abbreviations = split_remove_spaces(list(DFReactors.inputs),',') \
-                  + split_remove_spaces(list(DFReactors.outputs),',') \
+    abbreviations = split_remove_spaces(list(DFprocessIntervals.inputs),',') \
+                  + split_remove_spaces(list(DFprocessIntervals.outputs),',') \
                   + split_remove_spaces(list(DFIntervals.components),',')
 
     #uniqueListAbr = list(OrderedDict.fromkeys(abbreviations))
@@ -1560,16 +1607,57 @@ def check_excel_file(excelName):
 # ============================================================================================================
 # Functions to make the interval objects
 # ============================================================================================================
+def read_excel_sheets4_superstructure(excelName):
+    '''
+    Reads the Excel file containing the data for superstructure generation and returns each sheet as a dataframes
+    The dataframes are stored in a dictionary
 
-# read function to automate making the interval classes
-def make_input_intervals(excelName):
+    parameters:
+    excelName (str): name of the Excel file saved in the file directory 'excel files'
+
+    returns:
+    ExcelDict (Dict): a dictionary containing DF
+    '''
+    # read Excel file
     loc = os.getcwd()
     posAlquimia = loc.find('Alquimia')
-    loc = loc[0:posAlquimia+8]
-    loc = loc + r'\excel files' + excelName
+    locAlquimia = loc[0:posAlquimia + 8]
+    loc = locAlquimia + r'\excel files' + excelName
 
-    DFIntervals = pd.read_excel(loc, sheet_name='input_output_intervals')
-    DFconnectionMatrix = pd.read_excel(loc, sheet_name='connection_matrix', index_col=0)
+    # read excel info
+    DFInOutIntervals = pd.read_excel(loc, sheet_name='input_output_intervals')
+    DFconnectionMatrix = pd.read_excel(loc, sheet_name='connection_matrix')
+    DFprocessIntervals = pd.read_excel(loc, sheet_name='process_intervals')
+    DFeconomicParameters = pd.read_excel(loc, sheet_name='economic_parameters')
+    DFmodels = pd.read_excel(loc, sheet_name='models')
+    DFabrriviations = pd.read_excel(loc, sheet_name='abbr')
+
+    ExcelDict = {
+        'input_output_DF': DFInOutIntervals,
+        'connection_DF': DFconnectionMatrix,
+        'process_interval_DF': DFprocessIntervals,
+        'economic_parameters_DF': DFeconomicParameters,
+        'models_DF':   DFmodels,
+        'abbreviations_DF':DFabrriviations
+    }
+
+    return ExcelDict
+
+# read function to automate making the interval classes
+def make_input_intervals(ExcelDict):
+    """ Makes the process intervals of inputs.
+
+    parameters:
+    ExcelDict (Dict): a dictionary with all the data to make the superstructure
+
+    return:
+    objectDict (Dict): a dictionary holding all the class objects for input intervals
+    """
+
+    DFIntervals = ExcelDict['input_output_DF']
+    DFconnectionMatrix = ExcelDict['connection_DF']
+    DFconnectionMatrix = DFconnectionMatrix.set_index('process_intervals')
+    #df.set_index('month')
     # inputs
     inputPrices = DFIntervals.input_price.to_numpy()
     posInputs = inputPrices != 0    #find where the input interval are (they have an input price)
@@ -1650,36 +1738,41 @@ def make_input_intervals(excelName):
         objectDictionary.update({intervalName:objectInput})
     return objectDictionary
 
-def make_reactor_intervals(excelName):
-    # read Excel file
-    loc = os.getcwd()
-    posAlquimia = loc.find('Alquimia')
-    locAlquimia = loc[0:posAlquimia + 8]
-    loc = locAlquimia + r'\excel files' + excelName
+def make_reactor_intervals(ExcelDict):
+    """ Makes the process intervals of the process intervals (excluding inputs and outputs).
 
-    #read excel info
-    DFInOutIntervals = pd.read_excel(loc, sheet_name='input_output_intervals')
-    DFconnectionMatrix = pd.read_excel(loc, sheet_name='connection_matrix')
-    DFreactors = pd.read_excel(loc, sheet_name='process_intervals')
-    DFmodels =  pd.read_excel(loc, sheet_name='models')
+        parameters:
+        ExcelDict (Dict): a dictionary with all the data to make the superstructure
 
-    reactorIntervals = DFreactors.process_intervals
+        return:
+        objectDict (Dict): a dictionary holding all the class objects for process intervals
+        """
+
+    DFInOutIntervals = ExcelDict['input_output_DF']
+    DFconnectionMatrix = ExcelDict['connection_DF']
+    DFprocessIntervals = ExcelDict['process_interval_DF']
+    DFeconomicParameters = ExcelDict['economic_parameters_DF']
+    DFmodels =  ExcelDict['models_DF']
+
+
+
+    reactorIntervals = DFprocessIntervals.process_intervals
     objectDictionary = {} # preallcoate a dictionary with the interval names and the interval objects
     for i, intervalName in enumerate(reactorIntervals):
         intervalName = intervalName.replace(' ', '') # remove annoying spaces
         #inputs of reactor
-        inputsReactor = DFreactors.inputs[i]
+        inputsReactor = DFprocessIntervals.inputs[i]
         inputsReactor = split_remove_spaces(inputsReactor,',')
         #outputs of the reactor
-        outputsReactor = DFreactors.outputs[i]
+        outputsReactor = DFprocessIntervals.outputs[i]
         outputsReactor = split_remove_spaces(outputsReactor,',')
         # find the bounds of the interval
-        boundsReactor = eval(DFreactors.interval_bounds[i])
+        boundsReactor = eval(DFprocessIntervals.interval_bounds[i])
         nameDict = {intervalName:boundsReactor}
 
         #find the equation of the reactor
-        if 'xml' in DFreactors.reaction_model[i]:
-            modelName = DFreactors.reaction_model[i]
+        if 'xml' in DFprocessIntervals.reaction_model[i]:
+            modelName = DFprocessIntervals.reaction_model[i]
             nameList = list(DFmodels.model_name)
             try:
                 indexModelName = nameList.index(modelName)
@@ -1694,51 +1787,60 @@ def make_reactor_intervals(excelName):
             equations = make_str_eq_smbl(modelName= modelName, substrate_exchange_rnx= inputID,
                                          product_exchange_rnx=outputID, equationInfo= equationInfo)
             #print('s')
-        elif 'json' in DFreactors.reaction_model[i]:
-            jsonFile = DFreactors.reaction_model[i]
+        elif 'json' in DFprocessIntervals.reaction_model[i]:
+            jsonFile = DFprocessIntervals.reaction_model[i]
             nameList = list(DFmodels.model_name)
             try:
                 indexModelName = nameList.index(jsonFile)
             except:
                 raise Exception(
-                    'make sure the name for the json file {} is identical in the sheet __models__ and __reactor_interval'
-                    's__'.format(jsonFile))
+                    "make sure the name for the json file {} is identical in the sheet 'models' and 'reactor_interval'"
+                    "s__".format(jsonFile))
 
-            jsonLoc = locAlquimia + r'\json models\{}'.format(jsonFile)
+            # find the save location
+            loc = os.getcwd()
+            posAlquimia = loc.find('Alquimia')
+            locAlquimia = loc[0:posAlquimia + 8]
+            jsonLoc = locAlquimia + r'\json models\{}'.format(jsonFile) # save location
             with open(jsonLoc) as file:
                 reactionObject = json.load(file)
 
             equationInfo = DFmodels.iloc[indexModelName]
             equations = make_str_eq_json(reactionObject,equationInfo)
 
-        else:
-            equations = DFreactors.reaction_model[i]
+        else: # todo if it is zero there is no reaction, only seperation, e.g., for a distilation process
+            equations = DFprocessIntervals.reaction_model[i]
             equations = split_remove_spaces(equations,',')
             if not '==' in equations[0]:
-                raise Exception('take a look at the reaction model mate, there is no json, xml or correct reaction given'
-                                'for reactor {}'.format(intervalName))
+                equations = '0 == 0' # TODO temporary so we can continue
+                # raise Exception('take a look at the reaction model mate, there is no json, xml or correct reaction given'
+                #                 ' for reactor {}'.format(intervalName))
 
         # find special component bounds like that for pH
-        boundsComponentStr = DFreactors.input_bounds[i]
+        boundsComponentStr = DFprocessIntervals.input_bounds[i]
         if not isinstance(boundsComponentStr,str):
             boundsComponent = {}
         else:
             boundsComponent = str_2_dict(boundsComponentStr,intervalName)
 
 
-        utilityDict = {}
-        if DFreactors.has_utility[i] != 0 :
-            utilityVariableNames = DFreactors.has_utility[i]
+        utilityDict = {}  # only one utilty per process interv al is permitted for the moment
+        if DFprocessIntervals.ut_chemical[i] != 0 :
+            # get utility name
+            utilityVariableNames = DFprocessIntervals.ut_chemical[i]
             utilityVariableNames = split_remove_spaces(utilityVariableNames,',')
-            utilityPrice = DFreactors.utility_price[i]
-            utilityPrice = split_remove_spaces(utilityPrice,',')
+            # get utility parameter
+            utilityParameter = [DFprocessIntervals.mu_ut[i]] # made as a list so in the future multiple utility componets can be added
+            # get price utility
+            utilityPrice = [DFeconomicParameters.ut_chem_price[i]] # made as a list so in the future multiple utility componets can be added
+            #utilityPrice = split_remove_spaces(utilityPrice,',')
             for j, utilityName in enumerate(utilityVariableNames):
-                utilityDict.update({utilityName:utilityPrice[j]})
+                utilityDict.update({utilityName: {'cost': utilityPrice[j], 'parameter':utilityParameter[j] } } )
 
         seperationDict = {}
-        if DFreactors.seperation_coef[i] != 0: #and DFreactors.has_seperation[i] < 2 :
-            outputsStr = DFreactors.outputs[i]
-            coefStr = DFreactors.seperation_coef[i]
+        if DFprocessIntervals.seperation_coef[i] != 0: #and DFprocessIntervals.has_seperation[i] < 2 :
+            outputsStr = DFprocessIntervals.outputs[i]
+            coefStr = DFprocessIntervals.seperation_coef[i]
             coefList = split_remove_spaces(coefStr, ';')
             amountOfSeperations = len(coefList)
             validate_seperation_coef(coefStr,intervalName,amountOfSeperations, DFconnectionMatrix)
@@ -1796,7 +1898,7 @@ def make_reactor_intervals(excelName):
                     inputDependent = split_remove_spaces(DFInOutIntervals.components[index_concented],',')
                 else: # if it's not in the inputs/output intervals, then it is in the reactor process intervals
                     index_concented = processInvervalNames.index(connectingInterval)
-                    inputDependent = split_remove_spaces(DFreactors.inputs[index_concented], ',')
+                    inputDependent = split_remove_spaces(DFprocessIntervals.inputs[index_concented], ',')
 
                 boolActivationDict.update({boolVariable:inputDependent})
         # if len(boolActivationVariable) > 1:
@@ -1827,16 +1929,19 @@ def make_reactor_intervals(excelName):
         objectDictionary.update({intervalName:objectReactor})
     return objectDictionary
 
-def make_output_intervals(excelName):
-    # read Excel file
-    loc = os.getcwd()
-    posAlquimia = loc.find('Alquimia')
-    loc = loc[0:posAlquimia + 8]
-    loc = loc + r'\excel files' + excelName
+def make_output_intervals(ExcelDict):
+    """ Makes the process intervals of outputs.
 
-    #read excel info
-    DFIntervals = pd.read_excel(loc, sheet_name='input_output_intervals')
-    DFconnectionMatrix = pd.read_excel(loc, sheet_name='connection_matrix')
+        parameters:
+        ExcelDict (Dict): a dictionary with all the data to make the superstructure
+
+        return:
+        objectDict (Dict): a dictionary holding all the class objects for output intervals
+        """
+
+    # read excel info
+    DFconnectionMatrix = ExcelDict['connection_DF']
+    DFIntervals = ExcelDict['input_output_DF']  #pd.read_excel(loc, sheet_name='input_output_intervals')
 
     # find the output interval names
     outputPrices = DFIntervals.output_price.to_numpy()
@@ -1887,9 +1992,9 @@ def update_intervals(allIntervalObjectsDict,excelName):
     loc = loc[0:posAlquimia + 8]
     loc = loc + r'\excel files' + excelName
     # read excel info
-    DFreactors = pd.read_excel(loc, sheet_name='process_intervals')
+    DFprocessIntervals = pd.read_excel(loc, sheet_name='process_intervals')
     connectionMatrix = pd.read_excel(loc, sheet_name='connection_matrix')
-    #reactorIntervals = DFreactors.reactor_name
+    #reactorIntervals = DFprocessIntervals.reactor_name
 
     pyomoEquations = []
     pyomoVariables = []
@@ -1953,9 +2058,9 @@ def update_intervals(allIntervalObjectsDict,excelName):
                 intervalObject.update_reactor_equations(newReactorInputs4Interval)
 
 
+            # TODO : make utility equation if there is any
             # update_reactor_equations: current interval is connected by a seperated stream
-            # wat other
-            # in the case of splitting !!!!!!
+
 
         if label == 'output':
             objectDict2mix = {nameObjConect: (allIntervalObjectsDict[nameObjConect], connectedIntervals[nameObjConect])
@@ -1975,6 +2080,14 @@ def get_vars_eqs_bounds(objectDict):
     for objName in objectDict:
         obj = objectDict[objName]
         equations += obj.pyomoEquations
+
+        # print the equations to the terminal for debugging porposes
+        print(objName)
+        for eq_interval in obj.pyomoEquations:
+            print(eq_interval)
+        print('') # print a space for readability
+
+        # collect all the variables
         continuousVariables += obj.allVariables['continuous']
         booleanVariables += obj.allVariables['boolean']
         fractionVariables += obj.allVariables['fraction']
@@ -2015,10 +2128,11 @@ def make_pyomo_equations(variables,equations):
 def make_super_structure(excelFile):
     model = pe.ConcreteModel()
     check_excel_file(excelName= excelFile)
+    excelDict = read_excel_sheets4_superstructure(excelName=excelFile )
 
-    objectsInputDict = make_input_intervals(excelFile)
-    objectsReactorDict = make_reactor_intervals(excelFile)
-    objectsOutputDict  = make_output_intervals(excelFile)
+    objectsInputDict = make_input_intervals(excelDict)
+    objectsReactorDict = make_reactor_intervals(excelDict)
+    objectsOutputDict  = make_output_intervals(excelDict)
 
     allObjects = objectsInputDict | objectsReactorDict | objectsOutputDict
     update_intervals(allObjects, excelFile)
@@ -2054,8 +2168,12 @@ def make_super_structure(excelFile):
     # introduce the equations to pyomo
     model.constraints = pe.ConstraintList()
     for eq in equations:
-        print(eq)
-        expresion = eval(eq)
+        #print(eq) # print of equation is now in the function get_vars_eq_bounds
+        try:
+            expresion = eval(eq)
+        except:
+            raise Exception('The following equation can not be read by pyomo: {}'.format(eq))
+
         model.constraints.add(expresion)
 
 

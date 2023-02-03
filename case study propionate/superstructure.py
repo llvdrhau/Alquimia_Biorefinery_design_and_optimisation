@@ -10,7 +10,7 @@ import pyomo.opt as po
 excelFile = r'\propionate_case_study.xlsx'
 superstructure = make_super_structure(excelFile= excelFile)
 
-switchSolver = True
+switchSolver = False
 if switchSolver:
     solvername = 'gams'
     opt = po.SolverFactory(solvername)

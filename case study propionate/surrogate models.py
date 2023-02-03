@@ -20,7 +20,7 @@ microorganisms = [loc_acidi, loc_acnes, loc_prop, loc_avidum]  # all microorgani
 saveNames = ['PAC.json', 'acnes.json', 'propionicum.json' ,'avidum.json']
 for i, organism in enumerate(microorganisms):
     sbml = SBML_2_json(modelName= organism, substrate_exchange_rnx= substrates, product_exchange_rnx= products,
-                       saveName= saveNames[i], save = True, checkCarbon= False, printEq= True)
+                       saveName= saveNames[i], save = False, checkCarbon= False, printEq= True)
 
 # the model P_sherm_model can not consume glycerol so only screen it for glucose and fructose 'sherm'
 
@@ -36,7 +36,7 @@ products = ['Ex_S_cpd00141_ext',   # acetate
             'Ex_S_biomass_ext']     # biomass
 
 sbmlSherm = SBML_2_json(modelName=organism, substrate_exchange_rnx=substrates, product_exchange_rnx=products,
-                       saveName=saveName, save=True, checkCarbon=False, printEq=True)
+                       saveName=saveName, save=False, checkCarbon=False, printEq=True)
 
 # # open fermentation
 # excelFile =  'Glucose_PH_Data.xlsx' # with a 5th polynomial it is acctually quite nice....
