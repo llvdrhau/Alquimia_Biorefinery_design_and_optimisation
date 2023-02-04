@@ -1431,6 +1431,26 @@ class ReactorIntervalClass:
         for i in boundryInputVar: # this is for when you want to add a specifice bound to a reaction variable SEE EXCEL
             self.boundaries[i] = boundryInputVar[i]
 
+    def make_utility_equations(self):
+        utilities = self.utilities
+        for ut in utilities:
+            utilityName = ut
+            utilityParameter = utilities[ut]['parameter']
+            utilityCost = utilities[ut]['cost']
+
+            # make the variable name
+            reactorName = list(self.nameDict.keys())[0]
+            utilityVariable = '{}_{}'.format(utilityName, reactorName)
+            # decalre variable in list
+            self.allVariables['continuous'] += [utilityVariable]
+            self.boundaries.update({utilityVariable: (0, None)})
+
+
+
+            # add the equations to the allVar/equations object
+            #self.allEquations += mixEquations
+            #self.pyomoEquations += eqMixPyo2Add
+
     def get_replacement_dict(self,initialVars, newVars):
         replacementDict = {}
         for i in initialVars:
@@ -1755,7 +1775,6 @@ def make_reactor_intervals(ExcelDict):
     DFmodels =  ExcelDict['models_DF']
 
 
-
     reactorIntervals = DFprocessIntervals.process_intervals
     objectDictionary = {} # preallcoate a dictionary with the interval names and the interval objects
     for i, intervalName in enumerate(reactorIntervals):
@@ -2059,6 +2078,9 @@ def update_intervals(allIntervalObjectsDict,excelName):
 
 
             # TODO : make utility equation if there is any
+
+            if intervalObject.utilities: # if the utilities dict is not empty #hasattr(intervalObject, 'utilities'):
+                intervalObject.make_utility_equations()
             # update_reactor_equations: current interval is connected by a seperated stream
 
 
