@@ -1078,14 +1078,17 @@ class ProcessIntervalClass:
         if boolActivation is None:
             boolActivation = []
 
-        # declare (preallocate) empty pyomo equations list
-        pyomoEq = []
-
+        # attributes you want to be able to call from the object (some are probably redundant)
         self.label = 'reactor'
         self.nameDict = nameDict
         self.inputs = inputs  # original unmodified names
         self.outputs = outputs # original unmodified names
         self.initialCompositionNames = inputs + outputs
+        self.mix = mix  # found by the Excel file (don't need to specify in this script)
+        self.utilities = utilities  # consists of a dictionary {nameUtilty: [bounds]}
+        self.boolDict = boolDict  # is a tuple, 1) where the bool comes from and 2) the name of the bool affecting the outputs
+        self.separationDict = separationDict  # dictionary defining separation fractions of each component
+
         # error if you choose a wrong name
         intervalName =  list(nameDict.keys())[0]
         for i in self.initialCompositionNames: # maybe don't place the warning here
@@ -1093,157 +1096,48 @@ class ProcessIntervalClass:
                 raise Exception("the component {} is in interval name {}, change the component name of the reactor to "
                                 "avoid conflict with the equations")
 
-        self.mix = mix  # found by the Excel file (don't need to specify in this script)
-        self.utilities = utilities # consists of a dictionary {nameUtilty: [bounds]}
-        self.boolDict = boolDict  # is a tuple, 1) where the bool comes from and 2) the name of the bool affecting the outputs
-        self.separationDict = separationDict  # dictionary defining separation fractions of each component
-
         # interval Variable name
         originalIntervalName = list(self.nameDict.keys())[0]
-        intervalVariable = list(self.nameDict.keys())[0].upper()
+        intervalVariable = originalIntervalName.upper()
         addOn4Variables = '_' + originalIntervalName
 
+        # declare (preallocate) empty pyomo equations list
+        pyomoEq = []
+
         # reactor equations
-        if isinstance(reactionEquations, str):  # failsafe if you forget to code the string reactor expression as a list
-            reactionEquations = [reactionEquations]  # make it a list
-        else:
-            pass
-        ouputs2change  = self.outputs
-        allReactorEquations = []
-        allReactorEquationsPyomo = []
-        reactionVariablesOutput = []
-        rctVarOutD = {}
-        for eq in reactionEquations:
-            eqPyo = eq
-            for out in ouputs2change:
-                newOutputName = out + '{}'.format(addOn4Variables)
-                eq = eq.replace(out,newOutputName)
-                # pyomo version
-                newOutputNamePyo = "model.var['{}']".format(newOutputName)
-                eqPyo = eqPyo.replace(out, newOutputNamePyo)
-
-
-                if newOutputName not in reactionVariablesOutput:
-                    reactionVariablesOutput.append(newOutputName)
-                    rctVarOutD.update({out:newOutputName}) # helpìng dictionary for the serparation equations
-
-            if boolActivation:
-                for boolVar in boolActivation:
-                    inputsDependent = boolActivation[boolVar]
-                    for input in inputsDependent:
-                        rplc = '{} * {}'.format(input,boolVar)
-                        eq = eq.replace(input,rplc)
-                        # pyomo version
-                        rplcPyo = " {} * model.boolVar['{}'] ".format(input, boolVar)
-                        eqPyo = eqPyo.replace(input, rplcPyo)
-
-                # eq = eq.replace('==', '== (')
-                # eq = eq + ') * ' + boolActivation[0]
-                #
-                # eqPyo = eqPyo.replace('==', '== (')
-                # eqPyo = eqPyo + ') * ' + "model.boolVar['{}']".format(boolActivation[0])
-
-            allReactorEquations.append(eq)
-            allReactorEquationsPyomo.append(eqPyo)
-
-        self.reactionEquations = allReactorEquations
-        self.reactionEquationsPyomo = allReactorEquationsPyomo
-
-        # mass equations (of the outputs from the reaction equations )
-        eqMassInterval  = intervalVariable + " == "
-        eqPyoMass = "model.var['{}']".format(intervalVariable) + " == "
-        for out in reactionVariablesOutput:
-            eqMassInterval += " + " + out
-            eqPyoMass += " + " + "model.var['{}']".format(out) # pyomo version
-        self.totalMassEquation =  [eqMassInterval]
-        pyomoEq.append(eqPyoMass)
-
-        # bool activation constraints
-        # has been desactivated. bool variables are now in the reaction equations (solver is more efficient that way)
-        boolActivationEquations = []
-        # if boolActivation: # if there is an activation constraint
-        #     bounds = nameDict[originalIntervalName]
-        #     lowerActivationEq = "{} * {} <= {}".format(boolActivation[0],bounds[0],intervalVariable)
-        #     upperActivationEq = "{} <= {} * {}".format(intervalVariable,boolActivation[0], bounds[1])
-        #     boolActivationEquations.append(lowerActivationEq)
-        #     boolActivationEquations.append(upperActivationEq)
-        #
-        #     # pyomo version
-        #     lowerActivationEqPyo = "model.boolVar['{}'] * {} <= model.var['{}']".format(boolActivation[0], bounds[0], intervalVariable)
-        #     upperActivationEqPyo = "model.var['{}'] <= model.boolVar['{}'] * {}".format(intervalVariable, boolActivation[0], bounds[1])
-        #     pyomoEq.append(lowerActivationEqPyo)
-        #     pyomoEq.append(upperActivationEqPyo)
-        self.boolActivationEquations =  boolActivationEquations
-
+        reactionVariablesOutput = [] # preallocate to avoid error
+        if reactionEquations != None:
+            reactorEquations, reactionVariablesOutput, helpingDict = \
+                self.make_reaction_equations(reactionEquations,boolActivation, intervalVariable)
+            pyomoEq += reactorEquations
 
         # sum of bool equations
-        eqSumOfBoolsHelp = "1 == "
         eqPyBool = "1 == "
-        eqSumOfBools = []  # empty if there is no bool equation
-        if boolDict:
+        if boolDict: # only add the bool equation if it is needed
             for interval in boolDict:
-                eqSumOfBoolsHelp += " + " + boolDict[interval]
                 eqPyBool += " + " + "model.boolVar['{}']".format(boolDict[interval])
-
-            eqSumOfBools = eqSumOfBoolsHelp
             pyomoEq.append(eqPyBool)
-        self.eqSumOfBools = [eqSumOfBools]
-
 
         # separation equations
-        separationEquations = []
-        separationVariables = []
-        for sep in separationDict: # if it is empty it should not loop nmrly
-            for componentSep in separationDict[sep]:
-                var = rctVarOutD[componentSep]  # helpìng dictionary to get the right variable
-                sepVar  = componentSep + '_' + sep
-                eqSep =  "{} == {} * {} ".format(sepVar,separationDict[sep][componentSep], var)
-                separationEquations.append(eqSep)
-                separationVariables.append(sepVar)
-
-                # pyomo version
-                sepVarPyo = "model.var['{}']".format(sepVar)
-                eqSepPyo = "{} == {} * model.var['{}']".format(sepVarPyo,separationDict[sep][componentSep], var)
-                pyomoEq.append(eqSepPyo)
-
-        self.separationEquations = separationEquations
-        self.separationVariables = separationVariables
+        # todo: the help dict is not made if their is no reaction!! check for solution
+        separationVariables = [] # preallocate to avoid error
+        if separationDict: # if there is separation make the separation equations
+            separationEquationsPyomo, separationVariables = self.make_separation_equations(separationDict, helpingDict)
+            pyomoEq += separationEquationsPyomo
 
         # spliting equations
+        splitComponentVariables = [] # preallocate to avoid error
         if splitList:
-            if len(splitList) != 1 and len(splitList) != 2:
-                raise Exception('look at reactor row {} in the connection matrix, it looks like you are missing a split '
-                                'statement'.format(addOn4Variables))
-
-        splitFractionVariables = []
-        splitComponentVariables = []
-        splittingEquations = []
-
-        for splitStream in splitList:
-            splitFractionVar = 'split_fraction_{}'.format(splitStream)
-            splitFractionVariables.append(splitFractionVar)
-            for component in outputs:  # the self.outputs are the original names given to the outputs of the reactor
-
-                split1 = component + '_' + splitStream + '_' + 'split1'
-                split2 = component + '_' + splitStream + '_' +'split2'
-                splitComponentVariables.append(split1)
-                splitComponentVariables.append(split2)
-
-                component2split = component + '_' + splitStream
-                eqSplit1 =  '{} == {} * {}'.format(split1, splitFractionVar, component2split)
-                eqSplit2 = '{} == (1 - {}) * {}'.format(split2, splitFractionVar, component2split)
-                splittingEquations.append([eqSplit1, eqSplit2])
-
-                eqSplit1Pyo = "model.var['{}'] == model.fractionVar['{}'] * model.var['{}']".format(split1, splitFractionVar, component2split)
-                eqSplit2Pyo = "model.var['{}'] == (1 - model.fractionVar['{}']) * model.var['{}']".format(split2, splitFractionVar, component2split)
-                pyomoEq.append(eqSplit1Pyo)
-                pyomoEq.append(eqSplit2Pyo)
+            splittingEquations, splitComponentVariables = self.make_split_equations(splitList, addOn4Variables)
+            pyomoEq += splittingEquations
 
         # mixing equations
-        # see def make_mixing_equations()
+        # see def make_mixing_equations(), these equations are made in the update when it is known
+        # to where each stream is going to and hence which streams are mixed
 
         # define wat is leaving the reactor
         # can either be from the reactor, the separation process or the spliting
+        # todo maybe look at empty lists of the variables instead? check that out
         if not splitList and not separationDict:
             self.leavingInterval = reactionVariablesOutput
         elif separationDict and not splitList:
@@ -1321,9 +1215,164 @@ class ProcessIntervalClass:
                                 # add fraction variables
 
         # make a list with all the equations
-        self.allEquations = self.separationEquations + self.eqSumOfBools + self.boolActivationEquations + self.totalMassEquation
+        #self.allEquations = self.separationEquations + self.eqSumOfBools + self.boolActivationEquations + self.totalMassEquation
         self.pyomoEquations = pyomoEq
 
+    def make_reaction_equations(self,reactionEquations, boolActivation, intervalVariable):
+        """ function that creates the (preliminary) equations of the reactions that take place in an interval.
+        these equations do not have the input variable filled in. In the function update_interval_equations the
+        reaction equations are updated with the correct inputs variables
+
+        Parameters:
+                reactionEquations (str or int) reference to where the equations are stored
+                boolActivation (dict) dictionary referening to which equations are dependent on a boolean variable
+                intervalVariable (str) name of the interval variable
+
+        Returns:
+               allEquationsPyomo (list) list of reqction equations
+               reactionVariablesOut (list) list of variables after the reaction
+               helpingDict (dict) a dictionary helping to make the separation equations
+
+            """
+
+        originalIntervalName = list(self.nameDict.keys())[0]
+        addOn4Variables = '_' + originalIntervalName
+
+        if isinstance(reactionEquations, str):  # failsafe if you forget to code the string reactor expression as a list
+            reactionEquations = [reactionEquations]  # make it a list
+
+        ouputs2change = self.outputs
+        ReactorEquationsPyomo = []
+        reactionVariablesOutput = []
+        helpingDict = {}
+        for eq in reactionEquations:
+            eqPyo = eq
+            for out in ouputs2change:
+                newOutputName = out + '{}'.format(addOn4Variables)
+                eq = eq.replace(out, newOutputName)
+                # pyomo version
+                newOutputNamePyo = "model.var['{}']".format(newOutputName)
+                eqPyo = eqPyo.replace(out, newOutputNamePyo)
+
+                if newOutputName not in reactionVariablesOutput:
+                    reactionVariablesOutput.append(newOutputName)
+                    helpingDict.update({out: newOutputName})  # helpìng dictionary for the serparation equations
+
+            if boolActivation:
+                for boolVar in boolActivation:
+                    inputsDependent = boolActivation[boolVar]
+                    for input in inputsDependent:
+                        # make equation readable by pyomo
+                        rplcPyo = " {} * model.boolVar['{}'] ".format(input, boolVar)
+                        eqPyo = eqPyo.replace(input, rplcPyo)
+            ReactorEquationsPyomo.append(eqPyo)
+        self.reactionEquations = ReactorEquationsPyomo
+
+        # mass equations (of the outputs from the reaction equations )
+        eqMassInterval = intervalVariable + " == "
+        eqPyoMass = "model.var['{}']".format(intervalVariable) + " == "
+        for out in reactionVariablesOutput:
+            eqMassInterval += " + " + out
+            eqPyoMass += " + " + "model.var['{}']".format(out)  # pyomo version
+
+        #decalre all equations and pass them on
+        self.totalMassEquation = [eqMassInterval]
+        self.reactionEquationsPyomo = ReactorEquationsPyomo
+        allEquationsPyomo = [eqMassInterval] + ReactorEquationsPyomo
+
+        # old activation equations (keep in comments for the moment)
+        # bool activation constraints
+        # has been de-activated. bool variables are now in the reaction equations (solver is more efficient that way)
+        # boolActivationEquations = []
+        # if boolActivation: # if there is an activation constraint
+        #     bounds = nameDict[originalIntervalName]
+        #     lowerActivationEq = "{} * {} <= {}".format(boolActivation[0],bounds[0],intervalVariable)
+        #     upperActivationEq = "{} <= {} * {}".format(intervalVariable,boolActivation[0], bounds[1])
+        #     boolActivationEquations.append(lowerActivationEq)
+        #     boolActivationEquations.append(upperActivationEq)
+        #
+        #     # pyomo version
+        #     lowerActivationEqPyo = "model.boolVar['{}'] * {} <= model.var['{}']".format(boolActivation[0], bounds[0], intervalVariable)
+        #     upperActivationEqPyo = "model.var['{}'] <= model.boolVar['{}'] * {}".format(intervalVariable, boolActivation[0], bounds[1])
+        #     pyomoEq.append(lowerActivationEqPyo)
+        #     pyomoEq.append(upperActivationEqPyo)
+        # self.boolActivationEquations = boolActivationEquations
+
+        return allEquationsPyomo, reactionVariablesOutput, helpingDict
+
+    def make_separation_equations(self, separationDict, helpingDict):
+        """ function that creates the separation equations of the process interval
+
+        Parameters:
+                separationDict (dict): list of components to separate
+                helpingDict (dict): dictionary to help create the variables
+
+        Returns:
+               saparationEquations (list): list of separartion equations
+               seperationVariables (list): list of variables
+        """
+        separationEquationsPyomo = []
+        separationVariables = []
+        for sep in separationDict:  # if it is empty it should not loop nmrly
+            for componentSep in separationDict[sep]:
+                var = helpingDict[componentSep]  # helpìng dictionary to get the right variable
+                sepVar = componentSep + '_' + sep
+                separationVariables.append(sepVar)
+
+                # pyomo equations
+                sepVarPyo = "model.var['{}']".format(sepVar)
+                eqSepPyo = "{} == {} * model.var['{}']".format(sepVarPyo, separationDict[sep][componentSep], var)
+
+                separationEquationsPyomo.append(eqSepPyo)
+
+        self.separationEquations = separationEquationsPyomo
+        self.separationVariables = separationVariables
+
+        return separationEquationsPyomo, separationVariables
+
+    def make_split_equations(self,splitList, addOn4Variables):
+        """ function that creates the equations of the split streams
+
+        Parameters:
+                splitList (list): list of components to split
+                addOn4Variables (str): name of the add-on for the variables
+
+        Returns:
+               splittingEquations (list): list of reaction equations
+               splitComponentVariables (list): list of variables
+        """
+
+        # Error messaging if there are not 2 stream to split to
+        if len(splitList) != 1 and len(splitList) != 2:
+            raise Exception('look at reactor row {} in the connection matrix, it looks like you are missing a split '
+                            'statement'.format(addOn4Variables))
+
+        # preallocate variables and equation lists
+        splitFractionVariables = []
+        splitComponentVariables = []
+        splittingEquations = []
+
+        # make split equations
+        for splitStream in splitList:
+            splitFractionVar = 'split_fraction_{}'.format(splitStream)
+            splitFractionVariables.append(splitFractionVar)
+            for component in self.outputs:  # the self.outputs are the original names given to the outputs of the reactor
+                # make and get variables
+                split1 = component + '_' + splitStream + '_' + 'split1'
+                split2 = component + '_' + splitStream + '_' +'split2'
+                splitComponentVariables.append(split1)
+                splitComponentVariables.append(split2)
+                component2split = component + '_' + splitStream
+
+                # make equations
+                eqSplit1Pyo = "model.var['{}'] == model.fractionVar['{}'] * model.var['{}']".format(split1, splitFractionVar, component2split)
+                eqSplit2Pyo = "model.var['{}'] == (1 - model.fractionVar['{}']) * model.var['{}']".format(split2, splitFractionVar, component2split)
+
+                # add equations to the lsit
+                splittingEquations.append(eqSplit1Pyo)
+                splittingEquations.append(eqSplit2Pyo)
+
+        return splittingEquations, splitComponentVariables
 
     def make_mix_equations(self, objects2mix):
         '''
@@ -1418,7 +1467,7 @@ class ProcessIntervalClass:
         self.allVariables['continuous'] += mixingVariables
         self.pyomoEquations += eqMixPyo2Add
 
-    def make_incomming_massbalance_equaiton(self, enteringVariables):
+    def make_incomming_massbalance_equation(self, enteringVariables):
         """
         make the mass balance of the in comming components of an interval before the reaction phase.
         sum of the mixed components or sum of in coming compontents
@@ -1552,7 +1601,7 @@ class OutputIntervalClass:
                              'boolean' : [],  # there are no boolean variables for output intervals
                              'fraction': []}  # there are no fraction variables for output intervals
         self.boundaries = {outputName:self.outputBound}
-    def make_end_equations(self, objects2mix):
+    def make_output_equations(self, objects2mix):
 
         # find the leaving variables of the object(s) that go into the output
         leavingVars = []
@@ -1585,43 +1634,95 @@ class OutputIntervalClass:
         #self.endVariables = endVar
 
 class WastIntervalClass:
-    def __init__(self, wastePrice, mixDict = None):
+    def __init__(self, wasteVariables, wastePrice, mixDict = None):
+        """ initiates the class object for the waste interval
+
+        Parameters:
+            wasteVariables (DF): variable that gives the components that go to the waste stream for each interval
+            wastePrice (DF): data frame that gives the price of the waste stream per kg of waste generated
+            mixDict (Dict):
+
+        Retruns:
+            initital waste oject (gets updated in 'update_intervals')
+
+            """
         if mixDict is None:
             mixDict = {}
         self.label = 'waste'
         outputName = 'WASTE'
         self.outputName = outputName
         self.wastePrice = wastePrice
+        self.wasteVariables = wasteVariables
+
+        # iniciate equation list, varibale list and boundry dictionary
+        self.allVariables = {'continuous': [], 'boolean': [], 'fraction': []}
+        self.pyomoEquations = []
+        self.boundaries = {}
+
     def make_waste_equations(self, objects2mix):
-        # find the leaving variables of the object(s) that go into the output
-        leavingVars = []
+        """ makes the equations relating to the waste of all the intervals
+         Parameters:
+             objects2mix(dict)
+
+         Return:
+             pyomoEquations (list)
+             """
+
+        # find the leaving variables of the object(s) that go into the waste interval
+        wasteVariableList = []
+        equationList = []
+        variableList = []
+
         for objName in objects2mix:
+            wasteComponents = []
             obj = objects2mix[objName][0] # first element in tuple is the object
             connectInfo = objects2mix[objName][1] # first element in tuple is connection info
 
-            # if there is a separation process
-            if isinstance(connectInfo, str) and 'sep' in connectInfo:
-                allSepVars = obj.leavingInterval
-                for var in allSepVars:
-                    if connectInfo in var and self.outputVariable in var:
-                        leavingVars.append(var)
-            # otherwise just add the leaving variables
-            else:
-                leavingVars += obj.leavingInterval
+            # make waste variable
+            wasteVariableMass = "waste_{}".format(objName)
+            wasteVariableList.append(wasteVariableMass)
 
-        # make the equations
-        endVar = self.outputName
-        eqEnd = endVar + " == "
-        pyomoEqEnd = "model.var['{}']".format(endVar) + " == "
-        #startMixEq = eqEnd
-        for i, lvar in enumerate(leavingVars):
-            eqEnd += " + " + lvar
-            pyomoEqEnd += " + " + "model.var['{}']".format(lvar)
+            # iniciate waste equation
+            wasteEqPyomo = "model.var['{}'] == ".format(wasteVariableMass)
 
-        self.endEquations = eqEnd
-        self.allEquations = [eqEnd]
-        self.pyomoEquations = [pyomoEqEnd]
-        #self.endVariables = endVar
+            # all the objects have to come from a seperation process otherwise it isn't waste: if so give error message
+            if 'sep' not in connectInfo:
+                raise Exception("The waste generated in interval {} does not come into the waste interval through a "
+                                "seperation process: check the connenction matrix in the column 'waste'".format(objName))
+
+            # find the variables (of which seperated stream) that go into the waste equation
+            allSepVars = obj.leavingInterval
+            for var in allSepVars:
+                if connectInfo in var:  # and outputVars in var:
+                    wasteEqPyomo +=  "+ model.var['{}'] ".format(var)
+                    #wasteComponents.append(var)
+            equationList.append(wasteEqPyomo)
+
+        # iniciate cost equation for waste
+        wasteVariableCost = "cost_waste" # make waste cost variable
+        wastePrices = self.wastePrice  # get the prices of waste for each interval
+        wasteCostEquation = "model.var['{}'] == ".format(wasteVariableCost)
+
+        # change the index of the DF wastePrices to that of the waste variables
+        # (should always be in the same order so should be ok)
+        wastePrices = wastePrices.reset_index()
+        wastePrices['waste_variables'] = wasteVariableList
+        wastePrices = wastePrices.set_index('waste_variables')
+        #wastePrices = wastePrices.reindex(wasteVariableList)
+
+        # iterate over the waste variuables to calculate the cost of disposed waste
+        for wasteVar, row in wastePrices.iterrows():
+            wasteCostEquation += "+ model.var['{}'] * {}".format(wasteVar, row.waste_price)
+
+        # make/ add a list of all equations and variable to pass on
+        equationList.append(wasteCostEquation)
+        variableList += wasteVariableList + [wasteVariableCost]
+
+        # add eqautions and variable top the object, so they can be read later on
+        self.allVariables['continuous'] += variableList
+        self.pyomoEquations += equationList
+        for var in variableList:
+            self.boundaries.update({var: (0, None)}) # positive reals
 
 # ============================================================================================================
 # Validate the Excel file sheets, checks and error messages
@@ -1725,6 +1826,7 @@ def check_excel_file(excelName):
 
     DFIntervals = pd.read_excel(loc, sheet_name='input_output_intervals')
     DFprocessIntervals =  pd.read_excel(loc, sheet_name='process_intervals')
+    DFeconomicParameters = pd.read_excel(loc, sheet_name='economic_parameters')
     DFConnectionMatrix = pd.read_excel(loc, sheet_name='connection_matrix')
     DFAbbr = pd.read_excel(loc, sheet_name='abbr')
 
@@ -1768,6 +1870,11 @@ def check_excel_file(excelName):
         raise Exception('You are missing a definition for the following abbreviations: {}'.format(missingAbbr) )
     else:
         pass
+
+    # check if the process interval names are the same in the sheet economic_parameters and process_intervals
+    if not (DFeconomicParameters.process_intervals == DFprocessIntervals.process_intervals).all():
+        raise Exception("Make sure the interval names in 'economic_parameters' and 'process_intervals' are the same")
+
 
 # ============================================================================================================
 # Functions to make the interval objects
@@ -1830,8 +1937,9 @@ def make_mix_dictionary(intervalName,DFconnectionMatrix):
             mixDict.update({intervalsToMix[k]: specs})
     return mixDict
 
-
 # functions to automate making the interval class objects
+# def make_interval_objects(ExcelDict): maybe group alle the make functions together
+
 def make_input_intervals(ExcelDict):
     """ Makes the process intervals of inputs.
 
@@ -1957,8 +2065,13 @@ def make_process_intervals(ExcelDict):
         boundsReactor = eval(DFprocessIntervals.interval_bounds[i])
         nameDict = {intervalName:boundsReactor}
 
-        #find the equation of the reactor
-        if 'xml' in DFprocessIntervals.reaction_model[i]:
+        #find the correct equation of the reactor
+        reactionIndicator = DFprocessIntervals.reaction_model[i] # indicates in wat formate to read the equations
+
+        if isinstance(reactionIndicator,int) and reactionIndicator == 0: # if it is zero there is no reaction, only seperation, e.g., for a distilation process
+            equations = None
+
+        elif 'xml' in reactionIndicator:
             modelName = DFprocessIntervals.reaction_model[i]
             nameList = list(DFmodels.model_name)
             try:
@@ -1974,7 +2087,7 @@ def make_process_intervals(ExcelDict):
             equations = make_str_eq_smbl(modelName= modelName, substrate_exchange_rnx= inputID,
                                          product_exchange_rnx=outputID, equationInfo= equationInfo)
             #print('s')
-        elif 'json' in DFprocessIntervals.reaction_model[i]:
+        elif 'json' in reactionIndicator:
             jsonFile = DFprocessIntervals.reaction_model[i]
             nameList = list(DFmodels.model_name)
             try:
@@ -1995,13 +2108,14 @@ def make_process_intervals(ExcelDict):
             equationInfo = DFmodels.iloc[indexModelName]
             equations = make_str_eq_json(reactionObject,equationInfo)
 
-        else: # todo if it is zero there is no reaction, only seperation, e.g., for a distilation process
+        else: # the equation is written as a string in the Excel file handy for testing porposes
             equations = DFprocessIntervals.reaction_model[i]
             equations = split_remove_spaces(equations,',')
-            if not '==' in equations[0]:
-                equations = '0 == 0' # TODO temporary so we can continue
-                # raise Exception('take a look at the reaction model mate, there is no json, xml or correct reaction given'
-                #                 ' for reactor {}'.format(intervalName))
+            for eq in equations:
+                if '==' not in eq:
+                    raise Exception(
+                        'take a look at the reaction model mate, there is no json, xml or correct reaction given'
+                                   ' for reactor {}'.format(intervalName))
 
         # find special component bounds like that for pH
         boundsComponentStr = DFprocessIntervals.input_bounds[i]
@@ -2117,39 +2231,70 @@ def make_output_intervals(ExcelDict):
 
     # read excel info
     DFconnectionMatrix = ExcelDict['connection_DF']
-    DFIntervals = ExcelDict['input_output_DF']  #pd.read_excel(loc, sheet_name='input_output_intervals')
+    DFIntervals = ExcelDict['input_output_DF']
 
-    # find the output interval names
-    outputPrices = DFIntervals.output_price.to_numpy()
-    posOutputs = outputPrices != 0  # find where the output interval are (they have an output price)
-    intervalNames = DFIntervals.process_intervals[posOutputs]  # find names of the output interval variable
-
+    # find the output interval names and information in one step
+    output_data = DFIntervals[DFIntervals.output_price != 0].drop(['output_price'], axis=1)
     objectDictionary = {} # preallcoate a dictionary with the interval names and the interval objects
-    for i, intervalName in enumerate(intervalNames):
-        intervalName = intervalName.replace(' ','') # remove spaces
+    for i, row in output_data.iterrows():
+        intervalName = row.process_intervals.replace(' ', '')
 
         # find the bounds of the interval
-        listIntervals = remove_spaces(list(DFIntervals.process_intervals))
-        index = listIntervals.index(intervalName)
-        lowerBound = DFIntervals.lower_bound[index]
-        upperBound = DFIntervals.upper_bound[index]
-        outputBound = [lowerBound,upperBound] # is this really necesary?
-        outputPrice = outputPrices[index]
+        lowerBound = row.lower_bound
+        upperBound = row.upper_bound
+        outputBound = [lowerBound, upperBound]
+
+        outputPrice = DFIntervals.output_price[i]
 
         # find the variable name acossiated with the output
-        outputVariable = DFIntervals.components[index]
-        outputVariable = outputVariable.replace(' ','')
+        outputVariable = row.components.replace(' ', '')
 
         # check if it is mixed with other reactors
         mixDict = make_mix_dictionary(intervalName=intervalName, DFconnectionMatrix=DFconnectionMatrix)
 
         # make initial interval object
-        objectReactor = OutputIntervalClass(outputName = intervalName, outputBound = outputBound,
-                                            outputPrice = outputPrice, outputVariable= outputVariable, mixDict= mixDict)
+        objectReactor = OutputIntervalClass(outputName=intervalName, outputBound=outputBound,
+                                            outputPrice=outputPrice, outputVariable=outputVariable, mixDict=mixDict)
         # put the object in the dictionary
-        objectDictionary.update({intervalName:objectReactor})
+        objectDictionary[intervalName] = objectReactor
+
     return objectDictionary
 
+def make_waste_interval(ExcelDict):
+    """ Makes the process intervals of the waste interval.
+
+            parameters:
+            ExcelDict (Dict): a dictionary with all the data to make the superstructure
+
+            return:
+            objectDict (Dict): a dictionary holding the waste objects for the waste interval
+            """
+
+    # retrive data
+    DFconnectionMatrix = ExcelDict['connection_DF']
+    DFprocessIntervals = ExcelDict['process_interval_DF']
+    DFprocessIntervals = DFprocessIntervals.set_index('process_intervals') # set the index
+    DFeconomicParameters = ExcelDict['economic_parameters_DF']
+    DFeconomicParameters = DFeconomicParameters.set_index('process_intervals') # set the index
+    intervalName = 'waste'
+
+    # find the prices of waste per interval
+    intervalNamesWithWaste = DFconnectionMatrix[DFconnectionMatrix.waste != 0].process_intervals
+    priceWasteDF = DFeconomicParameters.loc[intervalNamesWithWaste, "waste_price"]
+
+    # find the waste variables (i.e., components) of each interval with waste dump
+    wasteVariables = DFprocessIntervals.loc[intervalNamesWithWaste, "outputs"]
+
+    # check if it is mixed with other reactors
+    mixDict = make_mix_dictionary(intervalName=intervalName, DFconnectionMatrix=DFconnectionMatrix)
+
+    # make initial interval object
+    objectWaste = WastIntervalClass(mixDict=mixDict, wastePrice=priceWasteDF, wasteVariables= wasteVariables)
+
+    # put the object in the dictionary
+    objectDictionary ={intervalName:objectWaste}
+
+    return objectDictionary
 # ============================================================================================================
 # Functions to update the interval objects
 # ============================================================================================================
@@ -2238,10 +2383,15 @@ def update_intervals(allIntervalObjectsDict,excelName):
         elif label == 'output':
             objectDict2mix = {nameObjConect: (allIntervalObjectsDict[nameObjConect], connectedIntervals[nameObjConect])
                               for nameObjConect in connectedIntervals}
-            intervalObject.make_end_equations(objectDict2mix)
+            intervalObject.make_output_equations(objectDict2mix)
 
+        elif label == 'waste':
 
-    #return pyomoVariables ,pyomoEquations
+            #if len(connectedIntervals) > 1:  # so here is mixing
+            objectDict2mix = {nameObjConect: (allIntervalObjectsDict[nameObjConect], connectedIntervals[nameObjConect])
+                              for nameObjConect in connectedIntervals}
+            intervalObject.make_waste_equations(objectDict2mix)
+
 
 def get_vars_eqs_bounds(objectDict):
     variables = {}
@@ -2290,16 +2440,6 @@ def get_vars_eqs_bounds(objectDict):
 
     return variables,equations, boundsContinousVars
 
-def make_pyomo_equations(variables,equations):
-    pyomoEquations = []
-    for eq in equations:
-        for var in variables:
-            if var in eq:
-                eq = eq.replace(var, "model.var['{}']".format(var))
-        pyomoEquations.append(eq)
-
-    return pyomoEquations
-
 # ============================================================================================================
 # Master function: generates the superstructure
 # ============================================================================================================
@@ -2312,8 +2452,11 @@ def make_super_structure(excelFile, printPyomoEq = False):
     objectsInputDict = make_input_intervals(excelDict)
     objectsReactorDict = make_process_intervals(excelDict)
     objectsOutputDict  = make_output_intervals(excelDict)
+    objectsWasteDict  = make_waste_interval(excelDict)
 
-    allObjects = objectsInputDict | objectsReactorDict | objectsOutputDict
+
+
+    allObjects = objectsInputDict | objectsReactorDict | objectsOutputDict | objectsWasteDict
     update_intervals(allObjects, excelFile)
     variables, equations, bounds = get_vars_eqs_bounds(allObjects)
 
@@ -2353,7 +2496,12 @@ def make_super_structure(excelFile, printPyomoEq = False):
         except:
             raise Exception('The following equation can not be read by pyomo: {}'.format(eq))
 
-        model.constraints.add(expresion)
+        try:
+            model.constraints.add(expresion)
+        except:
+            raise Exception('The following equation can not be read by pyomo: {}'.format(eq))
+
+
 
 
     # define the objective
