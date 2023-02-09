@@ -83,9 +83,9 @@ print(estimastesFormuals)
 
 
 # check in the Excel file if mass balances now comply
-print_SBML_info_2_excel(modelName=model, print2Excel= False, saveName= 'test666.xlsx')
+print_SBML_info_2_excel(modelName=model, print2Excel= True, saveName= 'analysis_sherm_after_fix.xlsx')
 
 # save the model
-save = True
+save = False
 if save:
     write_sbml_model(model, r"C:\Users\lucas\PycharmProjects\Alquimia\SBML models\P_sherm_lvdh.xml")
