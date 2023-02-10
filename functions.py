@@ -930,10 +930,9 @@ def define_connect_info(connectInfo):
     sepKey = ''
     splitKey = ''
     boolKey = ''
-    connectKey = False
-    if isinstance(connectInfo,int):
-        connectKey = True
-    else:
+    connectKey = False # connent key referes to if there is a simple conection without seperation or splitting
+
+    if isinstance(connectInfo,str):
         if 'sep' in connectInfo:
             sepIndex = connectInfo.find('sep')
             sepKey = connectInfo[sepIndex: sepIndex + 4]
@@ -943,6 +942,9 @@ def define_connect_info(connectInfo):
         if 'bool' in connectInfo:
             bIndex = connectInfo.find('split')
             boolKey = connectInfo[bIndex: bIndex + 4]
+
+    if not splitKey and not sepKey:
+        connectKey = True #thus a simple connection
 
     return connectKey, sepKey, splitKey, boolKey
 
@@ -1121,18 +1123,12 @@ class ProcessIntervalClass:
         if reactionEquations != None:
             reactorEquations, reactionVariablesOutput, helpingDict = \
                 self.make_reaction_equations(reactionEquations,boolActivation, intervalVariable)
-            pyomoEq += reactorEquations
+            #pyomoEq += reactorEquations # added during the update fuction
         else:
             # If there is a dictionary for the separation equations but no reaction, then there is no helpingDict.
             # In other words now the separation equations need to be updated according to the incomming flow...
             # this is indicated the in function update_interval_equations by the self.intervalType label!!
             helpingDict = {}
-
-        # elif reactionEquations is None and separationDict:
-        #
-        #     helpingDict = self.get_helping_dict_4_seperation(connectInfo)
-
-
 
         # sum of bool equations
         eqPyBool = "1 == "
@@ -1145,7 +1141,8 @@ class ProcessIntervalClass:
         separationVariables = [] # preallocate to avoid error
         if separationDict: # if there is separation make the separation equations
             separationEquationsPyomo, separationVariables = self.make_separation_equations(separationDict, helpingDict)
-            pyomoEq += separationEquationsPyomo
+            if helpingDict: # if the helping dict does noit exist the separation equations are added during the update function
+                pyomoEq += separationEquationsPyomo
 
         # spliting equations
         splitComponentVariables = [] # preallocate to avoid error
@@ -1444,9 +1441,11 @@ class ProcessIntervalClass:
             mixVar = "{}_{}_mix".format(ins,intervalName)
             eqMix = mixVar + " == "
             startMixEq = eqMix
-            # pyomo version
+
+            # pyomo equation
             mixVarPyo = "model.var['{}']".format(mixVar)
             eqMixPyo = mixVarPyo + " == "
+
             #startMixEqPyo = eqMixPyo
             for lvar in leavingVars:
                 if ins in lvar:
@@ -1520,40 +1519,45 @@ class ProcessIntervalClass:
 
     def update_interval_equations(self, newInputs4Interval):
         """
-        Todo: make description
+        fills in the uncompleted reaction equations or separation equations
         """
         intervalType = self.intervalType
-
+        name = list(self.nameDict.keys())[0]
+        #print(name)
         initialInputs4Interval = self.inputs
         replacementDict = self.get_replacement_dict(initialInputs4Interval, newInputs4Interval)
 
         # determine which equations need to be updated
         if intervalType == 'reactor':
             equationsInterval = self.reactionEquations  # the reactor equations
-            equationsIntervalPyo = self.reactionEquations
 
         else: # so intervalType == 'separator':
-            equationsInterval = self.separationEquations  # the reactor equations
-            equationsIntervalPyo = self.separationEquations
+            equationsInterval = self.separationEquations  # the separation equations
 
         allEquations = []
-        allPyoEquations = []
-        for i, eq in enumerate(equationsInterval):
-            eqPyo = equationsIntervalPyo[i]
+        for eq in equationsInterval:
             for var in replacementDict:
                 newVarName = replacementDict[var]
-                eq = eq.replace(var, newVarName)
-                eqPyo = eqPyo.replace(var, "model.var['{}']".format(newVarName))
+                # the output of the equation is already in pyomo format, to avoid conflict split
+                # the eqution left and right of the '==', The right side is the part that needs to be updated
+                posEqualSign = eq.find('==')
+                leftEquation = eq[0:posEqualSign]
+                rightEquation = eq[posEqualSign:] #~slice till the end [position:]
+                rightEquation = rightEquation.replace(var, "model.var['{}']".format(newVarName))
+                eq = leftEquation + rightEquation
             allEquations.append(eq)
-            allPyoEquations.append(eqPyo)
-        self.reactionEquations = allEquations
+
+        # update the reactor/separation equations to the object
+        if intervalType == 'reactor':
+            self.reactionEquations = allEquations
+        else: # so intervalType == 'separator':
+            self.separationEquations = allEquations
+
+        # add the variables and equations to the allVariables/pyomoEquations object
         reactionVariablesInputs = list(replacementDict.values())
         self.reactionVariablesInputs = reactionVariablesInputs
-
-        # add the variables and equations to the allVar/equations object
-        #self.allEquations += allEquations  # add to the list of equations
         self.allVariables['continuous'] += self.reactionVariablesInputs #+ [enteringMassVarible] # add to the list of variables
-        self.pyomoEquations += allPyoEquations
+        self.pyomoEquations += allEquations
 
         # add variables to boundry dictionary
         for i in reactionVariablesInputs:
@@ -1612,62 +1616,71 @@ class ProcessIntervalClass:
     # helping functions not related to making equations
     def get_replacement_dict(self,initialVars, newVars):
         replacementDict = {}
+
         for i in initialVars:
-            if i == 'pH':  #  TODO find a better way to do this: pH always stays pH_intervalName
-                reactorName = list(self.nameDict.keys())[0]
-                replacementDict.update({i: 'pH_{}'.format(reactorName)})
             for j in newVars:
                 if i in j:  # the initial variable (of excel) is always in the new name, that's how you can find wat belongs to where
                     replacementDict.update({i: j})
 
+        # in the case of utility flow and operational parameters like pH the the variable does not become a 'mixed variable'
+        # find these variable and give them the appropiate name
+        # (ideally you should call the varible that is missing from the object it's selfreally you)
+        if len(replacementDict) != len(initialVars):
+            keys = list(replacementDict.keys())
+            missingVariables = list(set(keys).symmetric_difference(set(initialVars)))
+
+            for missingVar in  missingVariables:
+                reactorName = list(self.nameDict.keys())[0]
+                replacementDict.update({missingVar: '{}_{}'.format(missingVar,reactorName)})
+
         return replacementDict
 
-    def get_helping_dict_4_seperation(self, connectInfo):
-        """ makes the helping dictionary to make the seperation equations.
-        IMPORTANT: the variables are not declared here!! this happens in the update functions. This is a hack to get the
-        variables you need based on how the interval is connected to the previous intervals.
-        SEE t_oDO in the function update_intervals
-        e.g., {'ace': 'ace_P_freu_batch_sep1', 'prop': 'prop_P_freu_batch'_sep1, 'water': 'water_P_freu_batch_sep1'}
-
-        Parameters:
-            connectInfo (dict)
-
-        Returns:
-            helpDict (dict)
-            """
-        # TODO fix this conundrum:
-        #  the variables for mixing are declared in the update functions (called after this function!!) but here we are
-        #  replicating those varibles. In other words if you change the mixing, seperation or split variable names this
-        #  part of the code will certainly give an error... NEED TO FIND A CONSISTENT WAY TO CALL INCOMING STREAMS
-        #   Idealy get rid of the update functions and make all equations immidiatly
-
-        originalOutputNames = self.outputs
-        intervalName = list(self.nameDict.keys())[0]
-        helpDict = {}
-        if len(connectInfo) >1:  # then the components are mixed
-            # entering vars are then mixed
-            for outName in originalOutputNames:
-                enteringVar = "{}_{}_mix".format(outName,intervalName)
-                helpDict.update({outName:enteringVar})
-
-        elif len(connectInfo) == 1: #components are separated
-            intervalKey = list(connectInfo.keys())[0]
-            connectSpecification = connectInfo[intervalKey] #
-            reactorKey ,sepKey, splitKey , boolKey = define_connect_info(connectSpecification)
-            if splitKey:
-                for outName in originalOutputNames:
-                    enteringVar = "{}_{}_{}".format(outName, intervalName,splitKey)
-                    helpDict.update({outName: enteringVar})
-
-            elif sepKey:
-                for outName in originalOutputNames:
-                    enteringVar = "{}_{}_{}".format(outName, intervalName,sepKey)
-                    helpDict.update({outName: enteringVar})
-
-            else:
-                pass # then it is just from the raeactor which the function make_reaction_equations already generates
-
-        return helpDict
+    # def get_helping_dict_4_seperation(self, connectInfo):
+    #     """ makes the helping dictionary to make the seperation equations.
+    #     IMPORTANT: the variables are not declared here!! this happens in the update functions. This is a hack to get the
+    #     variables you need based on how the interval is connected to the previous intervals.
+    #     SEE t_oDO in the function update_intervals
+    #     e.g., {'ace': 'ace_P_freu_batch_sep1', 'prop': 'prop_P_freu_batch'_sep1, 'water': 'water_P_freu_batch_sep1'}
+    #
+    #     Parameters:
+    #         connectInfo (dict)
+    #
+    #     Returns:
+    #         helpDict (dict)
+    #         """
+    #     # TODO fix this conundrum:
+    #     #  the variables for mixing are declared in the update functions (called after this function!!) but here we are
+    #     #  replicating those varibles. In other words if you change the mixing, seperation or split variable names this
+    #     #  part of the code will certainly give an error... NEED TO FIND A CONSISTENT WAY TO CALL INCOMING STREAMS
+    #     #   Idealy get rid of the update functions and make all equations immidiatly
+    #
+    #     originalOutputNames = self.outputs
+    #     intervalName = list(self.nameDict.keys())[0]
+    #     helpDict = {}
+    #     if len(connectInfo) >1:  # then the components are mixed
+    #         # entering vars are then mixed
+    #         for outName in originalOutputNames:
+    #             enteringVar = "{}_{}_mix".format(outName,intervalName)
+    #             helpDict.update({outName:enteringVar})
+    #
+    #     elif len(connectInfo) == 1: #components are separated
+    #         intervalKey = list(connectInfo.keys())[0]
+    #         connectSpecification = connectInfo[intervalKey] #
+    #         reactorKey ,sepKey, splitKey , boolKey = define_connect_info(connectSpecification)
+    #         if splitKey:
+    #             for outName in originalOutputNames:
+    #                 enteringVar = "{}_{}_{}".format(outName, intervalName,splitKey)
+    #                 helpDict.update({outName: enteringVar})
+    #
+    #         elif sepKey:
+    #             for outName in originalOutputNames:
+    #                 enteringVar = "{}_{}_{}".format(outName, intervalName,sepKey)
+    #                 helpDict.update({outName: enteringVar})
+    #
+    #         else:
+    #             pass # then it is just from the raeactor which the function make_reaction_equations already generates
+    #
+    #     return helpDict
 
 class OutputIntervalClass:
     def __init__(self, outputName, outputBound ,outputPrice, outputVariable, mixDict = None):
@@ -2406,11 +2419,9 @@ def update_intervals(allIntervalObjectsDict,ExcelDict):
         connectedIntervals = get_connected_intervals(intervalName=intervalName, conectionMatrix=connectionMatrix)
 
         # get the connection info if there is only one connecting interval (is there mixing or not)
-        simpleConcention = False
         connectInfo = list(connectedIntervals.values())[0]
-        reactorKey, sepKey, splitKey, boolKey = define_connect_info(connectInfo)
-        if reactorKey or boolKey and not sepKey or not splitKey:
-            simpleConcention = True  # just connecting from one reactor to the next with the connection possibly being a bool
+        simpleConcention, sepKey, splitKey, boolKey = define_connect_info(connectInfo)
+        #simpleConcention = True  # just connecting from one reactor to the next with the connection possibly being a bool
 
         # get the previous interval object (if there is mixing these variables are ignored)
         previousIntervalName = list(connectedIntervals.keys())[0]
@@ -2455,9 +2466,13 @@ def update_intervals(allIntervalObjectsDict,ExcelDict):
                 objectDict2mix = {nameObjConect:(allIntervalObjectsDict[nameObjConect], connectedIntervals[nameObjConect]) for nameObjConect in connectedIntervals}
                 intervalObject.make_mix_equations(objectDict2mix)
                 newReactorInputs4Interval = intervalObject.mixingVariables
+
                 intervalObject.update_interval_equations(newReactorInputs4Interval)
                 intervalObject.make_incomming_massbalance_equation(newReactorInputs4Interval)
 
+            if intervalObject.utilities:
+                # if the utilities dictionary is not empty, there is a utility to be added to the interval
+                intervalObject.make_utility_equations()
 
         elif label == 'output':
             objectDict2mix = {nameObjConect: (allIntervalObjectsDict[nameObjConect], connectedIntervals[nameObjConect])
@@ -2469,9 +2484,6 @@ def update_intervals(allIntervalObjectsDict,ExcelDict):
                               for nameObjConect in connectedIntervals}
             intervalObject.make_waste_equations(objectDict2mix)
 
-        if intervalObject.utilities:
-            # if the utilities dictionary is not empty, there is a utility to be added to the interval
-            intervalObject.make_utility_equations()
 
 def get_vars_eqs_bounds(objectDict):
     variables = {}
