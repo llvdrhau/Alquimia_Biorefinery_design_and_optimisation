@@ -83,10 +83,13 @@ def get_connected_intervals(intervalName,conectionMatrix):
     interval (intervalName) is found
     """
     conectionCol = conectionMatrix[intervalName]
-    posConnect = conectionCol != 0
-    nameConnectedIntervals = list(conectionMatrix['process_intervals'][posConnect])
-    connectionInfo = list(conectionMatrix[intervalName][posConnect])
-    connectionDict = {nameConnectedIntervals[i]:connectionInfo[i] for i in range(len(connectionInfo))}
+    connectionInfo = conectionCol.where(conectionCol != 0).dropna()
+    nameConnectedIntervals =  connectionInfo.index
+    connectionDict = {nameConnectedIntervals[i]: connectionInfo[i] for i in range(len(connectionInfo))}
+
+    #posConnect = conectionCol != 0
+    #nameConnectedIntervals = list(conectionMatrix['process_intervals'][posConnect])
+
     return  connectionDict
 
 def str_2_dict(string,intervalname):
@@ -1142,7 +1145,7 @@ class ProcessIntervalClass:
         if separationDict: # if there is separation make the separation equations
             separationEquationsPyomo, separationVariables = self.make_separation_equations(separationDict, helpingDict)
             if helpingDict: # if the helping dict does noit exist the separation equations are added during the update function
-                pyomoEq += separationEquationsPyomo
+                pyomoEq += separationEquationsPyomo #otherwise they can be added strait away
 
         # spliting equations
         splitComponentVariables = [] # preallocate to avoid error
@@ -1321,7 +1324,7 @@ class ProcessIntervalClass:
         Returns:
                saparationEquations (list): list of separartion equations
                seperationVariables (list): list of variables
-        """
+            """
         separationEquationsPyomo = []
         separationVariables = []
         for sep in separationDict:  # if it is empty it should not loop nmrly
@@ -1351,7 +1354,7 @@ class ProcessIntervalClass:
     def make_split_equations(self,splitList, addOn4Variables):
         """ function that creates the equations of the split streams
 
-        Parameters:
+        Params:
                 splitList (list): list of components to split
                 addOn4Variables (str): name of the add-on for the variables
 
@@ -1479,7 +1482,7 @@ class ProcessIntervalClass:
         ''' 
         # now the reaction equations need to be updated because
         # they're the mix variables are now the inputs of the reaction equations!
-        # see function update_reactor_intervals & class function update_reactor_equations
+        # see function update_interval_equations & class function update_reactor_equations
         '''
 
         # add the variables and equations to the allVar/equations object
@@ -1635,53 +1638,6 @@ class ProcessIntervalClass:
 
         return replacementDict
 
-    # def get_helping_dict_4_seperation(self, connectInfo):
-    #     """ makes the helping dictionary to make the seperation equations.
-    #     IMPORTANT: the variables are not declared here!! this happens in the update functions. This is a hack to get the
-    #     variables you need based on how the interval is connected to the previous intervals.
-    #     SEE t_oDO in the function update_intervals
-    #     e.g., {'ace': 'ace_P_freu_batch_sep1', 'prop': 'prop_P_freu_batch'_sep1, 'water': 'water_P_freu_batch_sep1'}
-    #
-    #     Parameters:
-    #         connectInfo (dict)
-    #
-    #     Returns:
-    #         helpDict (dict)
-    #         """
-    #     # TODO fix this conundrum:
-    #     #  the variables for mixing are declared in the update functions (called after this function!!) but here we are
-    #     #  replicating those varibles. In other words if you change the mixing, seperation or split variable names this
-    #     #  part of the code will certainly give an error... NEED TO FIND A CONSISTENT WAY TO CALL INCOMING STREAMS
-    #     #   Idealy get rid of the update functions and make all equations immidiatly
-    #
-    #     originalOutputNames = self.outputs
-    #     intervalName = list(self.nameDict.keys())[0]
-    #     helpDict = {}
-    #     if len(connectInfo) >1:  # then the components are mixed
-    #         # entering vars are then mixed
-    #         for outName in originalOutputNames:
-    #             enteringVar = "{}_{}_mix".format(outName,intervalName)
-    #             helpDict.update({outName:enteringVar})
-    #
-    #     elif len(connectInfo) == 1: #components are separated
-    #         intervalKey = list(connectInfo.keys())[0]
-    #         connectSpecification = connectInfo[intervalKey] #
-    #         reactorKey ,sepKey, splitKey , boolKey = define_connect_info(connectSpecification)
-    #         if splitKey:
-    #             for outName in originalOutputNames:
-    #                 enteringVar = "{}_{}_{}".format(outName, intervalName,splitKey)
-    #                 helpDict.update({outName: enteringVar})
-    #
-    #         elif sepKey:
-    #             for outName in originalOutputNames:
-    #                 enteringVar = "{}_{}_{}".format(outName, intervalName,sepKey)
-    #                 helpDict.update({outName: enteringVar})
-    #
-    #         else:
-    #             pass # then it is just from the raeactor which the function make_reaction_equations already generates
-    #
-    #     return helpDict
-
 class OutputIntervalClass:
     def __init__(self, outputName, outputBound ,outputPrice, outputVariable, mixDict = None):
         if mixDict is None:
@@ -1826,13 +1782,9 @@ class WastIntervalClass:
 # Validate the Excel file sheets, checks and error messages
 # ============================================================================================================
 """
-List of possible errors 
-* make sure all separations are acounted for 
-* make sure all names of the intervals are the same in each excel sheet 
-* make sure the abbreviations of the output intervals are in the equations 
-Write all error you encounter here 
-Make sure only split, sep bool ands mix are the only words in the connection matrix 
-make sure all abbreviations have a definition in the abbreviations sheet otherwise error
+# List of possible errors  
+# Write all error you encounter here so you can write error mesages later 
+# Make sure only split, sep bool ands mix are the only words in the connection matrix 
  """
 def check_seperation_coef(coef, intervalName, amountOfSep, connectionMatrix):
     """
@@ -1847,11 +1799,11 @@ def check_seperation_coef(coef, intervalName, amountOfSep, connectionMatrix):
         connectionMatrix (DF): a dataframe with the entire connecntion matrix
 
     Returns:
-        erros made in the excel file
+        erros made in the Excel file
 
     """
     # Set the index of the connenction matrix as the process inbnterval names
-    connectionMatrix = connectionMatrix.set_index('process_intervals')
+    # connectionMatrix = connectionMatrix.set_index('process_intervals') #already done when reading the Excel File
 
     # check if you have not forgotten to define the bounds if in the connection matrix, seperated streams have been defined
     if coef == 0:
@@ -1996,6 +1948,7 @@ def read_excel_sheets4_superstructure(excelName):
     # read excel info
     DFInOutIntervals = pd.read_excel(loc, sheet_name='input_output_intervals')
     DFconnectionMatrix = pd.read_excel(loc, sheet_name='connection_matrix')
+    DFconnectionMatrix = DFconnectionMatrix.set_index('process_intervals')
     DFprocessIntervals = pd.read_excel(loc, sheet_name='process_intervals')
     DFeconomicParameters = pd.read_excel(loc, sheet_name='economic_parameters')
     DFmodels = pd.read_excel(loc, sheet_name='models')
@@ -2020,23 +1973,84 @@ def make_mix_dictionary(intervalName,DFconnectionMatrix):
         DFconnectionMatrix (DF): dataframe with the connection matrix
 
     Return:
-        MixDict (dict): dictionary of interval objects that needs to bemixed
+        MixDict (dict): dictionary of interval objects that needs to be mixed
     """
     # check if it is mixed with other reactors
-    processInvervalNames = DFconnectionMatrix.process_intervals
+    #processInvervalNames = list(DFconnectionMatrix.index)
     reactorCol = DFconnectionMatrix[intervalName]
-    pos = reactorCol != 0  # find where mixing takes place # mixed streams are in the same colunm
+    specifications = reactorCol.where(reactorCol != 0).dropna() # find where mixing takes place, mixed streams are in the same colunm
+    intervals2Mix = list(specifications.index) # the indexs are the names of the process interval to mix
+
     mixDict = {}  # preallcoation
-    if sum(pos) >= 2:
-        intervalsToMix = list(processInvervalNames[pos])
-        specifications = list(reactorCol[pos])
+    if len(specifications) >= 2:
         for k, specs in enumerate(specifications):
-            mixDict.update({intervalsToMix[k]: specs})
+            mixDict.update({intervals2Mix[k]: specs})
     return mixDict
 
-# functions to automate making the interval class objects
-# def make_interval_objects(ExcelDict): maybe group alle the make functions together
+def make_boolean_equations(DFconnectionMatrix, processIntervalnames):
+    """ makes the equations that regulate if a certain reactor is chosen or not nl: 1 == sum(boolean variables)
+    the function works as followed: the DFconnectionMatrix excludes the inputs!! important!! the input boolean variables
+    are regulated in the first input objected.
+    main idea:
+    1) loop over the rows of the DF.
+    2) count the colums of this row which are not zero in  sequence! (save the interval names in a list)
+    3) the longest list is the list of intervals dependant of the boolean variable
+    4) the boolean variable can be found on the diagonal (i.e. with the same row and column index)
+    5) make the boolean equation
+    6) deleet the columns that contain the sequence
+    7) restart at step 1 till the DF is empty
 
+    returns:
+        boolean variables (list): list of boolean variables
+        boolean equaitions (lsit): list of boolean equations
+    """
+
+    # prun the Dataframe, anything that does not have a bool label on the diagonal can be droped
+    toDrop = []
+    for i in processIntervalnames:
+        if not isinstance(DFconnectionMatrix[i][i], str):
+            toDrop.append(i)
+
+    DFconnectionMatrix = DFconnectionMatrix.drop(labels= toDrop, axis=1)
+
+    switch = True
+    equationsSumOfBools = []
+    booleanVariables = []
+    while switch:
+        saveDict = {}
+        for index, row in DFconnectionMatrix.iterrows():
+            intervalNames = []
+            for indexCol, element in row.items():
+                #element = row[colName]
+                if isinstance(element, str) or element != 0: # so comes from a separation or just connected
+                    intervalNames.append(indexCol)
+                else:
+                    break
+
+            saveDict.update({index:intervalNames})
+
+        # find the key in the saveDict that has the longest list
+        key_max_sequential = max(saveDict, key=lambda k: len(saveDict[k]))
+
+        # create the equation
+        eq = '1 == '
+        for interval in saveDict[key_max_sequential]:
+            boolVar = DFconnectionMatrix[interval][interval]
+            booleanVariables.append(boolVar)
+            eq += "+ model.boolVar['{}'] ".format(boolVar)
+        equationsSumOfBools.append(eq)
+
+        # now we need to drop the colums in the original dataframe that already form 1 set of equations
+        # the colunms that need to be droped are in saveDict[key_max_sequential]1
+        cols2drop = saveDict[key_max_sequential]
+        DFconnectionMatrix = DFconnectionMatrix.drop(labels= cols2drop, axis=1)
+        print('')
+
+        if DFconnectionMatrix.empty:
+            switch = False
+
+    return booleanVariables, equationsSumOfBools
+# functions to automate making the interval class objects
 def make_input_intervals(ExcelDict):
     """ Makes the process intervals of inputs.
 
@@ -2049,7 +2063,7 @@ def make_input_intervals(ExcelDict):
 
     DFIntervals = ExcelDict['input_output_DF']
     DFconnectionMatrix = ExcelDict['connection_DF']
-    DFconnectionMatrix = DFconnectionMatrix.set_index('process_intervals')
+    #DFconnectionMatrix = DFconnectionMatrix.set_index('process_intervals')
     #df.set_index('month')
     # inputs
     inputPrices = DFIntervals.input_price.to_numpy()
@@ -2121,7 +2135,7 @@ def make_input_intervals(ExcelDict):
         for j, info in enumerate(intervalRow):
             if isinstance(info,str) and 'bool' in info:
                 attachInterval = processInvervalNames[j]
-                boolVar = 'y_' + attachInterval + '_' + intervalName
+                boolVar = 'y_' + intervalName + '_' + attachInterval
                 boolDict.update({attachInterval: boolVar})
 
         # create object
@@ -2211,7 +2225,7 @@ def make_process_intervals(ExcelDict):
             for eq in equations:
                 if '==' not in eq:
                     raise Exception(
-                        'take a look at the reaction model mate, there is no json, xml or correct reaction given'
+                        'Take a look at the reaction model mate, there is no json, xml or correct reaction given'
                                    ' for reactor {}'.format(intervalName))
 
         # find special component bounds like that for pH
@@ -2258,13 +2272,12 @@ def make_process_intervals(ExcelDict):
 
         # check if it is an input to other intervals as a bool (LOOKING AT THE ROW)
         boolDict = {}
-        processInvervalNames = DFconnectionMatrix['process_intervals'].to_list()
-        rowIndex = processInvervalNames.index(intervalName)
-        intervalRow = DFconnectionMatrix.iloc[rowIndex].to_list()  # looking at the row will show to which intervals the current section is connencted to
-        # intervalRow = DFconnectionMatrix.loc[processInvervalNames == intervalName].to_dict()
-        for j, info in enumerate(intervalRow):
+        intervalRow = DFconnectionMatrix.loc[intervalName]   # looking at the row will show to which intervals the current section is connencted to
+        processInvervalNames = intervalRow.index.to_list()
+
+        for j, info in intervalRow.items():
             if isinstance(info, str) and 'bool' in info:
-                attachInterval = processInvervalNames[j]
+                attachInterval = j # processInvervalName is the index of the dataframe
                 boolVar = 'y_' + intervalName + '_' +  attachInterval
                 boolDict.update({attachInterval: boolVar})
 
@@ -2275,10 +2288,10 @@ def make_process_intervals(ExcelDict):
         boolActivationDict = {}
         inOutNames = DFInOutIntervals.process_intervals.to_list()
         # processInvervalNames is the variable with list of reactor intervalnames
-        for index, infoCol in enumerate(col):
+        for index, infoCol in reactorCol.items():
             if isinstance(infoCol,str) and 'bool' in infoCol:
-                connectingInterval = processInvervalNames[index]
-                boolVariable = 'y_' + intervalName + '_' + connectingInterval
+                connectingInterval = index
+                boolVariable = 'y_' + connectingInterval + '_' +  intervalName
                 boolActivationVariable.append(boolVariable)
                 if connectingInterval in inOutNames:
                     index_concented = inOutNames.index(connectingInterval)
@@ -2379,11 +2392,10 @@ def make_waste_interval(ExcelDict):
     intervalName = 'waste'
 
     # find the prices of waste per interval
-    intervalNamesWithWaste = DFconnectionMatrix[DFconnectionMatrix.waste != 0].process_intervals
-    priceWasteDF = DFeconomicParameters.loc[intervalNamesWithWaste, "waste_price"]
-
-    # find the waste variables (i.e., components) of each interval with waste dump
-    wasteVariables = DFprocessIntervals.loc[intervalNamesWithWaste, "outputs"]
+    priceWasteDF, wasteVariables = DFeconomicParameters.loc[DFconnectionMatrix.waste[
+                                                                DFconnectionMatrix.waste != 0].dropna().index, "waste_price"], \
+                                   DFprocessIntervals.loc[DFconnectionMatrix.waste[
+                                                              DFconnectionMatrix.waste != 0].dropna().index, "outputs"]
 
     # check if it is mixed with other reactors
     mixDict = make_mix_dictionary(intervalName=intervalName, DFconnectionMatrix=DFconnectionMatrix)
