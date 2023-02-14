@@ -2586,6 +2586,7 @@ def get_vars_eqs_bounds(objectDict):
             print(eq_interval)
         print('') # print a space for readability
         # Todo instead of printing out all the equations per interval, how about you subdivied all intervals acording to
+        # do this according to the lable of the object
         # mixing eq
         # reactor eq
         # ut_chemical equations

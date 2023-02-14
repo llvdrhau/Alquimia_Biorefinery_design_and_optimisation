@@ -33,7 +33,7 @@ if switchSolver:
     results = opt.solve(superstructure, keepfiles=True, tee=True)
     for v in superstructure.component_objects(ctype=pe.Var):
         for index in v:
-            if pe.value(v[index]) >= 0.9:
+            if pe.value(v[index]) >= 0.1:
                 print('{0} = {1}'.format(v[index], pe.value(v[index])))
 
     print('')
