@@ -19,7 +19,7 @@ All functions used to create superstructures
 All functions used to analise GEMs 
 """
 
-""" TODO
+""" 
 add all the functions used into one file
 separate the different function using comments
 e.g.;
@@ -116,17 +116,23 @@ def get_location(file):
 
     if '/' in loc: # in the case of Mac OS
         file = r"/{}".format(file)
-        if '.xslx' in file:
+        if '.xlsx' in file:
             loc = loc + r'/excel files' + file
         elif '.xml' in file:
             loc = loc + r'/SBML models' + file
+        elif '.json' in file:
+            loc = loc + r'/json models' + file
+
 
     elif "\\" in loc : # in the case of Windows OS
         file = r"\{}".format(file)
-        if '.xslx' in file:
+        if '.xlsx' in file:
             loc = loc + r'\excel files' + file
         elif '.xml' in file:
             loc = loc + r'\SBML models' + file
+        elif '.json' in file:
+            loc = loc + r'\json models' + file
+
     return loc
 
 ########################################################################################################################
@@ -970,6 +976,9 @@ class BooleanClass:
             boolean equaitions (lsit): list of boolean equations
             """
 
+        # create the label for the object
+        self.label = 'bool object'
+
         # extract the necesary dataframes
         DFIntervals = ExcelDict['input_output_DF']
         DFconnectionMatrix = ExcelDict['connection_DF']
@@ -1499,7 +1508,8 @@ class ProcessIntervalClass:
         returns
         the pyomo equations
         '''
-        mixEquations: list[str] = []
+        #mixEquations: list[str] = []
+        mixEquations = []
         initialInputNames = self.inputs
 
         #intervalNames2Mix = objects2mix.keys()
@@ -1968,11 +1978,12 @@ def check_seperation_coef(coef, intervalName, amountOfSep, connectionMatrix):
                 "There are more separation processes defined in the amount of separation arrays (defined in the column separation_coef)"
                 "then the connection matrix"
                 "Check interval {} there is a separation process missing in the connection matrix".format(intervalName))
+
 def check_excel_file(excelName):
-    loc = os.getcwd()
-    posAlquimia = loc.find('Alquimia')
-    loc = loc[0:posAlquimia+8]
-    loc = loc + r'\excel files' + excelName
+    """ checks if the excel file does not contain fatal errors for the generation of the super structure
+    """
+
+    loc = get_location(excelName)
 
     DFIntervals = pd.read_excel(loc, sheet_name='input_output_intervals')
     DFprocessIntervals =  pd.read_excel(loc, sheet_name='process_intervals')
@@ -2040,10 +2051,7 @@ def read_excel_sheets4_superstructure(excelName):
     ExcelDict (Dict): a dictionary containing DF
     '''
     # read Excel file
-    loc = os.getcwd()
-    posAlquimia = loc.find('Alquimia')
-    locAlquimia = loc[0:posAlquimia + 8]
-    loc = locAlquimia + r'\excel files' + excelName
+    loc = get_location(file= excelName)
 
     # read excel info
     DFInOutIntervals = pd.read_excel(loc, sheet_name='input_output_intervals')
@@ -2300,10 +2308,7 @@ def make_process_intervals(ExcelDict):
                     "s__".format(jsonFile))
 
             # find the save location
-            loc = os.getcwd()
-            posAlquimia = loc.find('Alquimia')
-            locAlquimia = loc[0:posAlquimia + 8]
-            jsonLoc = locAlquimia + r'\json models\{}'.format(jsonFile) # save location
+            jsonLoc = get_location(file= jsonFile)
             with open(jsonLoc) as file:
                 reactionObject = json.load(file)
 
@@ -2579,6 +2584,10 @@ def get_vars_eqs_bounds(objectDict):
     for objName in objectDict:
         obj = objectDict[objName]
         equations += obj.pyomoEquations
+        if obj.label == 'process_interval':
+            # print the mixing equations
+            print('------ mixing equations ------')
+            mixEq = obj.mixing
 
         # print the equations to the terminal for debugging porposes
         print(objName)
@@ -2626,15 +2635,12 @@ def make_super_structure(excelFile, printPyomoEq = False):
     check_excel_file(excelName= excelFile)
     excelDict = read_excel_sheets4_superstructure(excelName=excelFile )
 
-
     boolObject = BooleanClass(ExcelDict= excelDict)
     boolObjectDict = {'boolean_object': boolObject}
     objectsInputDict = make_input_intervals(ExcelDict= excelDict)
     objectsReactorDict = make_process_intervals(ExcelDict= excelDict)
     objectsOutputDict  = make_output_intervals(ExcelDict= excelDict)
     objectsWasteDict  = make_waste_interval(ExcelDict= excelDict)
-
-
 
     allObjects =  objectsInputDict | objectsReactorDict | objectsOutputDict | objectsWasteDict
     update_intervals(allObjects, excelDict)

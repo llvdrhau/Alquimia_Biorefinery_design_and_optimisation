@@ -8,7 +8,7 @@ import time
 import pyomo.environ as pe
 import pyomo.opt as po
 
-excelFile = r'\propionate_case_study.xlsx'
+excelFile = 'propionate_case_study.xlsx'
 
 start_time = time.time()
 superstructure = make_super_structure(excelFile= excelFile, printPyomoEq= False)
