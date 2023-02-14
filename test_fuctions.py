@@ -1,33 +1,34 @@
 from functions import *
 
-excelFile = r'\propionate_case_study.xlsx'
+test = False
+if test:
+    excelFile = r'\propionate_case_study.xlsx'
 
-loc = os.getcwd()
-posAlquimia = loc.find('Alquimia')
-loc = loc[0:posAlquimia+8]
-loc = loc + r'\excel files' + excelFile
-DFConnect = pd.read_excel(loc, sheet_name='connection_matrix_test', index_col='process_intervals')
+    loc = os.getcwd()
+    posAlquimia = loc.find('Alquimia')
+    loc = loc[0:posAlquimia+8]
+    loc = loc + r'\excel files' + excelFile
+    DFConnect = pd.read_excel(loc, sheet_name='connection_matrix_test', index_col='process_intervals')
 
-DFConnect = DFConnect.drop(labels= [ 'carbon_input1', 'carbon_input2',
-                                    'carbon_input3', 'acetate','propionate','waste'], axis=1)
-interValNames = [
-'P_acidi',
-'P_freu',
-'P_avi',
-'P_acn',
-'P_pro',
-'open_fermentation',
-'liq_liq_ext',
-'NF',
-'Distilation_1',
-'Distilation_2',
-'Distilation_3']
-
-
-make_boolean_equations(DFConnect,interValNames)
-
+    DFConnect = DFConnect.drop(labels= [ 'carbon_input1', 'carbon_input2',
+                                        'carbon_input3', 'acetate','propionate','waste'], axis=1)
+    interValNames = [
+    'P_acidi',
+    'P_freu',
+    'P_avi',
+    'P_acn',
+    'P_pro',
+    'open_fermentation',
+    'liq_liq_ext',
+    'NF',
+    'Distilation_1',
+    'Distilation_2',
+    'Distilation_3']
 
 
+    booleanVariables, equationsSumOfBools = make_boolean_equations(DFConnect,interValNames)
+    print(booleanVariables)
+    print(equationsSumOfBools)
 
 # def get_helping_dict_4_seperation(self, connectInfo):
     #     """ makes the helping dictionary to make the seperation equations.
@@ -75,3 +76,5 @@ make_boolean_equations(DFConnect,interValNames)
     #             pass # then it is just from the raeactor which the function make_reaction_equations already generates
     #
     #     return helpDict
+
+

@@ -84,6 +84,14 @@ def get_connected_intervals(intervalName,conectionMatrix):
     """
     conectionCol = conectionMatrix[intervalName]
     connectionInfo = conectionCol.where(conectionCol != 0).dropna()
+
+    # drop the bool variable (otherwise mixing gets confused)
+    # if there is a boolean varibale at least
+    try:
+        connectionInfo = connectionInfo.drop(intervalName)
+    except:
+        pass
+
     nameConnectedIntervals =  connectionInfo.index
     connectionDict = {nameConnectedIntervals[i]: connectionInfo[i] for i in range(len(connectionInfo))}
 
@@ -951,27 +959,149 @@ def define_connect_info(connectInfo):
 
     return connectKey, sepKey, splitKey, boolKey
 
+class BooleanClass:
+    def __init__(self, ExcelDict):
+        """ makes the equations that regulate if a certain reactor is chosen or not nl: 1 == sum(boolean variables)
+        the function works as followed: the DFconnectionMatrix excludes the inputs!! important!! the input boolean variables
+        are regulated in the first input objected.
+
+        returns:
+            boolean variables (list): list of boolean variables
+            boolean equaitions (lsit): list of boolean equations
+            """
+
+        # extract the necesary dataframes
+        DFIntervals = ExcelDict['input_output_DF']
+        DFconnectionMatrix = ExcelDict['connection_DF']
+
+        # find the input intervals
+        posInputs = DFIntervals.input_price.to_numpy() != 0
+        inputIntervalNames = DFIntervals.loc[posInputs, 'process_intervals'].to_list()
+
+        # ------------------------------ intput boolean equations---------------------------------------------------
+        # We need to find out which inputs are bound to boolean variables amongst the input variable themselves
+        # i.e., if only certain inputs can be chosen amoung multiple possible inputs
+        # in other words we need to find the boolean variables from the connenction matrix (diagonals of the matrix) so the
+        # activation equation sum(y) == 1 can be made. this is what the nex for loop is used for
+
+        inputBooleanVariables = []  # prealloccate
+        inputBoolEquation = "1 == "
+        for i, intervalName in enumerate(inputIntervalNames):
+            inputBoolVar = DFconnectionMatrix[intervalName][intervalName] # diagonal position of the connention matrix
+            if isinstance(inputBoolVar, str):
+                inputBooleanVariables.append(inputBoolVar)
+                inputBoolEquation += " + " + "model.boolVar['{}']".format(inputBoolVar)
+
+        # if there exist bool inputs, make a unique list
+        if len(inputBooleanVariables) != len(set(inputBooleanVariables)):
+            # if not a unique list raise exception
+            raise Exception("The boolean variables for the inputs are not unique, check the diagonals of the "
+                            "input intervals of the connection matrix ")
+
+
+        # ------------------------------ other interval boolean equations-----------------------------------------------
+        # main idea:
+        # 1) loop over the rows of the DF.
+        # 2) count the colums of this row which are not zero in  sequence! (save the interval names in a list)
+        # 3) the longest list is the list of intervals dependant of the boolean variable
+        # 4) the boolean variable can be found on the diagonal (i.e. with the same row and column index)
+        # 5) make the boolean equation
+        # 6) deleet the columns that contain the sequence
+        # 7) restart at step 1 till the DF is empty
+
+        # make a list of all the intervals excluding the inputs
+        DFconnectionMatrix = DFconnectionMatrix.drop(labels= inputIntervalNames, axis = 1)
+        processIntervalnames = list(DFconnectionMatrix.index)[len(inputIntervalNames):]
+
+        # prun the Dataframe, anything that does not have a bool label on the diagonal can be droped
+        toDrop = []
+        for i in processIntervalnames:
+            if not isinstance(DFconnectionMatrix[i][i], str):
+                toDrop.append(i)
+        DFconnectionMatrix = DFconnectionMatrix.drop(labels=toDrop, axis=1)
+
+        # start the while loop, aslong as the dataframe is not empty continue
+        switch = True
+        equationsSumOfBools = []
+        booleanVariables = []
+        iteration = 0
+        while switch:
+            iteration += 1
+            saveDict = {}
+            for index, row in DFconnectionMatrix.iterrows():
+                intervalNames = []
+                for indexCol, element in row.items():
+                    if isinstance(element, str) or element != 0:  # so comes from a separation or just connected by '1'
+                        intervalNames.append(indexCol)
+                    else:
+                        break
+                saveDict.update({index: intervalNames})
+
+            # find the key in the saveDict that has the longest list
+            key_max_sequential = max(saveDict, key=lambda k: len(saveDict[k]))
+
+            # create the equation
+            eq = '1 == '
+            for interval in saveDict[key_max_sequential]:
+                boolVar = DFconnectionMatrix[interval][interval]
+                booleanVariables.append(boolVar)
+                eq += "+ model.boolVar['{}'] ".format(boolVar)
+            equationsSumOfBools.append(eq)
+
+            # now we need to drop the colums in the original dataframe that already form 1 set of equations
+            # the colunms that need to be droped are in saveDict[key_max_sequential]1
+            cols2drop = saveDict[key_max_sequential]
+            DFconnectionMatrix = DFconnectionMatrix.drop(labels=cols2drop, axis=1)
+
+            # once the DF is empty we can stop the while loop
+            if DFconnectionMatrix.empty:
+                switch = False
+
+            # if itteration 50 is hit, then stop the program, somthing wrong is going on
+            if iteration > 50:
+                raise Exception(
+                    "50 iteration have passed to try and make the boolean equations, check to see if the "
+                    "connection matrix is correctly formulated or check the function 'make_boolean_equations'")
+
+        # while loop has stoped
+        # check that all the boolean variables have unique values
+        uniqueSet = set(booleanVariables)
+        if len(uniqueSet) != len(booleanVariables):
+            raise Exception("the boolean variables are not all unique, check the diagonal of the connection matrix")
+
+        # add the boolean variables to the allVariable dictionary
+        allBoolVariables = booleanVariables + inputBooleanVariables
+        self.allVariables = {'continuous': [],
+                         'boolean': allBoolVariables,
+                         'fraction': []}
+
+        # define it's boundries
+        booleanBounds = {}
+        for i in allBoolVariables:
+            booleanBounds.update({i: 'bool'})
+        self.boundaries = booleanBounds
+
+        # add the equations to the pyomoEquations object
+        self.pyomoEquations = equationsSumOfBools + [inputBoolEquation]
+
 class InputIntervalClass:
     def __init__(self, inputName, compositionDict, inputPrice, boundryInputVar ,boolDict = None,
-                 split=None, separationDict=None, inputActivationVariables= None, activationVariable= None):
+                 split=None, separationDict=None, booleanVariable = None):
         if separationDict is None:
             separationDict = {}
         if split is None:
             split = []
         if boolDict is None:
             boolDict = {}
-        if inputActivationVariables is None:
-            inputActivationVariables =[]
-        if activationVariable is None :
-            activationVariable = []
-
+        if booleanVariable is None:
+            booleanVariable = ''
 
         # declare (preallocate) empty pyomo equations list
         pyomoEq = []
 
         # declare input interval name
         self.label = 'input'
-        self.inputName = inputName.upper() # nah don't put in capitals
+        self.inputName = inputName.upper() #  put in capitals
         self.inputPrice = inputPrice
         addOn4Variables = '_' + inputName.lower()
 
@@ -994,13 +1124,9 @@ class InputIntervalClass:
                                 "avoid conflict with the equations".format(inputName, i))
 
         # make the component equations as string equations
-        eqList = []
         for component in compositionDictNew:
-            eq = "{} == {} * {}".format(component, self.compositionDict[component], self.inputName)
             eqPy = "model.var['{}'] == {} * model.var['{}']".format(component, self.compositionDict[component], self.inputName)
-            eqList.append(eq)
             pyomoEq.append(eqPy)
-        self.componentEquations = eqList
         componentVariables =  list(compositionDictNew.keys())
 
 
@@ -1010,84 +1136,45 @@ class InputIntervalClass:
         self.leavingInterval = componentVariables
 
 
-        eqSumOfBools = [] # empty if there is no bool equation
-        if boolDict:
-            eqSumOfBoolsHelp = "1 == "
-            eqPyBool = "1 == "
-            for interval in boolDict:
-                eqSumOfBoolsHelp += " + " + boolDict[interval]
-                eqPyBool += " + " + "model.boolVar['{}']".format(boolDict[interval])
-            eqSumOfBools = [eqSumOfBoolsHelp]
-            pyomoEq.append(eqPyBool)
-        self.eqSumOfBools = eqSumOfBools
-
-        # activation of an input by a inputActivationVariable (i.e., a boolean variable) (choice between one substrate or another)
-
-        if inputActivationVariables: # if it's not empty make the sum equation (only the first input object makes this equation)
-            sumInputActivationEqPyo = "1 == "
-            for var in inputActivationVariables:
-                sumInputActivationEqPyo += " + " + "model.boolVar['{}']".format(var)
-            pyomoEq.append(sumInputActivationEqPyo)
-
-        if activationVariable:
-            activationEqPyoUB = "model.var['{}'] <= {} * model.boolVar['{}'] ".format(self.inputName, boundryInputVar[1],activationVariable[0])
-            activationEqPyoLB = "{} * model.boolVar['{}']  <= model.var['{}'] ".format(boundryInputVar[0], activationVariable[0],self.inputName)
+        if booleanVariable:
+            activationEqPyoUB = "model.var['{}'] <= {} * model.boolVar['{}'] ".format(self.inputName, boundryInputVar[1],booleanVariable)
+            activationEqPyoLB = "{} * model.boolVar['{}']  <= model.var['{}'] ".format(boundryInputVar[0], booleanVariable, self.inputName)
             pyomoEq.append(activationEqPyoLB)
             pyomoEq.append(activationEqPyoUB)
 
 
         #  put all VARIABLES that pyomo needs to declare here
-        boolVariables = list(boolDict.values()) + inputActivationVariables
         continuousVariables = componentVariables + [self.inputName]
 
+        self.allVariables = {'continuous' : continuousVariables,    # continous variables
+                             'boolean' : [],                        # boolean variables
+                             'fraction': []}                        # fraction variables
 
-        self.allVariables = {'continuous' : continuousVariables,
-                             'boolean' : boolVariables,
-                             'fraction': []}
-                                # fraction variables
 
         # make BOUNDRIES for all variables
         boundaryDict = {self.inputName: boundryInputVar}  # interval variables have bounds
         for i in componentVariables:
             boundaryDict.update({i: 'positiveReals'})
-        for i in boolVariables:
-            boundaryDict.update({i: 'bool'})
-
         self.boundaries = boundaryDict
 
         # put all EQUATIONS that pyomo needs to declare here
-        self.allEquations = eqList + eqSumOfBools
         self.pyomoEquations = pyomoEq
-
-    def makeOldNewDict(self, oldNames, newNames):
-        oldNewDict = {oldNames[i]: newNames[i] for i in range(len(oldNames))}  # make dictionary
-        self.oldNewDictOutputs = oldNewDict
-
-    def UpdateDict(self, newKeys):
-        oldDict = self.compositionDict
-        oldKeys = list(oldDict.keys())
-        rangeKeys = range(len(oldKeys))
-        for i in rangeKeys:
-            new_key = newKeys[i]
-            old_key = oldKeys[i]
-            self.compositionDict[new_key] = self.compositionDict.pop(old_key)
 
 class ProcessIntervalClass:
     def __init__(self, inputs, outputs, connectInfo, reactionEquations, boundryInputVar ,nameDict, mix = None,
-                 utilities = None, boolActivation = None, boolDict = None, splitList = None, separationDict = None):
+                 utilities = None, booleanVariable = None, splitList = None, separationDict = None):
 
         if utilities is None:
             utilities = {}
         if separationDict is None:
             separationDict = {}
-        if boolDict is None:
-            boolDict = {}
         if mix is None:
             mix = []
-        if boolActivation is None:
-            boolActivation = []
+        if booleanVariable is None:
+            booleanVariable = ''
 
         self.label = 'process_interval'
+        self.booleanVariable = booleanVariable
 
         # further the lable of the interval i.e.:reactor or seperator
         if reactionEquations:
@@ -1102,7 +1189,6 @@ class ProcessIntervalClass:
         self.initialCompositionNames = inputs + outputs
         self.mix = mix  # found by the Excel file (don't need to specify in this script)
         self.utilities = utilities  # consists of a dictionary {nameUtilty: [bounds]}
-        self.boolDict = boolDict  # is a tuple, 1) where the bool comes from and 2) the name of the bool affecting the outputs
         self.separationDict = separationDict  # dictionary defining separation fractions of each component
 
         # error if you choose a wrong name
@@ -1125,7 +1211,9 @@ class ProcessIntervalClass:
         reactionVariablesOutput = [] # preallocate to avoid error
         if reactionEquations != None:
             reactorEquations, reactionVariablesOutput, helpingDict = \
-                self.make_reaction_equations(reactionEquations,boolActivation, intervalVariable)
+                self.make_reaction_equations(reactionEquations= reactionEquations,
+                                             booleanVariable= booleanVariable,
+                                             intervalVariable= intervalVariable)
             #pyomoEq += reactorEquations # added during the update fuction
         else:
             # If there is a dictionary for the separation equations but no reaction, then there is no helpingDict.
@@ -1133,32 +1221,29 @@ class ProcessIntervalClass:
             # this is indicated the in function update_interval_equations by the self.intervalType label!!
             helpingDict = {}
 
-        # sum of bool equations
-        eqPyBool = "1 == "
-        if boolDict: # only add the bool equation if it is needed
-            for interval in boolDict:
-                eqPyBool += " + " + "model.boolVar['{}']".format(boolDict[interval])
-            pyomoEq.append(eqPyBool)
 
         # separation equations
         separationVariables = [] # preallocate to avoid error
         if separationDict: # if there is separation make the separation equations
-            separationEquationsPyomo, separationVariables = self.make_separation_equations(separationDict, helpingDict)
+            separationEquationsPyomo, separationVariables = self.make_separation_equations(separationDict, helpingDict,
+                                                                                           booleanVariable= booleanVariable)
             if helpingDict: # if the helping dict does noit exist the separation equations are added during the update function
-                pyomoEq += separationEquationsPyomo #otherwise they can be added strait away
+                pyomoEq += separationEquationsPyomo # otherwise they can be added strait away
 
         # spliting equations
         splitComponentVariables = [] # preallocate to avoid error
         splitFractionVariables = [] # preallocate to avoid error
         if splitList:
-            splittingEquations, splitComponentVariables, splitFractionVariables = self.make_split_equations(splitList, addOn4Variables)
+            splittingEquations, splitComponentVariables, splitFractionVariables = self.make_split_equations(splitList, addOn4Variables,
+                                                                                                            booleanVariable= booleanVariable)
             pyomoEq += splittingEquations
 
         # mixing equations
         # see def make_mixing_equations(), these equations are made in the update when it is known
         # to where each stream is going to and hence which streams are mixed
-        # utility equations are made in the update
-        # reactor equations are completed in the update
+
+        # utility equations
+        # are made in the update_function where reactor equations are also completed
 
         # define wat is leaving the reactor
         # can either be from the reactor, the separation process or the spliting
@@ -1192,8 +1277,7 @@ class ProcessIntervalClass:
         self.reactionVariablesOutput = reactionVariablesOutput
         # reactionVariablesInputs can be found in class function: update_reactor_equations
         self.intervalVariable = intervalVariable
-        boolVariables = list(boolDict.values())
-        self.boolVariables = boolVariables
+
 
         # define the bounds of the variables
         boundaryDict = {}  # intervals have bounds
@@ -1203,9 +1287,6 @@ class ProcessIntervalClass:
 
         for i in separationVariables:
             boundaryDict.update({i: 'positiveReals'})
-
-        for i in boolVariables:
-            boundaryDict.update({i: 'bool'})
 
         for i in boundryInputVar: # this is for when you want to add a specific bound to a reaction variable SEE EXCEL
             boundaryDict[i] = boundryInputVar[i]
@@ -1220,11 +1301,13 @@ class ProcessIntervalClass:
         self.boundaries = boundaryDict
 
         # make a list with all the variables
-        continuousVariables = [self.intervalVariable] + self.reactionVariablesOutput + separationVariables + splitComponentVariables # self.separationVariables
-        booleanVariables = self.boolVariables
+        #continuousVariables = [self.intervalVariable] + self.reactionVariablesOutput + separationVariables + splitComponentVariables # self.separationVariables
+        continuousVariables =  self.reactionVariablesOutput + separationVariables + splitComponentVariables # self.separationVariables
+
+        #booleanVariables = self.boolVariables
                             # + self.activationVariable don't need to add this, already in the previous interval under boolVariables
         self.allVariables = {'continuous': continuousVariables,
-                             'boolean': booleanVariables,
+                             'boolean': [],
                              'fraction': splitFractionVariables}
                                 # add fraction variables
 
@@ -1232,14 +1315,14 @@ class ProcessIntervalClass:
         #self.allEquations = self.separationEquations + self.eqSumOfBools + self.boolActivationEquations + self.totalMassEquation
         self.pyomoEquations = pyomoEq
 
-    def make_reaction_equations(self,reactionEquations, boolActivation, intervalVariable):
+    def make_reaction_equations(self,reactionEquations, intervalVariable, booleanVariable = None):
         """ function that creates the (preliminary) equations of the reactions that take place in an interval.
         these equations do not have the input variable filled in. In the function update_interval_equations the
         reaction equations are updated with the correct inputs variables
 
         Parameters:
                 reactionEquations (str or int) reference to where the equations are stored
-                boolActivation (dict) dictionary referening to which equations are dependent on a boolean variable
+                booleanVariable (str) the string referening to the boolean variable
                 intervalVariable (str) name of the interval variable
 
         Returns:
@@ -1272,25 +1355,25 @@ class ProcessIntervalClass:
                     reactionVariablesOutput.append(newOutputName)
                     helpingDict.update({out: newOutputName})  # helpìng dictionary for the serparation equations
 
-            if boolActivation:
-                for boolVar in boolActivation:
-                    inputsDependent = boolActivation[boolVar]
-                    for input in inputsDependent:
-                        # make equation readable by pyomo
-                        rplcPyo = " {} * model.boolVar['{}'] ".format(input, boolVar)
-                        eqPyo = eqPyo.replace(input, rplcPyo)
+            if booleanVariable:
+                #rplcPyo = " {} * model.boolVar['{}'] ".format(input, booleanVariable)
+                eqPyo = eqPyo.replace("==", "== (")
+                eqPyo += " ) *  model.boolVar['{}']".format(booleanVariable)
+
             ReactorEquationsPyomo.append(eqPyo)
+
+        # place all the equations in the object
         self.reactionEquations = ReactorEquationsPyomo
 
         # mass equations (of the outputs from the reaction equations )
         eqMassInterval = intervalVariable + " == "
-        eqPyoMass = "model.var['{}']".format(intervalVariable) + " == "
+        eqPyoMass = "model.var['{}'] == ".format(intervalVariable)
         for out in reactionVariablesOutput:
             eqMassInterval += " + " + out
             eqPyoMass += " + " + "model.var['{}']".format(out)  # pyomo version
 
         #decalre all equations and pass them on
-        self.totalMassEquation = [eqMassInterval]
+        self.totalMassEquation = [eqMassInterval] # TODO mass eq. not added to pyomo for the moment, necesary?
         self.reactionEquationsPyomo = ReactorEquationsPyomo
         allEquationsPyomo = [eqMassInterval] + ReactorEquationsPyomo
 
@@ -1314,7 +1397,7 @@ class ProcessIntervalClass:
 
         return allEquationsPyomo, reactionVariablesOutput, helpingDict
 
-    def make_separation_equations(self, separationDict, helpingDict):
+    def make_separation_equations(self, separationDict, helpingDict, booleanVariable = None ):
         """ function that creates the separation equations of the process interval
 
         Parameters:
@@ -1329,7 +1412,6 @@ class ProcessIntervalClass:
         separationVariables = []
         for sep in separationDict:  # if it is empty it should not loop nmrly
             for componentSep in separationDict[sep]:
-
                 # create the separation variable that is leaving
                 sepVar = componentSep + '_' + sep
                 separationVariables.append(sepVar)
@@ -1339,19 +1421,24 @@ class ProcessIntervalClass:
                     var = helpingDict[componentSep] # helpìng dictionary to get the right variable
                     # pyomo equations
                     eqSepPyo = "model.var['{}'] == {} * model.var['{}']".format(sepVar, separationDict[sep][componentSep], var)
-                else:
-                    var = componentSep # if no helping dict, it will get updated in the update function
+
+                else: # else if no helping dict, it will get updated in the update function
+                    var = componentSep
                     eqSepPyo = "model.var['{}'] == {} * {}".format(sepVar, separationDict[sep][componentSep],
                                                                             var)
+                if booleanVariable: # add boolean variable if there are any
+                    eqSepPyo = eqSepPyo.replace('==', '== ( ')
+                    eqSepPyo += " ) * model.boolVar['{}'] ".format(booleanVariable)
 
                 separationEquationsPyomo.append(eqSepPyo)
+
 
         self.separationEquations = separationEquationsPyomo
         self.separationVariables = separationVariables
 
         return separationEquationsPyomo, separationVariables
 
-    def make_split_equations(self,splitList, addOn4Variables):
+    def make_split_equations(self,splitList, addOn4Variables, booleanVariable = None):
         """ function that creates the equations of the split streams
 
         Params:
@@ -1388,6 +1475,13 @@ class ProcessIntervalClass:
                 # make equations
                 eqSplit1Pyo = "model.var['{}'] == model.fractionVar['{}'] * model.var['{}']".format(split1, splitFractionVar, component2split)
                 eqSplit2Pyo = "model.var['{}'] == (1 - model.fractionVar['{}']) * model.var['{}']".format(split2, splitFractionVar, component2split)
+
+                # add boolean variable if there are any
+                if booleanVariable:
+                    eqSplit1Pyo = eqSplit1Pyo.replace('==', '== ( ')
+                    eqSplit2Pyo = eqSplit2Pyo.replace('==', '== ( ')
+                    eqSplit1Pyo += " ) * model.boolVar['{}'] ".format(booleanVariable)
+                    eqSplit2Pyo += " ) * model.boolVar['{}'] ".format(booleanVariable)
 
                 # add equations to the lsit
                 splittingEquations.append(eqSplit1Pyo)
@@ -1545,7 +1639,7 @@ class ProcessIntervalClass:
                 # the eqution left and right of the '==', The right side is the part that needs to be updated
                 posEqualSign = eq.find('==')
                 leftEquation = eq[0:posEqualSign]
-                rightEquation = eq[posEqualSign:] #~slice till the end [position:]
+                rightEquation = eq[posEqualSign:]  # slice till the end [position:]
                 rightEquation = rightEquation.replace(var, "model.var['{}']".format(newVarName))
                 eq = leftEquation + rightEquation
             allEquations.append(eq)
@@ -1571,11 +1665,11 @@ class ProcessIntervalClass:
         for i in boundryInputVar: # this is for when you want to add a specifice bound to a reaction variable SEE EXCEL
             self.boundaries[i] = boundryInputVar[i]
 
-
     def make_utility_equations(self):
         """
-        Todo: make description
+        makes the equations for the flow of the chemical utility and the cost of said utlity
         """
+        booleanVariable = self.booleanVariable
         reactorName = list(self.nameDict.keys())[0] # get reactor name
         utilities = self.utilities # get the specified utilities
         utlityCostVariable = 'cost_utility_chemicals_{}'.format(reactorName)# cost variable (can be defined before the loop)
@@ -1604,9 +1698,14 @@ class ProcessIntervalClass:
             self.allVariables['continuous'] += allUtilityVariables
             self.boundaries.update({utilityVariable: (0, None)})
 
-            # declare the utility equations i.e., mass utilitie == parameter_ut * incoming flow
-
+            # declare the utility equations i.e., mass utility == parameter_ut * incoming flow
             utilityMassEqPyomo = "model.var['{}'] == {} * model.var['{}']".format(utilityVariable,utilityParameter,incomingFlowVariable)
+
+            # should be zero if the interval is not chosen
+            if booleanVariable:
+                utilityMassEqPyomo = utilityMassEqPyomo.replace('==', '== ( ')
+                utilityMassEqPyomo += " ) * model.boolVar['{}']".format(booleanVariable)
+
             # add the equation to the list
             self.pyomoEquations += [utilityMassEqPyomo]
 
@@ -1615,6 +1714,7 @@ class ProcessIntervalClass:
 
         # add the cost equation to pyomo equation list
         self.pyomoEquations += [utilityCostEqPyomo]
+        self.utilityEquations = [utilityMassEqPyomo] + [utilityCostEqPyomo]
 
     # helping functions not related to making equations
     def get_replacement_dict(self,initialVars, newVars):
@@ -1977,9 +2077,18 @@ def make_mix_dictionary(intervalName,DFconnectionMatrix):
     """
     # check if it is mixed with other reactors
     #processInvervalNames = list(DFconnectionMatrix.index)
+
     reactorCol = DFconnectionMatrix[intervalName]
     specifications = reactorCol.where(reactorCol != 0).dropna() # find where mixing takes place, mixed streams are in the same colunm
     intervals2Mix = list(specifications.index) # the indexs are the names of the process interval to mix
+
+    # get rid of the diagonal element refering to itself (if it is there due to defining the boolean variable)
+    try:
+        # drop the boolean variable which has as index the current interval name
+        intervals2Mix.remove(intervalName)
+        specifications = specifications.drop(intervalName)
+    except:
+        pass
 
     mixDict = {}  # preallcoation
     if len(specifications) >= 2:
@@ -2016,13 +2125,15 @@ def make_boolean_equations(DFconnectionMatrix, processIntervalnames):
     switch = True
     equationsSumOfBools = []
     booleanVariables = []
+    iteration = 0
     while switch:
+        iteration += 1
         saveDict = {}
         for index, row in DFconnectionMatrix.iterrows():
             intervalNames = []
             for indexCol, element in row.items():
                 #element = row[colName]
-                if isinstance(element, str) or element != 0: # so comes from a separation or just connected
+                if isinstance(element, str) or element != 0: # so comes from a separation or just connected by '1'
                     intervalNames.append(indexCol)
                 else:
                     break
@@ -2044,10 +2155,18 @@ def make_boolean_equations(DFconnectionMatrix, processIntervalnames):
         # the colunms that need to be droped are in saveDict[key_max_sequential]1
         cols2drop = saveDict[key_max_sequential]
         DFconnectionMatrix = DFconnectionMatrix.drop(labels= cols2drop, axis=1)
-        print('')
 
-        if DFconnectionMatrix.empty:
+        if DFconnectionMatrix.empty: # once the DF is empty we can stop the while loop
             switch = False
+
+        if iteration > 50:
+            raise Exception("50 iteration have passed to try and make the boolean equations, check to see if the "
+                            "connection matrix is correctly formulated or check the function 'make_boolean_equations'")
+
+    # check that all the boolean variables have unique values
+    uniqueSet = set(booleanVariables)
+    if len(uniqueSet) != len(booleanVariables):
+        raise Exception("the boolean variables are not all unique, check the diagonal of the connection matrix")
 
     return booleanVariables, equationsSumOfBools
 # functions to automate making the interval class objects
@@ -2063,13 +2182,13 @@ def make_input_intervals(ExcelDict):
 
     DFIntervals = ExcelDict['input_output_DF']
     DFconnectionMatrix = ExcelDict['connection_DF']
-    #DFconnectionMatrix = DFconnectionMatrix.set_index('process_intervals')
-    #df.set_index('month')
+
     # inputs
     inputPrices = DFIntervals.input_price.to_numpy()
-    posInputs = inputPrices != 0    #find where the input interval are (they have an input price)
+    posInputs = inputPrices != 0    # find where the input interval are (they have an input price)
 
-    intervalNames = DFIntervals.process_intervals[posInputs]  # find names of input interval variable
+    # find names of input interval variable
+    InputIntervalNames = DFIntervals.process_intervals[posInputs]
     componentsList =  DFIntervals.components[posInputs]
     compositionsList =  DFIntervals.composition[posInputs]
 
@@ -2079,36 +2198,17 @@ def make_input_intervals(ExcelDict):
     inputPrices = inputPrices[posInputs]
 
     # define fixed parameters cost raw material
-    inputPriceDict = {intervalNames[i]: inputPrices[i] for i in range(len(inputPrices))}  # make dictionary
-    boundryDict = {intervalNames[i]: [inBoundsLow[i], inBoundsUpper[i]] for i in range(len(inputPrices))}  # make dictionary
+    inputPriceDict = {InputIntervalNames[i]: inputPrices[i] for i in range(len(inputPrices))}  # make dictionary
+    boundryDict = {InputIntervalNames[i]: [inBoundsLow[i], inBoundsUpper[i]] for i in range(len(inputPrices))}  # make dictionary
 
-    '''
-    We need to find out which inputs are bound to boolean variables amongst the input variable themselves 
-    i.e., if only certain inputs can be chosen among multiple possible inputs
-    in other words we need to find the boolean variables from the connenction matrix (diagonals of the matrix) so the 
-    activation equation sum(y) == 1 can be made. this is what the nex for loop is used for
-    '''
-    inputActivationVariables = [] # prealloccate
-    for i,intervalName in enumerate(intervalNames):
-        inputBoolVar = DFconnectionMatrix[intervalName][intervalName] # this is the diagonal position of the connention matrix
-        if isinstance(inputBoolVar, str):
-            inputActivationVariables.append(inputBoolVar)
-
-    if inputActivationVariables: # if there exist bool inputs, make a unique list
-        inputActivationVariables = list(OrderedDict.fromkeys(inputActivationVariables)) # makes a unique list (only need to difine a variable once)
-
+    # loop over all the inputs and make a class of each one
     objectDictionary = {}
-    #loop over all the inputs and make a class of each one
-    for i, intervalName in enumerate(intervalNames):
-        if i == 0: # so in the first input object the equaitons for the choice of
-            inputActivationVariables4eq = inputActivationVariables
-        else:
-            inputActivationVariables4eq = []
-
+    for i, intervalName in enumerate(InputIntervalNames):
         # pass the bool variable responsible for activating an input if present
-        activationBool = []  # this is the diagonal position of the connention matrix
-        if isinstance(DFconnectionMatrix[intervalName][intervalName], str):
-            activationBool.append(DFconnectionMatrix[intervalName][intervalName])
+        diagonalInputInfo = DFconnectionMatrix[intervalName][intervalName]
+        booleanVar = None
+        if isinstance(diagonalInputInfo, str):
+            booleanVar = diagonalInputInfo
 
         inputPrice = inputPriceDict[intervalName]
         boundryInput = boundryDict[intervalName]
@@ -2128,21 +2228,12 @@ def make_input_intervals(ExcelDict):
                 fraction = float(fraction)
                 compsitionDictionary.update({component:fraction})
 
-        # check if it is an input to other intervals as a bool
-        boolDict = {}
-        processInvervalNames = DFconnectionMatrix.index.to_list()
-        intervalRow = DFconnectionMatrix.loc[intervalName].to_list() # looking at the row will show to which intervals the current section is connencted to
-        for j, info in enumerate(intervalRow):
-            if isinstance(info,str) and 'bool' in info:
-                attachInterval = processInvervalNames[j]
-                boolVar = 'y_' + intervalName + '_' + attachInterval
-                boolDict.update({attachInterval: boolVar})
 
         # create object
         objectInput = InputIntervalClass(inputName=intervalName,compositionDict=compsitionDictionary,
-                                         inputActivationVariables= inputActivationVariables4eq, activationVariable= activationBool,
-                                         inputPrice=inputPrice,boundryInputVar=boundryInput,boolDict= boolDict)
+                                         inputPrice=inputPrice,boundryInputVar=boundryInput, booleanVariable= booleanVar)
         objectDictionary.update({intervalName:objectInput})
+
     return objectDictionary
 
 def make_process_intervals(ExcelDict):
@@ -2176,8 +2267,8 @@ def make_process_intervals(ExcelDict):
         boundsReactor = eval(DFprocessIntervals.interval_bounds[i])
         nameDict = {intervalName:boundsReactor}
 
-        #find the correct equation of the reactor
-        reactionIndicator = DFprocessIntervals.reaction_model[i] # indicates in wat formate to read the equations
+        # find the correct equation of the reactor
+        reactionIndicator = DFprocessIntervals.reaction_model[i] # indicates in wat format to read the equations
 
         if isinstance(reactionIndicator,int) and reactionIndicator == 0: # if it is zero there is no reaction, only seperation, e.g., for a distilation process
             equations = None
@@ -2228,6 +2319,13 @@ def make_process_intervals(ExcelDict):
                         'Take a look at the reaction model mate, there is no json, xml or correct reaction given'
                                    ' for reactor {}'.format(intervalName))
 
+
+        # find if the interval is dependant on a boolean variable
+        boolVar = None
+        boolInformation = DFconnectionMatrix[intervalName][intervalName]
+        if isinstance(boolInformation, str):
+            boolVar = boolInformation
+
         # find special component bounds like that for pH
         boundsComponentStr = DFprocessIntervals.input_bounds[i]
         if not isinstance(boundsComponentStr,str):
@@ -2235,7 +2333,7 @@ def make_process_intervals(ExcelDict):
         else:
             boundsComponent = str_2_dict(boundsComponentStr,intervalName)
 
-
+        # find if there are any utilities that are used
         utilityDict = {}  # only one utilty per process interv al is permitted for the moment
         if DFprocessIntervals.ut_chemical[i] != 0 :
             # get utility name
@@ -2249,6 +2347,7 @@ def make_process_intervals(ExcelDict):
             for j, utilityName in enumerate(utilityVariableNames):
                 utilityDict.update({utilityName: {'cost': utilityPrice[j], 'parameter':utilityParameter[j] } } )
 
+        # find if the separated streams and where they go to/ the components to separate
         seperationDict = {}
         outputsStr = DFprocessIntervals.outputs[i]
         coefStr = DFprocessIntervals.seperation_coef[i]
@@ -2270,41 +2369,8 @@ def make_process_intervals(ExcelDict):
         # check if it is mixed with other reactors
         mixDict = make_mix_dictionary(intervalName= intervalName, DFconnectionMatrix = DFconnectionMatrix)
 
-        # check if it is an input to other intervals as a bool (LOOKING AT THE ROW)
-        boolDict = {}
-        intervalRow = DFconnectionMatrix.loc[intervalName]   # looking at the row will show to which intervals the current section is connencted to
-        processInvervalNames = intervalRow.index.to_list()
-
-        for j, info in intervalRow.items():
-            if isinstance(info, str) and 'bool' in info:
-                attachInterval = j # processInvervalName is the index of the dataframe
-                boolVar = 'y_' + intervalName + '_' +  attachInterval
-                boolDict.update({attachInterval: boolVar})
-
-        # get the boolean variables which the reactor is dependent on (LOOKING AT THE COLUMN)
-        reactorCol = DFconnectionMatrix[intervalName]
-        col = reactorCol.to_list()
-        boolActivationVariable = []
-        boolActivationDict = {}
-        inOutNames = DFInOutIntervals.process_intervals.to_list()
-        # processInvervalNames is the variable with list of reactor intervalnames
-        for index, infoCol in reactorCol.items():
-            if isinstance(infoCol,str) and 'bool' in infoCol:
-                connectingInterval = index
-                boolVariable = 'y_' + connectingInterval + '_' +  intervalName
-                boolActivationVariable.append(boolVariable)
-                if connectingInterval in inOutNames:
-                    index_concented = inOutNames.index(connectingInterval)
-                    inputDependent = split_remove_spaces(DFInOutIntervals.components[index_concented],',')
-                else: # if it's not in the inputs/output intervals, then it is in the reactor process intervals
-                    index_concented = processInvervalNames.index(connectingInterval)
-                    inputDependent = split_remove_spaces(DFprocessIntervals.inputs[index_concented], ',')
-
-                boolActivationDict.update({boolVariable:inputDependent})
-        # if len(boolActivationVariable) > 1:
-        #     #print('CAREFULL DOUBLE BOOL CONSTRAINTS')
-        #     raise Exception("Currently the iterval bloks can only except a bool stream from one location, not multiple")
-
+        # find to which interval the stream is split to (indicated in the connection matrix)
+        intervalRow = DFconnectionMatrix.loc[intervalName]
         splitList = [] # find the reactor or separation stream to split
         for j, info in enumerate(intervalRow):
             if isinstance(info, str) and 'split' in info and 'sep' in info:
@@ -2327,7 +2393,7 @@ def make_process_intervals(ExcelDict):
                                              connectInfo = connectedIntervals, outputs = outputsReactor,
                                              reactionEquations= equations, nameDict =nameDict,
                                              mix= mixDict, utilities=utilityDict, separationDict=seperationDict,
-                                             splitList= listSplits, boolActivation= boolActivationDict, boolDict= boolDict)
+                                             splitList= listSplits, booleanVariable = boolVar)
         # put the object in the dictionary
         objectDictionary.update({intervalName:objectReactor})
     return objectDictionary
@@ -2414,7 +2480,7 @@ def make_waste_interval(ExcelDict):
 def update_intervals(allIntervalObjectsDict,ExcelDict):
     """ Updated the equations of all interval objects. the mixing equations are added, the reaction equations are updated
     and the utlity equations are added.
-    TODO check if this function is really necesary, can't I just get the equations right in one loop? i.e., in the function
+    # check if this function is really necesary, can't I just get the equations right in one loop? i.e., in the function
     make_process_intervals
 
     Parameters:
@@ -2430,17 +2496,23 @@ def update_intervals(allIntervalObjectsDict,ExcelDict):
         label = intervalObject.label
         connectedIntervals = get_connected_intervals(intervalName=intervalName, conectionMatrix=connectionMatrix)
 
-        # get the connection info if there is only one connecting interval (is there mixing or not)
-        connectInfo = list(connectedIntervals.values())[0]
-        simpleConcention, sepKey, splitKey, boolKey = define_connect_info(connectInfo)
-        #simpleConcention = True  # just connecting from one reactor to the next with the connection possibly being a bool
-
-        # get the previous interval object (if there is mixing these variables are ignored)
-        previousIntervalName = list(connectedIntervals.keys())[0]
-        previousIntervalObject = allIntervalObjectsDict[previousIntervalName]
-        enteringVariables = previousIntervalObject.leavingInterval
-
         if label == 'process_interval':
+            # get the connection info if there is only one connecting interval (is there mixing or not)
+            try:
+                connectInfo = list(connectedIntervals.values())[0]
+            except:
+                raise Exception('The interval {} is not connected to any previous interval, '
+                                'check the connection matrix'.format(intervalName))
+
+            simpleConcention, sepKey, splitKey, boolKey = define_connect_info(connectInfo)
+            #simpleConcention = True  # just connecting from one reactor to the next with the connection possibly being a bool
+
+            # get the previous interval object (if there is mixing these variables are ignored)
+            previousIntervalName = list(connectedIntervals.keys())[0]
+            previousIntervalObject = allIntervalObjectsDict[previousIntervalName]
+            enteringVariables = previousIntervalObject.leavingInterval
+
+
             if len(connectedIntervals) == 1: # in other words no mixing
                 # update_reactor_equations: current interval connected by 1 interval
                 if simpleConcention: # and connectInfo == 1 or if it is 'bool' (does not matter)
@@ -2553,15 +2625,19 @@ def make_super_structure(excelFile, printPyomoEq = False):
     check_excel_file(excelName= excelFile)
     excelDict = read_excel_sheets4_superstructure(excelName=excelFile )
 
-    objectsInputDict = make_input_intervals(excelDict)
-    objectsReactorDict = make_process_intervals(excelDict)
-    objectsOutputDict  = make_output_intervals(excelDict)
-    objectsWasteDict  = make_waste_interval(excelDict)
+
+    boolObject = BooleanClass(ExcelDict= excelDict)
+    boolObjectDict = {'boolean_object': boolObject}
+    objectsInputDict = make_input_intervals(ExcelDict= excelDict)
+    objectsReactorDict = make_process_intervals(ExcelDict= excelDict)
+    objectsOutputDict  = make_output_intervals(ExcelDict= excelDict)
+    objectsWasteDict  = make_waste_interval(ExcelDict= excelDict)
 
 
 
-    allObjects = objectsInputDict | objectsReactorDict | objectsOutputDict | objectsWasteDict
+    allObjects =  objectsInputDict | objectsReactorDict | objectsOutputDict | objectsWasteDict
     update_intervals(allObjects, excelDict)
+    allObjects = boolObjectDict | allObjects # add the boolean equations
     variables, equations, bounds = get_vars_eqs_bounds(allObjects)
 
 
