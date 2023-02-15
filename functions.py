@@ -15,14 +15,8 @@ import pyomo.environ as pe
 @author: Lucas Van der Hauwaert
 @author contact: lucas.vanderhauwaert@usc.es
 
-All functions used to create superstructures 
 All functions used to analise GEMs 
-"""
-
-""" 
-add all the functions used into one file
-separate the different function using comments
-e.g.;
+All functions used to create superstructures 
 """
 
 ########################################################################################################################
