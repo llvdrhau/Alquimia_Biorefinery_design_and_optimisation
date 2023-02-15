@@ -835,7 +835,7 @@ def make_str_eq_smbl(modelName, substrate_exchange_rnx, product_exchange_rnx, eq
     modelLocations = [loc + r"\SBML models\{}".format(modelName)]
 
     #  make extended reaction equtions for sbml models or maybe even make them into JSON files? idk
-    # would run quicker in stead of having to read the xlm files each time
+    # would run quicker instead of having to read the xlm files each time
     equations, yields = get_conversion_sbml(modelLocations, substrate_exchange_rnx, product_exchange_rnx)
 
     # make abbreviations dictionary
@@ -930,6 +930,17 @@ def make_str_eq_json(modelObject, equationInfo):
 # ============================================================================================================
 # Input, reactor and output Classes
 # ============================================================================================================
+
+def make_eqation_bool_dependent(equation, booleanVariable):
+    """ Adds the boolean variable to the equation
+    Params:
+        equation (str): string equation in pyomo format
+        booleanVariable (str): boolean variable to add
+    """
+    equationModified = equation.replace('==', '== ( ')
+    equationModified += " ) * model.boolVar['{}'] ".format(booleanVariable)
+
+    return equationModified
 
 def define_connect_info(connectInfo):
     """
@@ -1457,7 +1468,7 @@ class ProcessIntervalClass:
         Returns:
                splittingEquations (list): list of reaction equations
                splitComponentVariables (list): list of variables
-        """
+            """
 
         # Error messaging if there are not 2 stream to split to
         if len(splitList) != 1 and len(splitList) != 2:
@@ -1496,10 +1507,11 @@ class ProcessIntervalClass:
                 splittingEquations.append(eqSplit1Pyo)
                 splittingEquations.append(eqSplit2Pyo)
 
+        self.splitEquations = splittingEquations
         return splittingEquations, splitComponentVariables, splitFractionVariables
 
     def make_mix_equations(self, objects2mix):
-        '''
+        """
         makes the mixing equations based on all the intervals that are seen to be mixed in the connection interval
 
         parameters
@@ -1507,7 +1519,11 @@ class ProcessIntervalClass:
 
         returns
         the pyomo equations
-        '''
+        """
+
+        # depenent on bool?
+        booleanVariable = self.booleanVariable
+
         #mixEquations: list[str] = []
         mixEquations = []
         initialInputNames = self.inputs
@@ -1558,11 +1574,12 @@ class ProcessIntervalClass:
                 if ins in lvar:
                     eqMix += " + " + lvar
                     eqMixPyo += " + " + "model.var['{}']".format(lvar)
-            """
-            For example in the case of pH this does not come from the previous interval!! 
-            so the variable can stay as it is and no extra equations needs to be added, hence if eqMix != startMixEq:  
-            """
+
+            # For example in the case of pH this does not come from the previous interval!!
+            # so the variable can stay as it is and no extra equations needs to be added, hence if eqMix != startMixEq:
             if eqMix != startMixEq:
+                if booleanVariable: # check if there is a dependance on a boolean variable
+                    eqMixPyo = make_eqation_bool_dependent(equation=eqMixPyo, booleanVariable=booleanVariable)
                 mixEquations.append(eqMix)
                 mixingVariables.append(mixVar)
                 eqMixPyo2Add.append(eqMixPyo)
@@ -1576,10 +1593,8 @@ class ProcessIntervalClass:
         # mixingVariables.append(totalMixVarible)  # add to the list of variables
         # eqMixPyo2Add.append(totalMixEqationPyomo) # add to the list of equations
 
-        self.mixEquations = mixEquations
+        # pass the varibales to the object and update the boundry dictionary
         self.mixingVariables = mixingVariables
-
-
         for i in mixingVariables:
             self.boundaries.update({i: (0, None)})
 
@@ -1593,6 +1608,7 @@ class ProcessIntervalClass:
         #self.allEquations += mixEquations
         self.allVariables['continuous'] += mixingVariables
         self.pyomoEquations += eqMixPyo2Add
+        self.mixEquations = eqMixPyo2Add
 
     def make_incomming_massbalance_equation(self, enteringVariables):
         """
@@ -1620,6 +1636,7 @@ class ProcessIntervalClass:
 
         # add to the list of equations + variables and update the boundry dictionary
         self.pyomoEquations += [enteringMassEqationPyomo]
+        self.incomingFlowEquation = [enteringMassEqationPyomo]
         self.incomingFlowVariable = enteringMassVarible
         self.allVariables['continuous'] += [enteringMassVarible]
         self.boundaries.update({enteringMassVarible: (0, None)})
@@ -1695,6 +1712,7 @@ class ProcessIntervalClass:
         incomingFlowVariable = self.incomingFlowVariable
 
         # loop over al the utilities
+        massEquations = []
         for ut in utilities:
             utilityName = ut
             utilityParameter = utilities[ut]['parameter']
@@ -1717,14 +1735,15 @@ class ProcessIntervalClass:
                 utilityMassEqPyomo += " ) * model.boolVar['{}']".format(booleanVariable)
 
             # add the equation to the list
-            self.pyomoEquations += [utilityMassEqPyomo]
+            massEquations.append(utilityMassEqPyomo)
 
             # cost equation
             utilityCostEqPyomo += "+ (model.var['{}'] * {})".format(utilityVariable, utilityCost)
 
         # add the cost equation to pyomo equation list
-        self.pyomoEquations += [utilityCostEqPyomo]
-        self.utilityEquations = [utilityMassEqPyomo] + [utilityCostEqPyomo]
+        self.pyomoEquations += massEquations + [utilityCostEqPyomo]
+        self.utilityEquations = self.incomingFlowEquation + massEquations + [utilityCostEqPyomo]
+        # add the inflow equation as well as it relates to the utility equations
 
     # helping functions not related to making equations
     def get_replacement_dict(self,initialVars, newVars):
@@ -1891,11 +1910,10 @@ class WastIntervalClass:
 # ============================================================================================================
 # Validate the Excel file sheets, checks and error messages
 # ============================================================================================================
-"""
-# List of possible errors  
-# Write all error you encounter here so you can write error mesages later 
-# Make sure only split, sep bool ands mix are the only words in the connection matrix 
- """
+# Write all error you encounter here, so you can write error messages later
+# List of possible errors:
+# 1) Make sure only split, sep bool ands mix are the only words in the connection matrix
+
 def check_seperation_coef(coef, intervalName, amountOfSep, connectionMatrix):
     """
     makes sure the mass balances of the seperation processes are respected
@@ -1980,7 +1998,7 @@ def check_seperation_coef(coef, intervalName, amountOfSep, connectionMatrix):
                 "Check interval {} there is a separation process missing in the connection matrix".format(intervalName))
 
 def check_excel_file(excelName):
-    """ checks if the excel file does not contain fatal errors for the generation of the super structure
+    """ checks if the Excel file does not contain fatal errors for the generation of the super structure
     """
 
     loc = get_location(excelName)
@@ -2221,7 +2239,7 @@ def make_input_intervals(ExcelDict):
         inputPrice = inputPriceDict[intervalName]
         boundryInput = boundryDict[intervalName]
         componentsOfInterval = componentsList[i].split(",")
-        compositionsofInterval = compositionsList[i] # string or 1, depending if there are different components
+        compositionsofInterval = compositionsList[i] # string or 1, depends if there are different components
         compsitionDictionary = {} # preallocate dictionary
         if compositionsofInterval == 1:  # if it is one, no need to loop over the dictionary, there is only one compound
             component = componentsOfInterval[0].replace(' ','')
@@ -2325,7 +2343,7 @@ def make_process_intervals(ExcelDict):
                                    ' for reactor {}'.format(intervalName))
 
 
-        # find if the interval is dependant on a boolean variable
+        # find if the interval is dependent on a boolean variable
         boolVar = None
         boolInformation = DFconnectionMatrix[intervalName][intervalName]
         if isinstance(boolInformation, str):
@@ -2478,6 +2496,7 @@ def make_waste_interval(ExcelDict):
     objectDictionary ={intervalName:objectWaste}
 
     return objectDictionary
+
 # ============================================================================================================
 # Functions to update the interval objects
 # ============================================================================================================
@@ -2573,8 +2592,19 @@ def update_intervals(allIntervalObjectsDict,ExcelDict):
                               for nameObjConect in connectedIntervals}
             intervalObject.make_waste_equations(objectDict2mix)
 
-
 def get_vars_eqs_bounds(objectDict):
+    """ Returns all the varible that pyomo needs to declare, the equations (in pyomo format) and a dictionary with the
+    bounds of the variable (if there are any). Also prints the equations in an orderly fashion to help with debuging
+
+    Params:
+        objectDict (dict) : a dictionary holding all the objects of the superstructure
+
+    Returns:
+        variables (list) : all variable of the whole super structure
+        equations (list) : all equaitions of the superstructure
+        boundsContinousVars (dict) : all bounds of the variabels
+
+    """
     variables = {}
     continuousVariables = []
     booleanVariables = []
@@ -2584,23 +2614,53 @@ def get_vars_eqs_bounds(objectDict):
     for objName in objectDict:
         obj = objectDict[objName]
         equations += obj.pyomoEquations
+        pluses = '++'
+        #print(pluses*10 + objName + pluses*10)
+        print('{}__{}__{}'.format(pluses*10, objName, pluses*10))
         if obj.label == 'process_interval':
-            # print the mixing equations
-            print('------ mixing equations ------')
-            mixEq = obj.mixing
 
-        # print the equations to the terminal for debugging porposes
-        print(objName)
-        for eq_interval in obj.pyomoEquations:
-            print(eq_interval)
-        print('') # print a space for readability
-        # Todo instead of printing out all the equations per interval, how about you subdivied all intervals acording to
-        # do this according to the lable of the object
-        # mixing eq
-        # reactor eq
-        # ut_chemical equations
-        # separation eq
-        # cost eq
+            # print the equations per classification
+            if hasattr(obj, 'mixEquations'):
+                print('------ mixing equations ------')
+                mixEq = obj.mixEquations
+                for e in mixEq:
+                    print(e)
+                print('')
+
+            if hasattr(obj, 'utilityEquations'):
+                print('------ chemical utility equations ------')
+                utEq = obj.utilityEquations
+                for e in utEq:
+                    print(e)
+                print('')
+
+            if hasattr(obj, 'reactionEquations'):
+                print('------ reaction equations ------')
+                rxnEq = obj.reactionEquations
+                for e in rxnEq:
+                    print(e)
+                print('')
+
+            if hasattr(obj, 'separationEquations'):
+                print('------ separation equations ------')
+                sepEq = obj.separationEquations
+                for e in sepEq:
+                    print(e)
+                print('')
+
+            if hasattr(obj, 'splitEquations'):
+                print('------ separation equations ------')
+                splitEq = obj.splitEquations
+                for e in splitEq:
+                    print(e)
+                print('')
+
+            print('')
+
+        else: #obj.label == 'output':
+            for eq_interval in obj.pyomoEquations:
+                print(eq_interval)
+            print('')  # print a space for readability
 
         # collect all the variables
         continuousVariables += obj.allVariables['continuous']
@@ -2609,28 +2669,36 @@ def get_vars_eqs_bounds(objectDict):
         boundsContinousVars = boundsContinousVars | obj.boundaries
 
     # remove double variables in the list of continuous variables
-
-    unique_list_var_continous = list(OrderedDict.fromkeys(continuousVariables)) # preserves order (easier to group the equations per interval this way)
+    unique_list_var_continous = list(OrderedDict.fromkeys(continuousVariables))  # preserves order (easier to group the equations per interval this way)
     unique_list_var_bool = list(OrderedDict.fromkeys(booleanVariables))
 
-    # # insert the list to the set
-    # variables_set = set(continuousVariables)
-    # # convert the set to the list
-    # unique_list_var = (list(variables_set))
-
     # dictionary to bundel  all the varibles
-    variables = {'continuous' : unique_list_var_continous,
-                 'boolean' : unique_list_var_bool,
+    variables = {'continuous': unique_list_var_continous,
+                 'boolean': unique_list_var_bool,
                  'fraction': fractionVariables}
 
-
-    return variables,equations, boundsContinousVars
+    return variables, equations, boundsContinousVars
 
 # ============================================================================================================
 # Master function: generates the superstructure
 # ============================================================================================================
 
 def make_super_structure(excelFile, printPyomoEq = False):
+    """ Master function: calls all other functions to make the superstructure
+
+    Declare all interval variables (capital letters) and component variables (small letters)
+    loop over all objects
+    declare all variables
+    declare equations of each object
+    make the objective
+
+    params:
+        excelFile (str): name of the Excel file saved in the file location 'excel files'
+
+    returns:
+        model (pyomo structure): the model of the super structure
+    """
+
     model = pe.ConcreteModel()
     check_excel_file(excelName= excelFile)
     excelDict = read_excel_sheets4_superstructure(excelName=excelFile )
@@ -2647,15 +2715,6 @@ def make_super_structure(excelFile, printPyomoEq = False):
     allObjects = boolObjectDict | allObjects # add the boolean equations
     variables, equations, bounds = get_vars_eqs_bounds(allObjects)
 
-
-    """
-    Declare all interval variables (capital letters) and component variables (small letters)
-    loop over all objects 
-    declare all variables
-    delare equations of each object 
-    make the objective 
-    RUN THE SOLVER 
-    """
     def boundsRule(model,i):
         boudVar = bounds[i]
         lowerBound = 0 # default
@@ -2670,8 +2729,10 @@ def make_super_structure(excelFile, printPyomoEq = False):
 
     model.var = pe.Var(variables['continuous'], domain=pe.PositiveReals, bounds=boundsRule)
     if variables['boolean']:
+        # noinspection PyUnresolvedReferences
         model.boolVar = pe.Var(variables['boolean'], domain=pe.Boolean)
     if variables['fraction']:
+        # noinspection PyUnresolvedReferences
         model.fractionVar = pe.Var(variables['fraction'], domain=pe.PercentFraction)
 
     # introduce the equations to pyomo
@@ -2722,9 +2783,9 @@ def make_super_structure(excelFile, printPyomoEq = False):
 
     objectiveExpr = sellExpresion + ' - ' + perchaseExpresion
     print(objectiveExpr)
-    model.profit = pe.Objective(expr = eval(objectiveExpr), sense= pe.maximize)
+    model.profit = pe.Objective(expr= eval(objectiveExpr), sense= pe.maximize)
 
     if printPyomoEq:
-        model.pprint() # debug check
+        model.pprint()  # debug check
 
     return model

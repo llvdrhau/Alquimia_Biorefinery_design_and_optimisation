@@ -21,7 +21,7 @@ print('The run time is: {} seconds'.format(run_time))
 print('')
 
 
-switchSolver = True
+switchSolver = False
 if switchSolver:
     solvername = 'gams'
     opt = po.SolverFactory(solvername)
