@@ -1,4 +1,3 @@
-
 import pandas as pd
 import cobra
 import os
@@ -9,7 +8,8 @@ import warnings
 from collections import OrderedDict
 import json
 import pyomo.environ as pe
-#from typing import List
+
+# from typing import List
 
 """Created on the 30.01.2023
 @author: Lucas Van der Hauwaert
@@ -19,21 +19,22 @@ All functions used to analise GEMs
 All functions used to create superstructures 
 """
 
+
 ########################################################################################################################
 # ============================================================================================================
 # Usefull functions
 # ============================================================================================================
 ########################################################################################################################
 
-def split_remove_spaces(expr2split,splitCharacter):
+def split_remove_spaces(expr2split, splitCharacter):
     """ Splits a given string according to a specified character e.g., ','
     also removes the spaces ' '
     """
     exprList = []
-    if not isinstance(expr2split, str) and not isinstance(expr2split,list): # so a float or int just one number
-        return [float(expr2split)]   # if mulptiple prices for utilty you're gona have to change str to floats
+    if not isinstance(expr2split, str) and not isinstance(expr2split, list):  # so a float or int just one number
+        return [float(expr2split)]  # if mulptiple prices for utilty you're gona have to change str to floats
 
-    elif isinstance(expr2split,list):
+    elif isinstance(expr2split, list):
         for exp in expr2split:
             expresions = exp.split(splitCharacter)
             for i in expresions:
@@ -44,9 +45,10 @@ def split_remove_spaces(expr2split,splitCharacter):
     elif isinstance(expr2split, str):
         expresions = expr2split.split(splitCharacter)
         for i in expresions:
-            i = i.replace(' ', '') # remove annoying spaces
+            i = i.replace(' ', '')  # remove annoying spaces
             exprList.append(i)
         return exprList
+
 
 def stringbounds_2_tuplebounds(stringBound):
     """ transforms a bound that is writen as a string (e.g., '[20, 50]') to a tuple
@@ -59,20 +61,23 @@ def stringbounds_2_tuplebounds(stringBound):
         boundsList.append(float(i))
     return boundsList
 
+
 def load_objectes_from_dictionary(dict):
     """ deleet I think, not used"""
     for i in dict:
         locals()[i] = dict[i]
 
+
 def remove_spaces(listOfInterest):
     """ removes spaces """
     exprList = []
     for i in listOfInterest:
-        i = i.replace(' ','')
+        i = i.replace(' ', '')
         exprList.append(i)
     return exprList
 
-def get_connected_intervals(intervalName,conectionMatrix):
+
+def get_connected_intervals(intervalName, conectionMatrix):
     """From the conection matrix (see Excel file) the connected intervals are found which go into the specified
     interval (intervalName) is found
     """
@@ -86,20 +91,22 @@ def get_connected_intervals(intervalName,conectionMatrix):
     except:
         pass
 
-    nameConnectedIntervals =  connectionInfo.index
+    nameConnectedIntervals = connectionInfo.index
     connectionDict = {nameConnectedIntervals[i]: connectionInfo[i] for i in range(len(connectionInfo))}
 
-    #posConnect = conectionCol != 0
-    #nameConnectedIntervals = list(conectionMatrix['process_intervals'][posConnect])
+    # posConnect = conectionCol != 0
+    # nameConnectedIntervals = list(conectionMatrix['process_intervals'][posConnect])
 
-    return  connectionDict
+    return connectionDict
 
-def str_2_dict(string,intervalname):
+
+def str_2_dict(string, intervalname):
     D = eval(string)
     inputBoundsDict = {}
     for i in D:
-        inputBoundsDict.update({i+'_'+intervalname : D[i]})
+        inputBoundsDict.update({i + '_' + intervalname: D[i]})
     return inputBoundsDict
+
 
 def get_location(file):
     """ gets the file location from the Directory 'excel files'
@@ -108,7 +115,7 @@ def get_location(file):
     posAlquimia = loc.find('Alquimia')
     loc = loc[0:posAlquimia + 8]
 
-    if '/' in loc: # in the case of Mac OS
+    if '/' in loc:  # in the case of Mac OS
         file = r"/{}".format(file)
         if '.xlsx' in file:
             loc = loc + r'/excel files' + file
@@ -118,7 +125,7 @@ def get_location(file):
             loc = loc + r'/json models' + file
 
 
-    elif "\\" in loc : # in the case of Windows OS
+    elif "\\" in loc:  # in the case of Windows OS
         file = r"\{}".format(file)
         if '.xlsx' in file:
             loc = loc + r'\excel files' + file
@@ -129,6 +136,7 @@ def get_location(file):
 
     return loc
 
+
 ########################################################################################################################
 # ============================================================================================================
 # SBML screening
@@ -138,71 +146,75 @@ def get_location(file):
 # originaly from the file f_find_carbons
 def find_Carbons_Missing_Metabolite(model, metID):
     met = model.metabolites.get_by_id(metID)
-    ProducingRct = get_Producing_Reactions(model,metID)
-    reaction = ProducingRct[0] # just need one producing reaction so you can stop at the first one
+    ProducingRct = get_Producing_Reactions(model, metID)
+    reaction = ProducingRct[0]  # just need one producing reaction so you can stop at the first one
 
     stoiCoef_rct = abs(reaction.metabolites[met])
     reaction_reactants = reaction.reactants
     reaction_products = reaction.products
     reaction_products.remove(met)
-    #remove the metabolite which we are looking that way you
+    # remove the metabolite which we are looking that way you
     # can check with a reaction that does have the correct carbons if it works
-    carbonInReactants = count_element_in_list(reaction,  reactionList= reaction_reactants, element= 'C')
-    carbonInProducts = count_element_in_list(reaction, reactionList = reaction_products, element= 'C')
+    carbonInReactants = count_element_in_list(reaction, reactionList=reaction_reactants, element='C')
+    carbonInProducts = count_element_in_list(reaction, reactionList=reaction_products, element='C')
 
-    CarbonsMissingMet = (carbonInReactants-carbonInProducts)/stoiCoef_rct
-    return  CarbonsMissingMet
+    CarbonsMissingMet = (carbonInReactants - carbonInProducts) / stoiCoef_rct
+    return CarbonsMissingMet
+
 
 def count_carbon_in_formula(metFormula):
     if not metFormula or 'C' not in metFormula:  # if there is no carbon in the formula or the formula is of type NONE
         allCarbons = 0
 
-    #nrOfCarbons = 0  # just in case something wierd happens
+    # nrOfCarbons = 0  # just in case something wierd happens
     else:
         splitFormula = re.split('(\d+)', metFormula)
         allCarbons = 0
         for j, element in enumerate(splitFormula):
-            element = element.replace(' ','')
+            element = element.replace(' ', '')
             if 'C' in element and len(element) == 1:
                 allCarbons += int(splitFormula[j + 1])
             elif 'C' in element and len(element) > 1:
                 posCarbon = element.index('C')
-                if (posCarbon+1) == len(element): # e.g., ['RC' '11'] then there are 11 carbons to be counted
-                    if splitFormula[j+1].isnumeric():
+                if (posCarbon + 1) == len(element):  # e.g., ['RC' '11'] then there are 11 carbons to be counted
+                    if splitFormula[j + 1].isnumeric():
                         allCarbons += int(splitFormula[j + 1])
                     else:
-                        allCarbons += 1 # the next element is the next atom so only add one carbon
-                elif (posCarbon+1) != len(element):
+                        allCarbons += 1  # the next element is the next atom so only add one carbon
+                elif (posCarbon + 1) != len(element):
                     if element[posCarbon + 1].isupper():  # for case like CH4 there is no 1 next to the C
                         allCarbons += 1  # only one carbon
-                    elif element[posCarbon + 1].islower(): # for cases like Co (cobalt) or Cu
+                    elif element[posCarbon + 1].islower():  # for cases like Co (cobalt) or Cu
                         continue
             else:
                 continue
     return allCarbons
 
+
 def count_atom_in_formula(metabolite, atom):
     try:
         count = metabolite.elements[atom]
     except:
-        count = 0 # if the atoom is not a key, it is not in the formula and therefore zero
+        count = 0  # if the atoom is not a key, it is not in the formula and therefore zero
     return count
+
 
 def count_element_in_list(reaction, reactionList, element):
     elementNrAll = []
     for met in reactionList:
         stoiCoef_i = abs(reaction.metabolites[met])
-        #metFormula = met.formula
+        # metFormula = met.formula
         nrOfelements = count_atom_in_formula(metabolite=met, atom=element)
-        elementNrAll.append(nrOfelements*stoiCoef_i)
+        elementNrAll.append(nrOfelements * stoiCoef_i)
     totaalElementAtoms = sum(elementNrAll)
     return totaalElementAtoms
 
+
 def get_IDlist_Of_Producing_Metabolties(model, metID):
-    reactions = get_Producing_Reactions(model , metID)
+    reactions = get_Producing_Reactions(model, metID)
     ids = []
     coef = []
-    r = reactions[0] # only interested in one reaction(doesn't matter which)
+    r = reactions[0]  # only interested in one reaction(doesn't matter which)
     metCoef = r.metabolites
     coefProduct = abs(metCoef[model.metabolites.get_by_id(metID)])
     reactants = r.reactants
@@ -211,6 +223,7 @@ def get_IDlist_Of_Producing_Metabolties(model, metID):
         coef.append(abs(metCoef[met]))
 
     return ids, coef, coefProduct
+
 
 def get_Producing_Reactions(model, metID):
     met = model.metabolites.get_by_id(metID)
@@ -228,10 +241,11 @@ def get_Producing_Reactions(model, metID):
     reaction = ProducingRct[0]
     return ProducingRct
 
-def find_carbons_of_reaction(model,reactionID):
+
+def find_carbons_of_reaction(model, reactionID):
     reaction = model.reactions.get_by_id(reactionID)
     reactantList = reaction.reactants
-    product =  reaction.products
+    product = reaction.products
     if len(product) > 1:
         raise ValueError("there should only be one product in the reaction, check")
     coefOfProduct = [abs(reaction.metabolites[i]) for i in product]
@@ -240,9 +254,9 @@ def find_carbons_of_reaction(model,reactionID):
     for met in reactantList:
         if met.formula:  # if it has formula count the carbons
             formula = met.formula
-            nCarbon = count_atom_in_formula(metabolite=met, atom= 'C')
+            nCarbon = count_atom_in_formula(metabolite=met, atom='C')
             carbonOfEachMolecule.append(nCarbon)
-        else: #else go one reaction deeper to find the amount of carbons
+        else:  # else go one reaction deeper to find the amount of carbons
             metID = met.id
             nCarbon = find_Carbons_Missing_Metabolite(model=model, metID=metID)
             if nCarbon > 0:
@@ -259,24 +273,26 @@ def find_carbons_of_reaction(model,reactionID):
                     carbonSubReactions.append(nSubCarbon)
 
                 control = [carbonSubReactions[i] >= 0 for i in range(len(carbonSubReactions))]
-                if sum(control) == len(carbonSubReactions): #all reactions have carbon that makes them
+                if sum(control) == len(carbonSubReactions):  # all reactions have carbon that makes them
                     coefficients = np.array(coef)
                     carbons = np.transpose(np.array(carbonSubReactions))
                     sumOfCarbons = np.matmul(coefficients, carbons)
-                    nCarbon = sumOfCarbons/coefMet
+                    nCarbon = sumOfCarbons / coefMet
                     carbonOfEachMolecule.append(nCarbon)
                 else:
                     carbonOfEachMolecule.append(0)
                     # program to display warning a message
                     # displaying the warning message
-                    warnings.warn('the carbons in metabolite {} could not be found, check manually. Metabolite ID is {}'.format(name, metID))
-
+                    warnings.warn(
+                        'the carbons in metabolite {} could not be found, check manually. Metabolite ID is {}'.format(
+                            name, metID))
 
     coefficientsHeadReaction = np.array(coefOfReactants)
     carbonsHeadReaction = np.transpose(np.array(carbonOfEachMolecule))
     sumOfCarbons = np.matmul(coefficientsHeadReaction, carbonsHeadReaction)
     carbonProduct = sumOfCarbons / coefOfProduct
     return carbonProduct[0], carbonOfEachMolecule, coefOfReactants
+
 
 def carbon_balance(model, reactionDF, missingCarbonDict, tol=0.0001):
     metNamesAll = []
@@ -298,28 +314,28 @@ def carbon_balance(model, reactionDF, missingCarbonDict, tol=0.0001):
                 c = find_carbons_of_reaction(model=model, reactionID=rctID)
                 nrOfCarbons = c[0]
             else:
-                nrOfCarbons  = count_atom_in_formula(metabolite=met, atom='C')
+                nrOfCarbons = count_atom_in_formula(metabolite=met, atom='C')
 
             carbonNrAll.append(nrOfCarbons)
             gramsC = nrOfCarbons * 12 * reactionDF.flux[i]
             gramsCAll.append(gramsC)
 
-
     dictReactions = {'Metabolite': metNamesAll,
                      '# of C': carbonNrAll,
-                     'flux (mmol/g-DW/h)':fluxAll ,
+                     'flux (mmol/g-DW/h)': fluxAll,
                      'flux (gram-C/g-DW/h)': gramsCAll}
 
     dataFrameReactions = pd.DataFrame(dictReactions)
     return dataFrameReactions
 
-def carbon_balance_in_out(modelLocation, metIDsMissingCarbon=None, tol = 0.0001):
-    if isinstance(modelLocation,str):
+
+def carbon_balance_in_out(modelLocation, metIDsMissingCarbon=None, tol=0.0001):
+    if isinstance(modelLocation, str):
         model = cobra.io.read_sbml_model(modelLocation)
         modelName = modelLocation.split("\\")[-1]
         modelName = modelName.replace(".xml", "")
     else:
-        model = modelLocation #then it will be the passed on model
+        model = modelLocation  # then it will be the passed on model
         modelName = 'derp idk look if the model has a name in its struture'
 
     if metIDsMissingCarbon is None:
@@ -328,28 +344,28 @@ def carbon_balance_in_out(modelLocation, metIDsMissingCarbon=None, tol = 0.0001)
     allRctIDMissingCarbon = []
     missingCarbonDict = {}
     if not isinstance(metIDsMissingCarbon, list):
-        metIDsMissingCarbon = [metIDsMissingCarbon] #change ito a list if it is not
-        if metIDsMissingCarbon: #if it is not empty
-            for metID in metIDsMissingCarbon: #write a for loop to go over all the missing metabolites and find the producing reaction
-                reactions = get_Producing_Reactions(model= model, metID=metID)
-                rctIDMissingCarbon = reactions[0] #only want the first reaction
+        metIDsMissingCarbon = [metIDsMissingCarbon]  # change ito a list if it is not
+        if metIDsMissingCarbon:  # if it is not empty
+            for metID in metIDsMissingCarbon:  # write a for loop to go over all the missing metabolites and find the producing reaction
+                reactions = get_Producing_Reactions(model=model, metID=metID)
+                rctIDMissingCarbon = reactions[0]  # only want the first reaction
                 allRctIDMissingCarbon.append(rctIDMissingCarbon)
-                missingCarbonDict.update({metID:rctIDMissingCarbon})
+                missingCarbonDict.update({metID: rctIDMissingCarbon})
 
     df = model.summary()
-    #exchangeRxn = model.exchanges
+    # exchangeRxn = model.exchanges
     uptake = df.uptake_flux
     secretion = df.secretion_flux
 
-    dfUptake = carbon_balance(model= model , reactionDF= uptake, missingCarbonDict= missingCarbonDict, tol = tol)
-    dfSecretion = carbon_balance(model= model , reactionDF= secretion, missingCarbonDict= missingCarbonDict, tol = tol)
+    dfUptake = carbon_balance(model=model, reactionDF=uptake, missingCarbonDict=missingCarbonDict, tol=tol)
+    dfSecretion = carbon_balance(model=model, reactionDF=secretion, missingCarbonDict=missingCarbonDict, tol=tol)
     totalCarbonIn = sum(dfUptake['flux (gram-C/g-DW/h)'])
     CgramsOut = sum(dfSecretion['flux (gram-C/g-DW/h)'])
-    CarbonBalance = abs(CgramsOut / totalCarbonIn)*100
+    CarbonBalance = abs(CgramsOut / totalCarbonIn) * 100
     print('')
     print("{:2f} of the carbon is accounted for".format(CarbonBalance))
     fluxSecretion = dfSecretion['flux (gram-C/g-DW/h)']
-    percentListSecretion = [round(abs(i/totalCarbonIn)*100,2) for i in fluxSecretion]
+    percentListSecretion = [round(abs(i / totalCarbonIn) * 100, 2) for i in fluxSecretion]
     dfSecretion['% carbon'] = percentListSecretion
 
     print('')
@@ -360,6 +376,7 @@ def carbon_balance_in_out(modelLocation, metIDsMissingCarbon=None, tol = 0.0001)
     print('')
     print(dfSecretion)
     return dfUptake, dfSecretion
+
 
 # originaly from the file print_model_2_excel
 def string_reactions(reaction, case='names'):
@@ -398,9 +415,10 @@ def string_reactions(reaction, case='names'):
     reactionStr = "{} = {}".format(reactantStr, productStr)
     return reactionStr
 
+
 def find_unbalanced_rxn_of_element(model, stoiMatrix, fluxArray, element, elementCount):
-    MM = {'C':12, 'O': 15.99, 'H': 1}
-    fluxArrayNp = np.array(fluxArray).reshape(-1, 1) # reshape the flux array
+    MM = {'C': 12, 'O': 15.99, 'H': 1}
+    fluxArrayNp = np.array(fluxArray).reshape(-1, 1)  # reshape the flux array
     elementArray = np.array(elementCount)
     elementArray = elementArray.reshape(-1, 1)
     StoiMatrixTranspose = np.transpose(stoiMatrix)
@@ -420,9 +438,11 @@ def find_unbalanced_rxn_of_element(model, stoiMatrix, fluxArray, element, elemen
             unbalanced.append(c[0])
             reactionStr = string_reactions(model.reactions.get_by_id(rxnIDreduced[i]))
             rxnUnblanaced.append(reactionStr)
-    DictMissingElementInRxn = {'Reaction Id': unbalancedId, '{}(g{})'.format(element,element): unbalanced, 'reaction': rxnUnblanaced}
+    DictMissingElementInRxn = {'Reaction Id': unbalancedId, '{}(g{})'.format(element, element): unbalanced,
+                               'reaction': rxnUnblanaced}
     DFUnbalancedElementReactions = pd.DataFrame(DictMissingElementInRxn)
     return DFUnbalancedElementReactions
+
 
 def get_list_metabolite_ids_names(model):
     """returns a nx2 arrary whith the first column the IDs of the metaboliets and the second with the names of the
@@ -438,11 +458,12 @@ def get_list_metabolite_ids_names(model):
         names.append(met.id)
         ids.append(met.name)
 
-    DFidName = pd.DataFrame({'IDs':ids, 'Names':names})
+    DFidName = pd.DataFrame({'IDs': ids, 'Names': names})
     return DFidName
 
-def print_SBML_info_2_excel(modelName, idMissingCarbon=None, saveName = None, tolerance = 0.0001,
-                            print2Excel = True):
+
+def print_SBML_info_2_excel(modelName, idMissingCarbon=None, saveName=None, tolerance=0.0001,
+                            print2Excel=True):
     """
     This function imports information of the model to an Excel file to check the missing carbon in the metabolic reactions
     the percent of missing carbon can also  be attributed to the reactions to check on their importants of the reactions to
@@ -459,11 +480,11 @@ def print_SBML_info_2_excel(modelName, idMissingCarbon=None, saveName = None, to
     output:
     Excel files with info
     """
-    if isinstance(modelName, str): # the model still needs to be retrived from the file
+    if isinstance(modelName, str):  # the model still needs to be retrived from the file
         modelLocation = get_location(modelName)
         model = cobra.io.read_sbml_model(modelLocation)
         name = modelName
-    else: # the COBRA model is given as the input
+    else:  # the COBRA model is given as the input
         model = modelName
         name = model.name
 
@@ -471,7 +492,6 @@ def print_SBML_info_2_excel(modelName, idMissingCarbon=None, saveName = None, to
         saveName = name
         saveName = saveName.replace('.xml', '')
         saveName = '{}_analysis.xlsx'.format(saveName)
-
 
     StoiMatrixDF = cobra.util.create_stoichiometric_matrix(model, array_type='DataFrame')  # [:,0:posExchangeRxn]
     # print(StoiMatrixDF)
@@ -498,9 +518,9 @@ def print_SBML_info_2_excel(modelName, idMissingCarbon=None, saveName = None, to
     hydrogenCount = []
     for met in metabolites:
         formula = met.formula
-        carbon = count_atom_in_formula(metabolite= met, atom='C')
-        oxygen = count_atom_in_formula(metabolite= met, atom='O')
-        hydrogen = count_atom_in_formula(metabolite= met, atom='H')
+        carbon = count_atom_in_formula(metabolite=met, atom='C')
+        oxygen = count_atom_in_formula(metabolite=met, atom='O')
+        hydrogen = count_atom_in_formula(metabolite=met, atom='H')
 
         carbonCount.append(carbon)
         oxygenCount.append(oxygen)
@@ -539,13 +559,14 @@ def print_SBML_info_2_excel(modelName, idMissingCarbon=None, saveName = None, to
     # DFmetabolites = pd.DataFrame(DictMetabolites)
     # print(DFmetabolites)
 
-    DictMetRnx = {'Name': metNameWithSpaces, 'ID': metIdWithSpaces, 'Reactions': strRxns, 'Rxn ID': idRxns ,'Flux': fluxRxn,
+    DictMetRnx = {'Name': metNameWithSpaces, 'ID': metIdWithSpaces, 'Reactions': strRxns, 'Rxn ID': idRxns,
+                  'Flux': fluxRxn,
                   'Stoichiometry': stoiMetMissingFormula}
     DFmetRnx = pd.DataFrame(DictMetRnx)
     # print(DFmetRnx)
 
     # find the ingoing and outgoing fluxes
-    inputDF, outputDF = carbon_balance_in_out(modelLocation=model, metIDsMissingCarbon=idMissingCarbon, tol= tolerance)
+    inputDF, outputDF = carbon_balance_in_out(modelLocation=model, metIDsMissingCarbon=idMissingCarbon, tol=tolerance)
 
     # calculate the mass of carbon at goes missing in each reaction (exculed the exchage reactions?)
     # exclude the transfer (exchange reactions) reactions
@@ -557,14 +578,14 @@ def print_SBML_info_2_excel(modelName, idMissingCarbon=None, saveName = None, to
     fluxArray.drop(keysListExRxn, inplace=True)
     st = StoiMatrixDF.drop(keysListExRxn, axis='columns')  # ,inplace=False)
 
-    DFcarbon = find_unbalanced_rxn_of_element(model= model, stoiMatrix= st, fluxArray= fluxArray,
-                                              element = 'C', elementCount = carbonCount )
+    DFcarbon = find_unbalanced_rxn_of_element(model=model, stoiMatrix=st, fluxArray=fluxArray,
+                                              element='C', elementCount=carbonCount)
 
     DFoxygen = find_unbalanced_rxn_of_element(model=model, stoiMatrix=st, fluxArray=fluxArray,
-                                              element='O', elementCount= oxygenCount)
+                                              element='O', elementCount=oxygenCount)
 
-    DFhydrogen = find_unbalanced_rxn_of_element(model= model, stoiMatrix= st, fluxArray= fluxArray,
-                                              element = 'H', elementCount = hydrogenCount )
+    DFhydrogen = find_unbalanced_rxn_of_element(model=model, stoiMatrix=st, fluxArray=fluxArray,
+                                                element='H', elementCount=hydrogenCount)
 
     DFMetIdNames = get_list_metabolite_ids_names(model)
 
@@ -591,10 +612,11 @@ def print_SBML_info_2_excel(modelName, idMissingCarbon=None, saveName = None, to
             DFmetRnx.to_excel(writer, sheet_name='MissingFormulaReactions')
             DFMetIdNames.to_excel(writer, sheet_name='ID 2 name')
             DFcarbon.to_excel(writer, sheet_name='Carbon Balance')
-            DFoxygen.to_excel(writer, sheet_name= 'Oxygen Balance')
-            DFhydrogen.to_excel(writer, sheet_name= 'Hydrogen Balance')
+            DFoxygen.to_excel(writer, sheet_name='Oxygen Balance')
+            DFhydrogen.to_excel(writer, sheet_name='Hydrogen Balance')
             inputDF.to_excel(writer, sheet_name='Carbon Input')
             outputDF.to_excel(writer, sheet_name='Carbon output')
+
 
 # functions to help fix the models
 def balance_element(reaction, element):
@@ -620,17 +642,18 @@ def balance_element(reaction, element):
         Creactants += nC * stoiFactor
     return Creactants, Cproducts
 
+
 def check_reaction(model, reactionID):
     # elements to look at
-    elements = ['C','H','O']
+    elements = ['C', 'H', 'O']
     reaction = model.reactions.get_by_id(reactionID)
     reactionEq = string_reactions(reaction, case='formulas')
     reactionEqNames = string_reactions(reaction=reaction, case='names')
     print(reactionEq)
     print(reactionEqNames)
-    print(reaction) # reaction with id codes
+    print(reaction)  # reaction with id codes
     for elm in elements:
-        reac, prod = balance_element(reaction=reaction, element= elm)
+        reac, prod = balance_element(reaction=reaction, element=elm)
         missing = prod + reac
 
         print('{} left of reaction = {}'.format(elm, reac))
@@ -638,14 +661,16 @@ def check_reaction(model, reactionID):
         print('{} missing = {}'.format(elm, missing))
         print('')
 
+
 def get_metabolites_whith_missing_formula(model):
     '''returns all metabolites without a formula'''
-    metabolites= model.metabolites
+    metabolites = model.metabolites
     missing = []
     for met in metabolites:
         if not met.formula:
             missing.append(met)
     return missing
+
 
 def estimate_formula(model, estimationDict):
     '''
@@ -655,31 +680,32 @@ def estimate_formula(model, estimationDict):
     for metID in estimationDict:
         reaction = model.reactions.get_by_id(estimationDict[metID])
         metabolite = model.metabolites.get_by_id(metID)
-        #reaction = ProducingRct[0]  # just need one producing reaction so you can stop at the first one
+        # reaction = ProducingRct[0]  # just need one producing reaction so you can stop at the first one
 
         stoiCoef_rct = abs(reaction.metabolites[metabolite])
         reaction_reactants = reaction.reactants
         reaction_products = reaction.products
-        #reaction_products.remove(metabolite)
+        # reaction_products.remove(metabolite)
         # remove the metabolite which we are looking that way you
         # can check with a reaction that does have the correct carbons if it works
-        elements = ['C','H','O']
+        elements = ['C', 'H', 'O']
         missingDict = {}
         for ele in elements:
-            elementsInReactants = count_element_in_list(reaction, reactionList=reaction_reactants, element= ele)
-            elementsInProducts = count_element_in_list(reaction, reactionList=reaction_products, element= ele)
+            elementsInReactants = count_element_in_list(reaction, reactionList=reaction_reactants, element=ele)
+            elementsInProducts = count_element_in_list(reaction, reactionList=reaction_products, element=ele)
             elementMissingMet = (elementsInReactants - elementsInProducts) / stoiCoef_rct
             if elementMissingMet < 0:
                 warnings.warn('the element {} is overproduced in reaction '
-                              '{} plz check it out'.format(ele,reaction.id),  category=UserWarning)
+                              '{} plz check it out'.format(ele, reaction.id), category=UserWarning)
                 elementMissingMet = 0
             if isinstance(elementMissingMet, float):
-                elementMissingMet = round(elementMissingMet,2)
-            missingDict.update({ele:elementMissingMet})
+                elementMissingMet = round(elementMissingMet, 2)
+            missingDict.update({ele: elementMissingMet})
 
         formulaEstimate = 'C{}H{}O{}'.format(missingDict['C'], missingDict['H'], missingDict['O'])
-        formulaDict.update({metID:formulaEstimate})
+        formulaDict.update({metID: formulaEstimate})
     return formulaDict
+
 
 def count_missing_formulas_in_rxn(rxnId, model):
     reaction = model.reactions.get_by_id(rxnId)
@@ -691,14 +717,15 @@ def count_missing_formulas_in_rxn(rxnId, model):
     # Iterate over the metabolites
     for metabolite in metabolites:
         # Check if the metabolite formula is missing
-        if not metabolite.formula: # if the string is empty
+        if not metabolite.formula:  # if the string is empty
             # If the formula is missing, increment the counter
             countMissingFormulas += 1
 
     # Return the count of metabolites with missing formulas
     return countMissingFormulas
 
-def fix_missing_formulas(model, fixDict, maxIterations = 10):
+
+def fix_missing_formulas(model, fixDict, maxIterations=10):
     '''
     fixes metaboliets that don't have a formula by looking at the reaction and counting the missing elements C H and O
     this is a very rough estimation!!
@@ -719,23 +746,24 @@ def fix_missing_formulas(model, fixDict, maxIterations = 10):
         iteration += 1
         for metId in fixDict:
             rxnId = fixDict[metId]
-            nMissing = count_missing_formulas_in_rxn(rxnId= rxnId, model=model)
+            nMissing = count_missing_formulas_in_rxn(rxnId=rxnId, model=model)
             if nMissing == 1:
-                toFix.update({metId:rxnId})
+                toFix.update({metId: rxnId})
 
             elif nMissing == 0:
                 countCompleet += 1
 
             else:
-                notSolved.update({metId:rxnId})
+                notSolved.update({metId: rxnId})
 
         a = countCompleet
         b = len(fixDict)
-        if countCompleet == len(fixDict): # all the reactions have formulas now
+        if countCompleet == len(fixDict):  # all the reactions have formulas now
             stopCriteria = False
-        elif iteration == (maxIterations -1):
+        elif iteration == (maxIterations - 1):
             print(notSolved)
-            raise Exception('the above metabolite formulas could not be found, consider using a different reaction to find them')
+            raise Exception(
+                'the above metabolite formulas could not be found, consider using a different reaction to find them')
 
         else:
             # estimate the formulas with reactions only missing 1 formula
@@ -748,7 +776,6 @@ def fix_missing_formulas(model, fixDict, maxIterations = 10):
                 met2change.formula = formula
 
     return model, estimateFormulas
-
 
 
 ########################################################################################################################
@@ -764,10 +791,11 @@ def fix_missing_formulas(model, fixDict, maxIterations = 10):
 # Functions to make the interval reaction equations from SBML models
 # ============================================================================================================
 
-def get_conversion_sbml(modelLocations, substrate_exchange_rnx, product_exchange_rnx, substrate2zero= 'Ex_S_cpd00027_ext',
-                        newObjectiveReaction = None, pFBA = None, printEq = False):
-    allYields_pFBA =[]
-    allYields_FBA =[]
+def get_conversion_sbml(modelLocations, substrate_exchange_rnx, product_exchange_rnx,
+                        substrate2zero='Ex_S_cpd00027_ext',
+                        newObjectiveReaction=None, pFBA=None, printEq=False):
+    allYields_pFBA = []
+    allYields_FBA = []
     objectiveBiomass = []
     allEquations = []
     modelNames = []
@@ -778,28 +806,28 @@ def get_conversion_sbml(modelLocations, substrate_exchange_rnx, product_exchange
             model.objective = newObjectiveReaction
         # change the glucose reaction to zero
         exchange_rnx_2_zero = substrate2zero
-        model.reactions.get_by_id(exchange_rnx_2_zero).bounds = 0,0
+        model.reactions.get_by_id(exchange_rnx_2_zero).bounds = 0, 0
 
         # change bound of new substrate to -10 mol/h/gDW
         model.reactions.get_by_id(substrate_exchange_rnx).bounds = -10, 0
         # get names of the models
         modelName = i.split("\\")[-1]
-        modelName = modelName.replace(".xml","")
+        modelName = modelName.replace(".xml", "")
         modelNames.append(modelName)
         # run pFBA
-        if pFBA: # Todo fix flux to grams c for pFBA
+        if pFBA:  # Todo fix flux to grams c for pFBA
             pfba_solution = cobra.flux_analysis.pfba(model)
             substrate_flux = pfba_solution.fluxes[substrate_exchange_rnx]
             product_flux = pfba_solution.fluxes[product_exchange_rnx]
-            yield_pFBA = -product_flux/substrate_flux # fixed
+            yield_pFBA = -product_flux / substrate_flux  # fixed
             allYields_pFBA.append(yield_pFBA)
 
-        else: #else do regular FBA
+        else:  # else do regular FBA
             solution = model.optimize()
             FBA_substrate_flux = solution.fluxes[substrate_exchange_rnx]
             substrateMet = model.reactions.get_by_id(substrate_exchange_rnx).reactants[0]
             substrateName = substrateMet.name
-            #substrateFormula = substrateMet.formula
+            # substrateFormula = substrateMet.formula
             Csub = count_atom_in_formula(substrateMet, 'C')
             strEqlist = []
 
@@ -807,12 +835,13 @@ def get_conversion_sbml(modelLocations, substrate_exchange_rnx, product_exchange
                 productMet = model.reactions.get_by_id(j).reactants[0]
                 productName = productMet.name
                 productFormula = productMet.formula
-                Cprod = count_atom_in_formula(productMet ,'C')
+                Cprod = count_atom_in_formula(productMet, 'C')
                 FBA_product_flux = solution.fluxes[j]
-                FBA_yield = abs((FBA_product_flux/FBA_substrate_flux) * (Cprod *12) /(Csub* 12)) # in gramsC / grams C: 12 gCarbon/mol
+                FBA_yield = abs((FBA_product_flux / FBA_substrate_flux) * (Cprod * 12) / (
+                        Csub * 12))  # in gramsC / grams C: 12 gCarbon/mol
 
                 allYields_FBA.append(FBA_yield)
-                strEq = '{} == {} * {}'.format(productName,FBA_yield,substrateName)
+                strEq = '{} == {} * {}'.format(productName, FBA_yield, substrateName)
                 allEquations.append(strEq)
                 if printEq:
                     print(modelName)
@@ -820,12 +849,13 @@ def get_conversion_sbml(modelLocations, substrate_exchange_rnx, product_exchange
 
     return allEquations, allYields_FBA
 
+
 def make_str_eq_smbl(modelName, substrate_exchange_rnx, product_exchange_rnx, equationInfo):
-    #modelLocations = modelName
+    # modelLocations = modelName
     loc = os.getcwd()
     posAlquimia = loc.find('Alquimia')
     loc = loc[0:posAlquimia + 8]
-    #modelLocations = loc + r'\excel files\' + modelName
+    # modelLocations = loc + r'\excel files\' + modelName
     modelLocations = [loc + r"\SBML models\{}".format(modelName)]
 
     #  make extended reaction equtions for sbml models or maybe even make them into JSON files? idk
@@ -836,12 +866,12 @@ def make_str_eq_smbl(modelName, substrate_exchange_rnx, product_exchange_rnx, eq
     abbrDict = {}
     inputSbmlName = equationInfo.input_name
     inputAbrr = equationInfo.input_abrr
-    abbrDict.update({inputSbmlName:inputAbrr})
+    abbrDict.update({inputSbmlName: inputAbrr})
 
-    outputSbmlName = split_remove_spaces(equationInfo.output_name,',')
+    outputSbmlName = split_remove_spaces(equationInfo.output_name, ',')
     outputAbrr = split_remove_spaces(equationInfo.output_abrr, ',')
     for i, out in enumerate(outputSbmlName):
-        abbrDict.update({out:outputAbrr[i]})
+        abbrDict.update({out: outputAbrr[i]})
 
     allEquations = []
     for eq in equations:
@@ -851,6 +881,7 @@ def make_str_eq_smbl(modelName, substrate_exchange_rnx, product_exchange_rnx, eq
         allEquations.append(eq)
 
     return allEquations
+
 
 def make_str_eq_json(modelObject, equationInfo):
     """Reconstructs the surrogate model which is in a .json file into a equation that can be read by Pyomo
@@ -880,9 +911,13 @@ def make_str_eq_json(modelObject, equationInfo):
 
     # make sure there are as many abbreviations as well as variable inputs
     if len(varNameInputs) != len(AbrrInputs):
-        raise Exception("Missing an abbreviation for one of the inputs of model {}. Check out the Excel sheet 'models'".format(name))
+        raise Exception(
+            "Missing an abbreviation for one of the inputs of model {}. Check out the Excel sheet 'models'".format(
+                name))
     if len(varNameOutputs) != len(AbrrOutputs):
-        raise Exception("Missing an abbreviation for one of the outputs of model {}. Check out the Excel sheet 'models'".format(name))
+        raise Exception(
+            "Missing an abbreviation for one of the outputs of model {}. Check out the Excel sheet 'models'".format(
+                name))
 
     for i, varN in enumerate(varNames):
         abbrDict.update({varN: Abrr[i]})
@@ -891,7 +926,7 @@ def make_str_eq_json(modelObject, equationInfo):
     print(name)
     for out in outputs:
         outAbrr = abbrDict[out]
-        #eqY = '{} == '.format(outAbrr)
+        # eqY = '{} == '.format(outAbrr)
         coefOfOutputs = coef[out]
         yieldEq = ''
         for feature in coefOfOutputs:
@@ -899,18 +934,18 @@ def make_str_eq_json(modelObject, equationInfo):
             featureAbbr = ''
             for v in varNames:
                 if v in feature:
-                    featureAbbr = feature.replace(v,abbrDict[v])
+                    featureAbbr = feature.replace(v, abbrDict[v])
             if not featureAbbr:
                 raise Exception('the feature {} has no abbreviation check the JSON file and the sheet models, '
                                 'are names and abrr correct?'.format(feature))
             ###
             featureCoef = coefOfOutputs[feature]
-            yieldEq += ' + {} * {} '.format(featureAbbr,featureCoef)
+            yieldEq += ' + {} * {} '.format(featureAbbr, featureCoef)
         if lable == 'SBML':
             equation = '{} == {}'.format(outAbrr, yieldEq)
         else:
             yieldEq += ' + {}'.format(intercept[out])
-            equation = '{} == ({}) * {}'.format(outAbrr,yieldEq,yieldOf)
+            equation = '{} == ({}) * {}'.format(outAbrr, yieldEq, yieldOf)
         print(equation)
         print('')
         equationList.append(equation)
@@ -919,7 +954,7 @@ def make_str_eq_json(modelObject, equationInfo):
 
 
 # Created on Tue Oct 04 2022
-#Contains the classes to make the process interval objects
+# Contains the classes to make the process interval objects
 
 # ============================================================================================================
 # Input, reactor and output Classes
@@ -935,6 +970,7 @@ def make_eqation_bool_dependent(equation, booleanVariable):
     equationModified += " ) * model.boolVar['{}'] ".format(booleanVariable)
 
     return equationModified
+
 
 def define_connect_info(connectInfo):
     """
@@ -952,9 +988,9 @@ def define_connect_info(connectInfo):
     sepKey = ''
     splitKey = ''
     boolKey = ''
-    connectKey = False # connent key referes to if there is a simple conection without seperation or splitting
+    connectKey = False  # connent key referes to if there is a simple conection without seperation or splitting
 
-    if isinstance(connectInfo,str):
+    if isinstance(connectInfo, str):
         if 'sep' in connectInfo:
             sepIndex = connectInfo.find('sep')
             sepKey = connectInfo[sepIndex: sepIndex + 4]
@@ -966,9 +1002,10 @@ def define_connect_info(connectInfo):
             boolKey = connectInfo[bIndex: bIndex + 4]
 
     if not splitKey and not sepKey:
-        connectKey = True #thus a simple connection
+        connectKey = True  # thus a simple connection
 
     return connectKey, sepKey, splitKey, boolKey
+
 
 class BooleanClass:
     def __init__(self, ExcelDict):
@@ -978,7 +1015,7 @@ class BooleanClass:
 
         returns:
             boolean variables (list): list of boolean variables
-            boolean equaitions (lsit): list of boolean equations
+            boolean equations (lsit): list of boolean equations
             """
 
         # create the label for the object
@@ -1001,7 +1038,7 @@ class BooleanClass:
         inputBooleanVariables = []  # prealloccate
         inputBoolEquation = "1 == "
         for i, intervalName in enumerate(inputIntervalNames):
-            inputBoolVar = DFconnectionMatrix[intervalName][intervalName] # diagonal position of the connention matrix
+            inputBoolVar = DFconnectionMatrix[intervalName][intervalName]  # diagonal position of the connention matrix
             if isinstance(inputBoolVar, str):
                 inputBooleanVariables.append(inputBoolVar)
                 inputBoolEquation += " + " + "model.boolVar['{}']".format(inputBoolVar)
@@ -1011,7 +1048,6 @@ class BooleanClass:
             # if not a unique list raise exception
             raise Exception("The boolean variables for the inputs are not unique, check the diagonals of the "
                             "input intervals of the connection matrix ")
-
 
         # ------------------------------ other interval boolean equations-----------------------------------------------
         # main idea:
@@ -1024,7 +1060,7 @@ class BooleanClass:
         # 7) restart at step 1 till the DF is empty
 
         # make a list of all the intervals excluding the inputs
-        DFconnectionMatrix = DFconnectionMatrix.drop(labels= inputIntervalNames, axis = 1)
+        DFconnectionMatrix = DFconnectionMatrix.drop(labels=inputIntervalNames, axis=1)
         processIntervalnames = list(DFconnectionMatrix.index)[len(inputIntervalNames):]
 
         # prun the Dataframe, anything that does not have a bool label on the diagonal can be droped
@@ -1086,8 +1122,8 @@ class BooleanClass:
         # add the boolean variables to the allVariable dictionary
         allBoolVariables = booleanVariables + inputBooleanVariables
         self.allVariables = {'continuous': [],
-                         'boolean': allBoolVariables,
-                         'fraction': []}
+                             'boolean': allBoolVariables,
+                             'fraction': []}
 
         # define it's boundries
         booleanBounds = {}
@@ -1098,9 +1134,10 @@ class BooleanClass:
         # add the equations to the pyomoEquations object
         self.pyomoEquations = equationsSumOfBools + [inputBoolEquation]
 
+
 class InputIntervalClass:
-    def __init__(self, inputName, compositionDict, inputPrice, boundryInputVar ,boolDict = None,
-                 split=None, separationDict=None, booleanVariable = None):
+    def __init__(self, inputName, compositionDict, inputPrice, boundryInputVar, boolDict=None,
+                 split=None, separationDict=None, booleanVariable=None):
         if separationDict is None:
             separationDict = {}
         if split is None:
@@ -1115,7 +1152,7 @@ class InputIntervalClass:
 
         # declare input interval name
         self.label = 'input'
-        self.inputName = inputName.upper() #  put in capitals
+        self.inputName = inputName.upper()  # put in capitals
         self.inputPrice = inputPrice
         addOn4Variables = '_' + inputName.lower()
 
@@ -1128,7 +1165,7 @@ class InputIntervalClass:
         for i in compositionDict:
             compositionDictNew.update({i + addOn4Variables: compositionDict[i]})
             initialCompositionNames.append(i)
-        #self.initialCompositionNames = initialCompositionNames
+        # self.initialCompositionNames = initialCompositionNames
         self.compositionDict = compositionDictNew
 
         # error if you choose a wrong name
@@ -1139,31 +1176,31 @@ class InputIntervalClass:
 
         # make the component equations as string equations
         for component in compositionDictNew:
-            eqPy = "model.var['{}'] == {} * model.var['{}']".format(component, self.compositionDict[component], self.inputName)
+            eqPy = "model.var['{}'] == {} * model.var['{}']".format(component, self.compositionDict[component],
+                                                                    self.inputName)
             pyomoEq.append(eqPy)
-        componentVariables =  list(compositionDictNew.keys())
+        componentVariables = list(compositionDictNew.keys())
 
-
-        self.boolDict = boolDict # necesary?
-        self.split = split # necesary?
-        self.separationDict = separationDict # necesary?
+        self.boolDict = boolDict  # necesary?
+        self.split = split  # necesary?
+        self.separationDict = separationDict  # necesary?
         self.leavingInterval = componentVariables
 
-
         if booleanVariable:
-            activationEqPyoUB = "model.var['{}'] <= {} * model.boolVar['{}'] ".format(self.inputName, boundryInputVar[1],booleanVariable)
-            activationEqPyoLB = "{} * model.boolVar['{}']  <= model.var['{}'] ".format(boundryInputVar[0], booleanVariable, self.inputName)
+            activationEqPyoUB = "model.var['{}'] <= {} * model.boolVar['{}'] ".format(self.inputName,
+                                                                                      boundryInputVar[1],
+                                                                                      booleanVariable)
+            activationEqPyoLB = "{} * model.boolVar['{}']  <= model.var['{}'] ".format(boundryInputVar[0],
+                                                                                       booleanVariable, self.inputName)
             pyomoEq.append(activationEqPyoLB)
             pyomoEq.append(activationEqPyoUB)
-
 
         #  put all VARIABLES that pyomo needs to declare here
         continuousVariables = componentVariables + [self.inputName]
 
-        self.allVariables = {'continuous' : continuousVariables,    # continous variables
-                             'boolean' : [],                        # boolean variables
-                             'fraction': []}                        # fraction variables
-
+        self.allVariables = {'continuous': continuousVariables,  # continous variables
+                             'boolean': [],  # boolean variables
+                             'fraction': []}  # fraction variables
 
         # make BOUNDRIES for all variables
         boundaryDict = {self.inputName: boundryInputVar}  # interval variables have bounds
@@ -1174,9 +1211,11 @@ class InputIntervalClass:
         # put all EQUATIONS that pyomo needs to declare here
         self.pyomoEquations = pyomoEq
 
+
 class ProcessIntervalClass:
-    def __init__(self, inputs, outputs, connectInfo, reactionEquations, boundryInputVar ,nameDict, mix = None,
-                 utilities = None, booleanVariable = None, splitList = None, separationDict = None):
+    def __init__(self, inputs, outputs, connectInfo, reactionEquations, boundryInputVar, nameDict, mix=None,
+                 utilities=None, booleanVariable=None, splitList=None, separationDict=None,
+                 operationalVariablesDict=None):
 
         if utilities is None:
             utilities = {}
@@ -1186,29 +1225,32 @@ class ProcessIntervalClass:
             mix = []
         if booleanVariable is None:
             booleanVariable = ''
+        if operationalVariablesDict is None:
+            operationalVariablesDict = {}
 
         self.label = 'process_interval'
         self.booleanVariable = booleanVariable
+        self.operationalVariablesDict = operationalVariablesDict
 
         # further the lable of the interval i.e.:reactor or seperator
         if reactionEquations:
-            self.intervalType = 'reactor'  # lable the interval as a class
+            self.intervalType = 'reactor'  # lable
         elif reactionEquations is None and separationDict:
-            self.intervalType = 'separator'
+            self.intervalType = 'separator'  # lable
 
         # attributes you want to be able to call from the object (some are probably redundant)
         self.nameDict = nameDict
         self.inputs = inputs  # original unmodified names
-        self.outputs = outputs # original unmodified names
+        self.outputs = outputs  # original unmodified names
         self.initialCompositionNames = inputs + outputs
         self.mix = mix  # found by the Excel file (don't need to specify in this script)
         self.utilities = utilities  # consists of a dictionary {nameUtilty: [bounds]}
         self.separationDict = separationDict  # dictionary defining separation fractions of each component
 
         # error if you choose a wrong name
-        intervalName =  list(nameDict.keys())[0]
+        intervalName = list(nameDict.keys())[0]
         self.intervalName = intervalName
-        for i in self.initialCompositionNames: # maybe don't place the warning here
+        for i in self.initialCompositionNames:  # maybe don't place the warning here
             if i in intervalName:
                 raise Exception("the component {} is in interval name {}, change the component name of the reactor to "
                                 "avoid conflict with the equations")
@@ -1222,34 +1264,34 @@ class ProcessIntervalClass:
         pyomoEq = []
 
         # reactor equations
-        reactionVariablesOutput = [] # preallocate to avoid error
+        reactionVariablesOutput = []  # preallocate to avoid error
         if reactionEquations != None:
             reactorEquations, reactionVariablesOutput, helpingDict = \
-                self.make_reaction_equations(reactionEquations= reactionEquations,
-                                             booleanVariable= booleanVariable,
-                                             intervalVariable= intervalVariable)
-            #pyomoEq += reactorEquations # added during the update fuction
+                self.make_reaction_equations(reactionEquations=reactionEquations,
+                                             booleanVariable=booleanVariable,
+                                             intervalVariable=intervalVariable)
+            # pyomoEq += reactorEquations # added during the update fuction
         else:
             # If there is a dictionary for the separation equations but no reaction, then there is no helpingDict.
             # In other words now the separation equations need to be updated according to the incomming flow...
             # this is indicated the in function update_interval_equations by the self.intervalType label!!
             helpingDict = {}
 
-
         # separation equations
-        separationVariables = [] # preallocate to avoid error
-        if separationDict: # if there is separation make the separation equations
+        separationVariables = []  # preallocate to avoid error
+        if separationDict:  # if there is separation make the separation equations
             separationEquationsPyomo, separationVariables = self.make_separation_equations(separationDict, helpingDict,
-                                                                                           booleanVariable= booleanVariable)
-            if helpingDict: # if the helping dict does noit exist the separation equations are added during the update function
-                pyomoEq += separationEquationsPyomo # otherwise they can be added strait away
+                                                                                           booleanVariable=booleanVariable)
+            if helpingDict:  # if the helping dict does noit exist the separation equations are added during the update function
+                pyomoEq += separationEquationsPyomo  # otherwise they can be added strait away
 
         # spliting equations
-        splitComponentVariables = [] # preallocate to avoid error
-        splitFractionVariables = [] # preallocate to avoid error
+        splitComponentVariables = []  # preallocate to avoid error
+        splitFractionVariables = []  # preallocate to avoid error
         if splitList:
-            splittingEquations, splitComponentVariables, splitFractionVariables = self.make_split_equations(splitList, addOn4Variables,
-                                                                                                            booleanVariable= booleanVariable)
+            splittingEquations, splitComponentVariables, splitFractionVariables = self.make_split_equations(splitList,
+                                                                                                            addOn4Variables,
+                                                                                                            booleanVariable=booleanVariable)
             pyomoEq += splittingEquations
 
         # mixing equations
@@ -1275,7 +1317,8 @@ class ProcessIntervalClass:
                 separationStream = ''
                 if 'sep' in i:
                     indexSep = i.find('sep')
-                    separationStream = i[indexSep:indexSep + 4] # the separation stream that is going te get knocked out
+                    separationStream = i[
+                                       indexSep:indexSep + 4]  # the separation stream that is going te get knocked out
                 for j in VariablesGoingOutSep:
                     if separationStream in j:
                         toRemove.append(j)
@@ -1286,12 +1329,10 @@ class ProcessIntervalClass:
 
             self.leavingInterval = VariablesGoingOutSep + splitComponentVariables
 
-
         # put all self.VARIABLES that pyomo needs to declare here
         self.reactionVariablesOutput = reactionVariablesOutput
         # reactionVariablesInputs can be found in class function: update_reactor_equations
         self.intervalVariable = intervalVariable
-
 
         # define the bounds of the variables
         boundaryDict = {}  # intervals have bounds
@@ -1302,7 +1343,7 @@ class ProcessIntervalClass:
         for i in separationVariables:
             boundaryDict.update({i: 'positiveReals'})
 
-        for i in boundryInputVar: # this is for when you want to add a specific bound to a reaction variable SEE EXCEL
+        for i in boundryInputVar:  # this is for when you want to add a specific bound to a reaction variable SEE EXCEL
             boundaryDict[i] = boundryInputVar[i]
         self.boundryInputVar = boundryInputVar
 
@@ -1315,21 +1356,21 @@ class ProcessIntervalClass:
         self.boundaries = boundaryDict
 
         # make a list with all the variables
-        #continuousVariables = [self.intervalVariable] + self.reactionVariablesOutput + separationVariables + splitComponentVariables # self.separationVariables
-        continuousVariables =  self.reactionVariablesOutput + separationVariables + splitComponentVariables # self.separationVariables
+        # continuousVariables = [self.intervalVariable] + self.reactionVariablesOutput + separationVariables + splitComponentVariables # self.separationVariables
+        continuousVariables = self.reactionVariablesOutput + separationVariables + splitComponentVariables  # self.separationVariables
 
-        #booleanVariables = self.boolVariables
-                            # + self.activationVariable don't need to add this, already in the previous interval under boolVariables
+        # booleanVariables = self.boolVariables
+        # + self.activationVariable don't need to add this, already in the previous interval under boolVariables
         self.allVariables = {'continuous': continuousVariables,
                              'boolean': [],
                              'fraction': splitFractionVariables}
-                                # add fraction variables
+        # add fraction variables
 
         # make a list with all the equations
-        #self.allEquations = self.separationEquations + self.eqSumOfBools + self.boolActivationEquations + self.totalMassEquation
+        # self.allEquations = self.separationEquations + self.eqSumOfBools + self.boolActivationEquations + self.totalMassEquation
         self.pyomoEquations = pyomoEq
 
-    def make_reaction_equations(self,reactionEquations, intervalVariable, booleanVariable = None):
+    def make_reaction_equations(self, reactionEquations, intervalVariable, booleanVariable=None):
         """ function that creates the (preliminary) equations of the reactions that take place in an interval.
         these equations do not have the input variable filled in. In the function update_interval_equations the
         reaction equations are updated with the correct inputs variables
@@ -1370,9 +1411,7 @@ class ProcessIntervalClass:
                     helpingDict.update({out: newOutputName})  # helpìng dictionary for the serparation equations
 
             if booleanVariable:
-                #rplcPyo = " {} * model.boolVar['{}'] ".format(input, booleanVariable)
-                eqPyo = eqPyo.replace("==", "== (")
-                eqPyo += " ) *  model.boolVar['{}']".format(booleanVariable)
+                eqPyo = make_eqation_bool_dependent(equation= eqPyo, booleanVariable= booleanVariable)
 
             ReactorEquationsPyomo.append(eqPyo)
 
@@ -1386,8 +1425,8 @@ class ProcessIntervalClass:
             eqMassInterval += " + " + out
             eqPyoMass += " + " + "model.var['{}']".format(out)  # pyomo version
 
-        #decalre all equations and pass them on
-        self.totalMassEquation = [eqMassInterval] # TODO mass eq. not added to pyomo for the moment, necesary?
+        # decalre all equations and pass them on
+        self.totalMassEquation = [eqMassInterval]  # TODO mass eq. not added to pyomo for the moment, necesary?
         self.reactionEquationsPyomo = ReactorEquationsPyomo
         allEquationsPyomo = [eqMassInterval] + ReactorEquationsPyomo
 
@@ -1411,7 +1450,7 @@ class ProcessIntervalClass:
 
         return allEquationsPyomo, reactionVariablesOutput, helpingDict
 
-    def make_separation_equations(self, separationDict, helpingDict, booleanVariable = None ):
+    def make_separation_equations(self, separationDict, helpingDict, booleanVariable=None):
         """ function that creates the separation equations of the process interval
 
         Parameters:
@@ -1429,30 +1468,30 @@ class ProcessIntervalClass:
                 # create the separation variable that is leaving
                 sepVar = componentSep + '_' + sep
                 separationVariables.append(sepVar)
-                #sepVarPyo = "model.var['{}']".format(sepVar)
+                # sepVarPyo = "model.var['{}']".format(sepVar)
 
                 if helpingDict:
-                    var = helpingDict[componentSep] # helpìng dictionary to get the right variable
+                    var = helpingDict[componentSep]  # helpìng dictionary to get the right variable
                     # pyomo equations
-                    eqSepPyo = "model.var['{}'] == {} * model.var['{}']".format(sepVar, separationDict[sep][componentSep], var)
+                    eqSepPyo = "model.var['{}'] == {} * model.var['{}']".format(sepVar,
+                                                                                separationDict[sep][componentSep], var)
 
-                else: # else if no helping dict, it will get updated in the update function
+                else:  # else if no helping dict, it will get updated in the update function
                     var = componentSep
                     eqSepPyo = "model.var['{}'] == {} * {}".format(sepVar, separationDict[sep][componentSep],
-                                                                            var)
-                if booleanVariable: # add boolean variable if there are any
+                                                                   var)
+                if booleanVariable:  # add boolean variable if there are any
                     eqSepPyo = eqSepPyo.replace('==', '== ( ')
                     eqSepPyo += " ) * model.boolVar['{}'] ".format(booleanVariable)
 
                 separationEquationsPyomo.append(eqSepPyo)
-
 
         self.separationEquations = separationEquationsPyomo
         self.separationVariables = separationVariables
 
         return separationEquationsPyomo, separationVariables
 
-    def make_split_equations(self,splitList, addOn4Variables, booleanVariable = None):
+    def make_split_equations(self, splitList, addOn4Variables, booleanVariable=None):
         """ function that creates the equations of the split streams
 
         Params:
@@ -1481,14 +1520,18 @@ class ProcessIntervalClass:
             for component in self.outputs:  # the self.outputs are the original names given to the outputs of the reactor
                 # make and get variables
                 split1 = component + '_' + splitStream + '_' + 'split1'
-                split2 = component + '_' + splitStream + '_' +'split2'
+                split2 = component + '_' + splitStream + '_' + 'split2'
                 splitComponentVariables.append(split1)
                 splitComponentVariables.append(split2)
                 component2split = component + '_' + splitStream
 
                 # make equations
-                eqSplit1Pyo = "model.var['{}'] == model.fractionVar['{}'] * model.var['{}']".format(split1, splitFractionVar, component2split)
-                eqSplit2Pyo = "model.var['{}'] == (1 - model.fractionVar['{}']) * model.var['{}']".format(split2, splitFractionVar, component2split)
+                eqSplit1Pyo = "model.var['{}'] == model.fractionVar['{}'] * model.var['{}']".format(split1,
+                                                                                                    splitFractionVar,
+                                                                                                    component2split)
+                eqSplit2Pyo = "model.var['{}'] == (1 - model.fractionVar['{}']) * model.var['{}']".format(split2,
+                                                                                                          splitFractionVar,
+                                                                                                          component2split)
 
                 # add boolean variable if there are any
                 if booleanVariable:
@@ -1518,18 +1561,18 @@ class ProcessIntervalClass:
         # depenent on bool?
         booleanVariable = self.booleanVariable
 
-        #mixEquations: list[str] = []
+        # mixEquations: list[str] = []
         mixEquations = []
         initialInputNames = self.inputs
 
-        #intervalNames2Mix = objects2mix.keys()
+        # intervalNames2Mix = objects2mix.keys()
 
         # find the leaving variables
         leavingVars = []
         for objName in objects2mix:
-            obj = objects2mix[objName][0] # first element in tuple is the object
-            connectInfo = objects2mix[objName][1] # second element in tuple is connection info
-            reactorKey ,sepKey, splitKey , boolKey = define_connect_info(connectInfo)
+            obj = objects2mix[objName][0]  # first element in tuple is the object
+            connectInfo = objects2mix[objName][1]  # second element in tuple is connection info
+            reactorKey, sepKey, splitKey, boolKey = define_connect_info(connectInfo)
 
             # if there is a separation process
             if isinstance(connectInfo, str) and sepKey or splitKey:
@@ -1555,7 +1598,7 @@ class ProcessIntervalClass:
         eqMixPyo2Add = []
         intervalName = list(self.nameDict.keys())[0]
         for i, ins in enumerate(initialInputNames):
-            mixVar = "{}_{}_mix".format(ins,intervalName)
+            mixVar = "{}_{}_mix".format(ins, intervalName)
             eqMix = mixVar + " == "
             startMixEq = eqMix
 
@@ -1563,7 +1606,7 @@ class ProcessIntervalClass:
             mixVarPyo = "model.var['{}']".format(mixVar)
             eqMixPyo = mixVarPyo + " == "
 
-            #startMixEqPyo = eqMixPyo
+            # startMixEqPyo = eqMixPyo
             for lvar in leavingVars:
                 if ins in lvar:
                     eqMix += " + " + lvar
@@ -1572,7 +1615,7 @@ class ProcessIntervalClass:
             # For example in the case of pH this does not come from the previous interval!!
             # so the variable can stay as it is and no extra equations needs to be added, hence if eqMix != startMixEq:
             if eqMix != startMixEq:
-                if booleanVariable: # check if there is a dependance on a boolean variable
+                if booleanVariable:  # check if there is a dependance on a boolean variable
                     eqMixPyo = make_eqation_bool_dependent(equation=eqMixPyo, booleanVariable=booleanVariable)
                 mixEquations.append(eqMix)
                 mixingVariables.append(mixVar)
@@ -1599,12 +1642,12 @@ class ProcessIntervalClass:
         '''
 
         # add the variables and equations to the allVar/equations object
-        #self.allEquations += mixEquations
+        # self.allEquations += mixEquations
         self.allVariables['continuous'] += mixingVariables
         self.pyomoEquations += eqMixPyo2Add
         self.mixEquations = eqMixPyo2Add
 
-    def make_incomming_massbalance_equation(self, enteringVariables):
+    def make_incoming_massbalance_equation(self, enteringVariables):
         """
         make the mass balance of the in comming components of an interval before the reaction phase.
         sum of the mixed components or sum of in coming compontents
@@ -1638,18 +1681,30 @@ class ProcessIntervalClass:
     def update_interval_equations(self, newInputs4Interval):
         """
         fills in the uncompleted reaction equations or separation equations
+        I.e., the inputs of the reaction or separation processes
+
+        REMARK: # the operational variables are not dependent on the previous interval, so you could replace these
+        variable in the make_reactor_equation function as well. Anyway we'll replace the operational variable in this
+        function (see also make_replacement_dict function)
+
+        Params:
+            newInputs4Interval (list): is a list of the input variables entering the process interval
+            i.e., after transformation from the previous interval
+
+        Returns: Updated reaction or separation equations
         """
+
         intervalType = self.intervalType
-        name = list(self.nameDict.keys())[0]
-        #print(name)
-        initialInputs4Interval = self.inputs
-        replacementDict = self.get_replacement_dict(initialInputs4Interval, newInputs4Interval)
+        name = list(self.nameDict.keys())[0] # for debugging porposes
+        # print(name)
+
+        replacementDict, boundsDict = self.get_replacement_dict(newInputs4Interval)
 
         # determine which equations need to be updated
         if intervalType == 'reactor':
             equationsInterval = self.reactionEquations  # the reactor equations
 
-        else: # so intervalType == 'separator':
+        else:  # so intervalType == 'separator':
             equationsInterval = self.separationEquations  # the separation equations
 
         allEquations = []
@@ -1668,35 +1723,37 @@ class ProcessIntervalClass:
         # update the reactor/separation equations to the object
         if intervalType == 'reactor':
             self.reactionEquations = allEquations
-        else: # so intervalType == 'separator':
+        else:  # so intervalType == 'separator':
             self.separationEquations = allEquations
 
         # add the variables and equations to the allVariables/pyomoEquations object
         reactionVariablesInputs = list(replacementDict.values())
         self.reactionVariablesInputs = reactionVariablesInputs
-        self.allVariables['continuous'] += self.reactionVariablesInputs #+ [enteringMassVarible] # add to the list of variables
+        self.allVariables[
+            'continuous'] += self.reactionVariablesInputs  # + [enteringMassVarible] # add to the list of variables
         self.pyomoEquations += allEquations
 
-        # add variables to boundry dictionary
-        for i in reactionVariablesInputs:
-                self.boundaries.update({i: (0, None)})
+        # add variables to boundary dictionary
+        self.boundaries.update(boundsDict)
 
-        # replace the variables which have specific bounds e.g., pH variables
+        # replace mass variables which have specific bounds
         boundryInputVar = self.boundryInputVar
-        for i in boundryInputVar: # this is for when you want to add a specifice bound to a reaction variable SEE EXCEL
-            self.boundaries[i] = boundryInputVar[i]
+        for massVar in boundryInputVar:  # this is for when you want to add a specifice bound to a reaction variable SEE EXCEL
+            self.boundaries[massVar] = boundryInputVar[massVar]
+
 
     def make_utility_equations(self):
         """
         makes the equations for the flow of the chemical utility and the cost of said utlity
         """
         booleanVariable = self.booleanVariable
-        reactorName = list(self.nameDict.keys())[0] # get reactor name
-        utilities = self.utilities # get the specified utilities
-        utlityCostVariable = 'cost_utility_chemicals_{}'.format(reactorName)# cost variable (can be defined before the loop)
+        reactorName = list(self.nameDict.keys())[0]  # get reactor name
+        utilities = self.utilities  # get the specified utilities
+        utlityCostVariable = 'cost_utility_chemicals_{}'.format(
+            reactorName)  # cost variable (can be defined before the loop)
 
         # add variable to list
-        self.allVariables['continuous'] += [utlityCostVariable] # add to the lsit of variables
+        self.allVariables['continuous'] += [utlityCostVariable]  # add to the lsit of variables
         # specify the bounds of the variable
         self.boundaries.update({utlityCostVariable: (0, None)})
 
@@ -1711,7 +1768,7 @@ class ProcessIntervalClass:
             utilityName = ut
             utilityParameter = utilities[ut]['parameter']
             utilityCost = utilities[ut]['cost']
-            allUtilityVariables = [] # preallocation
+            allUtilityVariables = []  # preallocation
             # make the variable name
             utilityVariable = '{}_{}'.format(utilityName, reactorName)
             allUtilityVariables.append(utilityVariable)
@@ -1721,7 +1778,8 @@ class ProcessIntervalClass:
             self.boundaries.update({utilityVariable: (0, None)})
 
             # declare the utility equations i.e., mass utility == parameter_ut * incoming flow
-            utilityMassEqPyomo = "model.var['{}'] == {} * model.var['{}']".format(utilityVariable,utilityParameter,incomingFlowVariable)
+            utilityMassEqPyomo = "model.var['{}'] == {} * model.var['{}']".format(utilityVariable, utilityParameter,
+                                                                                  incomingFlowVariable)
 
             # should be zero if the interval is not chosen
             if booleanVariable:
@@ -1740,29 +1798,50 @@ class ProcessIntervalClass:
         # add the inflow equation as well as it relates to the utility equations
 
     # helping functions not related to making equations
-    def get_replacement_dict(self,initialVars, newVars):
-        replacementDict = {}
+    def get_replacement_dict(self, newVars):
+        """ This function makes the dictionary to facilitate switching out new variable in an interval with the new ones
 
+        Params:
+            newVars (list): list of the new incoming variables
+
+        Returns:
+            replacementDict (Dict): dictionary of the old names and their new variable names
+            boundsDict (Dict): dictionary to update the boundries of the new variables!!
+        """
+
+        # get the name of the interval
+        itervalName = self.intervalName
+
+        # get the original input and operational variable names
+        initialVars = self.inputs
+        operationalVarsDict = self.operationalVariablesDict
+        utilityVars = self.utilities
+
+        boundsDict = {} # preallocate
+        replacementDict = {} # preallocate
         for i in initialVars:
             for j in newVars:
-                if i in j:  # the initial variable (of excel) is always in the new name, that's how you can find wat belongs to where
+                if i in j:  # the initial variable (of Excel) is always in the new name, that's how you can find wat belongs to where
                     replacementDict.update({i: j})
+                    boundsDict.update({j:'positiveReals'})
 
-        # in the case of utility flow and operational parameters like pH the the variable does not become a 'mixed variable'
-        # find these variable and give them the appropiate name
-        # (ideally you should call the varible that is missing from the object it's selfreally you)
-        if len(replacementDict) != len(initialVars):
-            keys = list(replacementDict.keys())
-            missingVariables = list(set(keys).symmetric_difference(set(initialVars)))
 
-            for missingVar in  missingVariables:
-                reactorName = list(self.nameDict.keys())[0]
-                replacementDict.update({missingVar: '{}_{}'.format(missingVar,reactorName)})
+        # ideally you should call the new varible that is missing from the object self. This way you won't come into
+        # conflict if you change the naming convention...
+        for var in operationalVarsDict:
+            newOperationalVar = '{}_{}'.format(var, itervalName)
+            replacementDict.update({var: newOperationalVar})
+            boundsDict.update({newOperationalVar:operationalVarsDict[var]})
 
-        return replacementDict
+        for var in utilityVars:
+            newOperationalVar = '{}_{}'.format(var, itervalName)
+            replacementDict.update({var: newOperationalVar})
+
+        return replacementDict, boundsDict
+
 
 class OutputIntervalClass:
-    def __init__(self, outputName, outputBound ,outputPrice, outputVariable, mixDict = None):
+    def __init__(self, outputName, outputBound, outputPrice, outputVariable, mixDict=None):
         if mixDict is None:
             mixDict = {}
         self.label = 'output'
@@ -1774,17 +1853,18 @@ class OutputIntervalClass:
         else:
             self.outputBound = outputBound
         self.outputVariable = outputVariable  # eg: acetate is output name but is refered to as ace in all the reactions
-        self.allVariables = {'continuous':[outputName],
-                             'boolean' : [],  # there are no boolean variables for output intervals
+        self.allVariables = {'continuous': [outputName],
+                             'boolean': [],  # there are no boolean variables for output intervals
                              'fraction': []}  # there are no fraction variables for output intervals
-        self.boundaries = {outputName:self.outputBound}
+        self.boundaries = {outputName: self.outputBound}
+
     def make_output_equations(self, objects2mix):
 
         # find the leaving variables of the object(s) that go into the output
         leavingVars = []
         for objName in objects2mix:
-            obj = objects2mix[objName][0] # first element in tuple is the object
-            connectInfo = objects2mix[objName][1] # first element in tuple is connection info
+            obj = objects2mix[objName][0]  # first element in tuple is the object
+            connectInfo = objects2mix[objName][1]  # first element in tuple is connection info
 
             # if there is a separation process
             if isinstance(connectInfo, str) and 'sep' in connectInfo:
@@ -1800,7 +1880,7 @@ class OutputIntervalClass:
         endVar = self.outputName
         eqEnd = endVar + " == "
         pyomoEqEnd = "model.var['{}']".format(endVar) + " == "
-        #startMixEq = eqEnd
+        # startMixEq = eqEnd
         for i, lvar in enumerate(leavingVars):
             eqEnd += " + " + lvar
             pyomoEqEnd += " + " + "model.var['{}']".format(lvar)
@@ -1808,10 +1888,10 @@ class OutputIntervalClass:
         self.endEquations = eqEnd
         self.allEquations = [eqEnd]
         self.pyomoEquations = [pyomoEqEnd]
-        #self.endVariables = endVar
+        # self.endVariables = endVar
 
 class WastIntervalClass:
-    def __init__(self, wasteVariables, wastePrice, mixDict = None):
+    def __init__(self, wasteVariables, wastePrice, mixDict=None):
         """ initiates the class object for the waste interval
 
         Parameters:
@@ -1852,8 +1932,8 @@ class WastIntervalClass:
 
         for objName in objects2mix:
             wasteComponents = []
-            obj = objects2mix[objName][0] # first element in tuple is the object
-            connectInfo = objects2mix[objName][1] # first element in tuple is connection info
+            obj = objects2mix[objName][0]  # first element in tuple is the object
+            connectInfo = objects2mix[objName][1]  # first element in tuple is connection info
 
             # make waste variable
             wasteVariableMass = "waste_{}".format(objName)
@@ -1865,18 +1945,19 @@ class WastIntervalClass:
             # all the objects have to come from a seperation process otherwise it isn't waste: if so give error message
             if 'sep' not in connectInfo:
                 raise Exception("The waste generated in interval {} does not come into the waste interval through a "
-                                "seperation process: check the connenction matrix in the column 'waste'".format(objName))
+                                "seperation process: check the connenction matrix in the column 'waste'".format(
+                    objName))
 
             # find the variables (of which seperated stream) that go into the waste equation
             allSepVars = obj.leavingInterval
             for var in allSepVars:
                 if connectInfo in var:  # and outputVars in var:
-                    wasteEqPyomo +=  "+ model.var['{}'] ".format(var)
-                    #wasteComponents.append(var)
+                    wasteEqPyomo += "+ model.var['{}'] ".format(var)
+                    # wasteComponents.append(var)
             equationList.append(wasteEqPyomo)
 
         # iniciate cost equation for waste
-        wasteVariableCost = "cost_waste" # make waste cost variable
+        wasteVariableCost = "cost_waste"  # make waste cost variable
         wastePrices = self.wastePrice  # get the prices of waste for each interval
         wasteCostEquation = "model.var['{}'] == ".format(wasteVariableCost)
 
@@ -1885,7 +1966,7 @@ class WastIntervalClass:
         wastePrices = wastePrices.reset_index()
         wastePrices['waste_variables'] = wasteVariableList
         wastePrices = wastePrices.set_index('waste_variables')
-        #wastePrices = wastePrices.reindex(wasteVariableList)
+        # wastePrices = wastePrices.reindex(wasteVariableList)
 
         # iterate over the waste variuables to calculate the cost of disposed waste
         for wasteVar, row in wastePrices.iterrows():
@@ -1899,7 +1980,8 @@ class WastIntervalClass:
         self.allVariables['continuous'] += variableList
         self.pyomoEquations += equationList
         for var in variableList:
-            self.boundaries.update({var: (0, None)}) # positive reals
+            self.boundaries.update({var: (0, None)})  # positive reals
+
 
 # ============================================================================================================
 # Validate the Excel file sheets, checks and error messages
@@ -1932,12 +2014,12 @@ def check_seperation_coef(coef, intervalName, amountOfSep, connectionMatrix):
         rowConnenctionMatrix = connectionMatrix.loc[intervalName]
         countSeperationInMatrix = 0
         for i in rowConnenctionMatrix:
-            if isinstance(i,str) and 'sep' in i:
+            if isinstance(i, str) and 'sep' in i:
                 raise Exception("No bounds where giving for the separation of the the interval '{}' but separated "
                                 "streams are found in the connnection matrix. Plz "
                                 "define seperation bounds in the Excel sheet 'process_intervals'".format(intervalName))
 
-    coefList  = split_remove_spaces(coef, ';')
+    coefList = split_remove_spaces(coef, ';')
     arraysOfCoef = []
     for i in coefList:
         coefTuple = stringbounds_2_tuplebounds(i)
@@ -1950,9 +2032,10 @@ def check_seperation_coef(coef, intervalName, amountOfSep, connectionMatrix):
     # check if the sum of the separation coefficiets are one
     for i in arraysOfCoef:
         sumOfArrays += i
-    nCol = np.shape(sumOfArrays)  #get the amount of columns
+    nCol = np.shape(sumOfArrays)  # get the amount of columns
     if sum(sumOfArrays != np.ones(nCol)):
-        raise Exception("the sum of the seperation coefficients for {} do not add up to 1, check the excel file".format(intervalName))
+        raise Exception("the sum of the seperation coefficients for {} do not add up to 1, check the excel file".format(
+            intervalName))
 
     # check if all the seperation processes are accounted for in the connenction matrix
     try:
@@ -1964,7 +2047,7 @@ def check_seperation_coef(coef, intervalName, amountOfSep, connectionMatrix):
     counterSeparation = []
     counterSplit = []
     for connectCell in rowMatrix:
-        keys = define_connect_info(connectInfo= connectCell)
+        keys = define_connect_info(connectInfo=connectCell)
         sepKey = keys[1]
         splitKey = keys[2]
 
@@ -1972,7 +2055,6 @@ def check_seperation_coef(coef, intervalName, amountOfSep, connectionMatrix):
             counterSeparation.append(sepKey)
         # if 'split' in splitKey:
         #     counterSplit.append(splitKey) # uncomment later to make checks on split streams
-
 
     # make a set so you can determin the unique seperation streams
     list_set = set(counterSeparation)
@@ -1982,14 +2064,17 @@ def check_seperation_coef(coef, intervalName, amountOfSep, connectionMatrix):
     # amountOfSep counted from the number of bounds found in the column separation_coef (sheet process_intervals)
     if nUniqueSeparation != amountOfSep:
         if nUniqueSeparation > amountOfSep:
-            raise Exception("There are more separation processes defined in the connection matrix then the amount of separation arrays defined in the column separation_coef"
-                            ""
-                            "Check interval {} there is a separation array missing in the column sepqrqtion_coef".format(intervalName))
+            raise Exception(
+                "There are more separation processes defined in the connection matrix then the amount of separation arrays defined in the column separation_coef"
+                ""
+                "Check interval {} there is a separation array missing in the column sepqrqtion_coef".format(
+                    intervalName))
         else:
             raise Exception(
                 "There are more separation processes defined in the amount of separation arrays (defined in the column separation_coef)"
                 "then the connection matrix"
                 "Check interval {} there is a separation process missing in the connection matrix".format(intervalName))
+
 
 def check_excel_file(excelName):
     """ checks if the Excel file does not contain fatal errors for the generation of the super structure
@@ -1998,7 +2083,7 @@ def check_excel_file(excelName):
     loc = get_location(excelName)
 
     DFIntervals = pd.read_excel(loc, sheet_name='input_output_intervals')
-    DFprocessIntervals =  pd.read_excel(loc, sheet_name='process_intervals')
+    DFprocessIntervals = pd.read_excel(loc, sheet_name='process_intervals')
     DFeconomicParameters = pd.read_excel(loc, sheet_name='economic_parameters')
     DFConnectionMatrix = pd.read_excel(loc, sheet_name='connection_matrix')
     DFAbbr = pd.read_excel(loc, sheet_name='abbr')
@@ -2025,28 +2110,33 @@ def check_excel_file(excelName):
         pass
     else:
         positonError = [errorList for i, errorList in enumerate(intervalNames) if not intervalNames[i]
-                                    == intervalNamesConnenctionMatrixRow[i] == intervalNamesConnenctionMatrixCol[i]]
+                                                                                      ==
+                                                                                      intervalNamesConnenctionMatrixRow[
+                                                                                          i] ==
+                                                                                      intervalNamesConnenctionMatrixCol[
+                                                                                          i]]
         print(positonError)
         raise Exception('The names in the connection matrix sheet or the interval sheet are not the same')
 
     # check if all abbreviations are defined
-    abbreviations = split_remove_spaces(list(DFprocessIntervals.inputs),',') \
-                  + split_remove_spaces(list(DFprocessIntervals.outputs),',') \
-                  + split_remove_spaces(list(DFIntervals.components),',')
+    abbreviations = split_remove_spaces(list(DFprocessIntervals.inputs), ',') \
+                    + split_remove_spaces(list(DFprocessIntervals.outputs), ',') \
+                    + split_remove_spaces(list(DFIntervals.components), ',')
 
-    #uniqueListAbr = list(OrderedDict.fromkeys(abbreviations))
+    # uniqueListAbr = list(OrderedDict.fromkeys(abbreviations))
     abbrSet = set(abbreviations)
-    abbrExcel = set(split_remove_spaces(list(DFAbbr.abbreviation),','))
+    abbrExcel = set(split_remove_spaces(list(DFAbbr.abbreviation), ','))
 
     missingAbbr = abbrSet - abbrExcel
-    if  missingAbbr:
-        raise Exception('You are missing a definition for the following abbreviations: {}'.format(missingAbbr) )
+    if missingAbbr:
+        raise Exception('You are missing a definition for the following abbreviations: {}'.format(missingAbbr))
     else:
         pass
 
     # check if the process interval names are the same in the sheet economic_parameters and process_intervals
     if not DFeconomicParameters['process_intervals'].equals(DFprocessIntervals['process_intervals']):
         raise ValueError("Interval names in 'economic_parameters' and 'process_intervals' do not match")
+
 
 # ============================================================================================================
 # Functions to make the interval objects
@@ -2063,15 +2153,14 @@ def read_excel_sheets4_superstructure(excelName):
     ExcelDict (Dict): a dictionary containing DF
     '''
     # read Excel file
-    loc = get_location(file= excelName)
+    loc = get_location(file=excelName)
 
     # read excel info
     DFInOutIntervals = pd.read_excel(loc, sheet_name='input_output_intervals')
-    DFconnectionMatrix = pd.read_excel(loc, sheet_name='connection_matrix')
-    DFconnectionMatrix = DFconnectionMatrix.set_index('process_intervals')
-    DFprocessIntervals = pd.read_excel(loc, sheet_name='process_intervals')
-    DFeconomicParameters = pd.read_excel(loc, sheet_name='economic_parameters')
-    DFmodels = pd.read_excel(loc, sheet_name='models')
+    DFconnectionMatrix = pd.read_excel(loc, sheet_name='connection_matrix', index_col='process_intervals')
+    DFprocessIntervals = pd.read_excel(loc, sheet_name='process_intervals', index_col='process_intervals')
+    DFeconomicParameters = pd.read_excel(loc, sheet_name='economic_parameters', index_col='process_intervals')
+    DFmodels = pd.read_excel(loc, sheet_name='models', index_col='model_name')
     DFabrriviations = pd.read_excel(loc, sheet_name='abbr')
 
     ExcelDict = {
@@ -2079,13 +2168,14 @@ def read_excel_sheets4_superstructure(excelName):
         'connection_DF': DFconnectionMatrix,
         'process_interval_DF': DFprocessIntervals,
         'economic_parameters_DF': DFeconomicParameters,
-        'models_DF':   DFmodels,
-        'abbreviations_DF':DFabrriviations
+        'models_DF': DFmodels,
+        'abbreviations_DF': DFabrriviations
     }
 
     return ExcelDict
 
-def make_mix_dictionary(intervalName,DFconnectionMatrix):
+
+def make_mix_dictionary(intervalName, DFconnectionMatrix):
     """ Returns the mixing dictionary based on the connection matrix
 
     Parameters:
@@ -2096,11 +2186,12 @@ def make_mix_dictionary(intervalName,DFconnectionMatrix):
         MixDict (dict): dictionary of interval objects that needs to be mixed
     """
     # check if it is mixed with other reactors
-    #processInvervalNames = list(DFconnectionMatrix.index)
+    # processInvervalNames = list(DFconnectionMatrix.index)
 
     reactorCol = DFconnectionMatrix[intervalName]
-    specifications = reactorCol.where(reactorCol != 0).dropna() # find where mixing takes place, mixed streams are in the same colunm
-    intervals2Mix = list(specifications.index) # the indexs are the names of the process interval to mix
+    specifications = reactorCol.where(
+        reactorCol != 0).dropna()  # find where mixing takes place, mixed streams are in the same colunm
+    intervals2Mix = list(specifications.index)  # the indexs are the names of the process interval to mix
 
     # get rid of the diagonal element refering to itself (if it is there due to defining the boolean variable)
     try:
@@ -2115,6 +2206,7 @@ def make_mix_dictionary(intervalName,DFconnectionMatrix):
         for k, specs in enumerate(specifications):
             mixDict.update({intervals2Mix[k]: specs})
     return mixDict
+
 
 def make_boolean_equations(DFconnectionMatrix, processIntervalnames):
     """ makes the equations that regulate if a certain reactor is chosen or not nl: 1 == sum(boolean variables)
@@ -2140,7 +2232,7 @@ def make_boolean_equations(DFconnectionMatrix, processIntervalnames):
         if not isinstance(DFconnectionMatrix[i][i], str):
             toDrop.append(i)
 
-    DFconnectionMatrix = DFconnectionMatrix.drop(labels= toDrop, axis=1)
+    DFconnectionMatrix = DFconnectionMatrix.drop(labels=toDrop, axis=1)
 
     switch = True
     equationsSumOfBools = []
@@ -2152,13 +2244,13 @@ def make_boolean_equations(DFconnectionMatrix, processIntervalnames):
         for index, row in DFconnectionMatrix.iterrows():
             intervalNames = []
             for indexCol, element in row.items():
-                #element = row[colName]
-                if isinstance(element, str) or element != 0: # so comes from a separation or just connected by '1'
+                # element = row[colName]
+                if isinstance(element, str) or element != 0:  # so comes from a separation or just connected by '1'
                     intervalNames.append(indexCol)
                 else:
                     break
 
-            saveDict.update({index:intervalNames})
+            saveDict.update({index: intervalNames})
 
         # find the key in the saveDict that has the longest list
         key_max_sequential = max(saveDict, key=lambda k: len(saveDict[k]))
@@ -2174,9 +2266,9 @@ def make_boolean_equations(DFconnectionMatrix, processIntervalnames):
         # now we need to drop the colums in the original dataframe that already form 1 set of equations
         # the colunms that need to be droped are in saveDict[key_max_sequential]1
         cols2drop = saveDict[key_max_sequential]
-        DFconnectionMatrix = DFconnectionMatrix.drop(labels= cols2drop, axis=1)
+        DFconnectionMatrix = DFconnectionMatrix.drop(labels=cols2drop, axis=1)
 
-        if DFconnectionMatrix.empty: # once the DF is empty we can stop the while loop
+        if DFconnectionMatrix.empty:  # once the DF is empty we can stop the while loop
             switch = False
 
         if iteration > 50:
@@ -2189,6 +2281,8 @@ def make_boolean_equations(DFconnectionMatrix, processIntervalnames):
         raise Exception("the boolean variables are not all unique, check the diagonal of the connection matrix")
 
     return booleanVariables, equationsSumOfBools
+
+
 # functions to automate making the interval class objects
 def make_input_intervals(ExcelDict):
     """ Makes the process intervals of inputs.
@@ -2205,12 +2299,12 @@ def make_input_intervals(ExcelDict):
 
     # inputs
     inputPrices = DFIntervals.input_price.to_numpy()
-    posInputs = inputPrices != 0    # find where the input interval are (they have an input price)
+    posInputs = inputPrices != 0  # find where the input interval are (they have an input price)
 
     # find names of input interval variable
     InputIntervalNames = DFIntervals.process_intervals[posInputs]
-    componentsList =  DFIntervals.components[posInputs]
-    compositionsList =  DFIntervals.composition[posInputs]
+    componentsList = DFIntervals.components[posInputs]
+    compositionsList = DFIntervals.composition[posInputs]
 
     ####
     inBoundsLow = DFIntervals.lower_bound[posInputs].to_numpy()
@@ -2219,7 +2313,8 @@ def make_input_intervals(ExcelDict):
 
     # define fixed parameters cost raw material
     inputPriceDict = {InputIntervalNames[i]: inputPrices[i] for i in range(len(inputPrices))}  # make dictionary
-    boundryDict = {InputIntervalNames[i]: [inBoundsLow[i], inBoundsUpper[i]] for i in range(len(inputPrices))}  # make dictionary
+    boundryDict = {InputIntervalNames[i]: [inBoundsLow[i], inBoundsUpper[i]] for i in
+                   range(len(inputPrices))}  # make dictionary
 
     # loop over all the inputs and make a class of each one
     objectDictionary = {}
@@ -2233,28 +2328,29 @@ def make_input_intervals(ExcelDict):
         inputPrice = inputPriceDict[intervalName]
         boundryInput = boundryDict[intervalName]
         componentsOfInterval = componentsList[i].split(",")
-        compositionsofInterval = compositionsList[i] # string or 1, depends if there are different components
-        compsitionDictionary = {} # preallocate dictionary
+        compositionsofInterval = compositionsList[i]  # string or 1, depends if there are different components
+        compsitionDictionary = {}  # preallocate dictionary
         if compositionsofInterval == 1:  # if it is one, no need to loop over the dictionary, there is only one compound
-            component = componentsOfInterval[0].replace(' ','')
-            fraction = compositionsofInterval # should always be one component in the stream
+            component = componentsOfInterval[0].replace(' ', '')
+            fraction = compositionsofInterval  # should always be one component in the stream
             compsitionDictionary.update({component: fraction})
         else:
             compositionsofInterval = compositionsList[i].split(",")
-            for j,component in enumerate(componentsOfInterval):
-                component = component.replace(' ','')  # get rid of spaces
+            for j, component in enumerate(componentsOfInterval):
+                component = component.replace(' ', '')  # get rid of spaces
                 fraction = compositionsofInterval[j]
-                fraction = fraction.replace(' ','')
+                fraction = fraction.replace(' ', '')
                 fraction = float(fraction)
-                compsitionDictionary.update({component:fraction})
-
+                compsitionDictionary.update({component: fraction})
 
         # create object
-        objectInput = InputIntervalClass(inputName=intervalName,compositionDict=compsitionDictionary,
-                                         inputPrice=inputPrice,boundryInputVar=boundryInput, booleanVariable= booleanVar)
-        objectDictionary.update({intervalName:objectInput})
+        objectInput = InputIntervalClass(inputName=intervalName, compositionDict=compsitionDictionary,
+                                         inputPrice=inputPrice, boundryInputVar=boundryInput,
+                                         booleanVariable=booleanVar)
+        objectDictionary.update({intervalName: objectInput})
 
     return objectDictionary
+
 
 def make_process_intervals(ExcelDict):
     """ Makes the process intervals of the process intervals (excluding inputs and outputs).
@@ -2266,76 +2362,74 @@ def make_process_intervals(ExcelDict):
         objectDict (Dict): a dictionary holding all the class objects for process intervals
         """
 
-    DFInOutIntervals = ExcelDict['input_output_DF']
+    # DFInOutIntervals = ExcelDict['input_output_DF']
     DFconnectionMatrix = ExcelDict['connection_DF']
     DFprocessIntervals = ExcelDict['process_interval_DF']
     DFeconomicParameters = ExcelDict['economic_parameters_DF']
-    DFmodels =  ExcelDict['models_DF']
+    DFmodels = ExcelDict['models_DF']
 
-
-    reactorIntervals = DFprocessIntervals.process_intervals
-    objectDictionary = {} # preallcoate a dictionary with the interval names and the interval objects
-    for i, intervalName in enumerate(reactorIntervals):
-        intervalName = intervalName.replace(' ', '') # remove annoying spaces
-        #inputs of reactor
-        inputsReactor = DFprocessIntervals.inputs[i]
-        inputsReactor = split_remove_spaces(inputsReactor,',')
-        #outputs of the reactor
-        outputsReactor = DFprocessIntervals.outputs[i]
-        outputsReactor = split_remove_spaces(outputsReactor,',')
+    # loop over all the process intervals to make their respective objects
+    listProcessIntervals = list(DFprocessIntervals.index)
+    objectDictionary = {}  # preallcoate a dictionary with the interval names and the interval objects
+    for intervalName in listProcessIntervals:
+        intervalName = intervalName.replace(' ', '')  # remove annoying spaces
+        # inputs of reactor
+        inputsReactor = DFprocessIntervals.inputs[intervalName]
+        inputsReactor = split_remove_spaces(inputsReactor, ',')
+        # outputs of the reactor
+        outputsReactor = DFprocessIntervals.outputs[intervalName]
+        outputsReactor = split_remove_spaces(outputsReactor, ',')
         # find the bounds of the interval
-        boundsReactor = eval(DFprocessIntervals.interval_bounds[i])
-        nameDict = {intervalName:boundsReactor}
+        boundsReactor = eval(DFprocessIntervals.interval_bounds[intervalName])
+        nameDict = {intervalName: boundsReactor}
 
         # find the correct equation of the reactor
-        reactionIndicator = DFprocessIntervals.reaction_model[i] # indicates in wat format to read the equations
+        reactionIndicator = DFprocessIntervals.reaction_model[
+            intervalName]  # indicates in wat format to read the equations
 
-        if isinstance(reactionIndicator,int) and reactionIndicator == 0: # if it is zero there is no reaction, only seperation, e.g., for a distilation process
+        if isinstance(reactionIndicator,
+                      int) and reactionIndicator == 0:  # if it is zero there is no reaction, only seperation, e.g., for a distilation process
             equations = None
 
         elif 'xml' in reactionIndicator:
-            modelName = DFprocessIntervals.reaction_model[i]
-            nameList = list(DFmodels.model_name)
+            modelName = DFprocessIntervals.reaction_model[intervalName]
             try:
-                indexModelName = nameList.index(modelName)
+                equationInfo = DFmodels.loc[modelName]  # check if said model is present in the Excel sheet models
             except:
-                raise Exception('make sure the name {} is identical in the sheet sbml_models and process_intervals'.format(modelName))
+                raise Exception(
+                    'make sure the name {} is identical in the sheet sbml_models and process_intervals'.format(
+                        modelName))
 
-            inputID = DFmodels.SBML_input_ID[indexModelName]
-            outputID = DFmodels.SBML_output_ID[indexModelName]
-            outputID = split_remove_spaces(outputID,',')
-            equationInfo =DFmodels.iloc[indexModelName]
+            inputID = equationInfo.SBML_input_ID
+            outputID = equationInfo.SBML_output_ID
+            outputID = equationInfo(outputID, ',')
 
-            equations = make_str_eq_smbl(modelName= modelName, substrate_exchange_rnx= inputID,
-                                         product_exchange_rnx=outputID, equationInfo= equationInfo)
-            #print('s')
+            equations = make_str_eq_smbl(modelName=modelName, substrate_exchange_rnx=inputID,
+                                         product_exchange_rnx=outputID, equationInfo=equationInfo)
+            # print('s')
         elif 'json' in reactionIndicator:
-            jsonFile = DFprocessIntervals.reaction_model[i]
-            nameList = list(DFmodels.model_name)
+            jsonFile = DFprocessIntervals.reaction_model[intervalName]
             try:
-                indexModelName = nameList.index(jsonFile)
+                equationInfo = DFmodels.loc[jsonFile]  # check if said model is present in the execel sheet models
             except:
                 raise Exception(
                     "make sure the name for the json file {} is identical in the sheet 'models' and 'reactor_interval'"
                     "s__".format(jsonFile))
-
             # find the save location
-            jsonLoc = get_location(file= jsonFile)
+            jsonLoc = get_location(file=jsonFile)
             with open(jsonLoc) as file:
                 reactionObject = json.load(file)
 
-            equationInfo = DFmodels.iloc[indexModelName]
-            equations = make_str_eq_json(reactionObject,equationInfo)
+            equations = make_str_eq_json(reactionObject, equationInfo)
 
-        else: # the equation is written as a string in the Excel file handy for testing porposes
-            equations = DFprocessIntervals.reaction_model[i]
-            equations = split_remove_spaces(equations,',')
+        else:  # the equation is written as a string in the Excel file handy for testing porposes
+            equations = DFprocessIntervals.reaction_model[intervalName]
+            equations = split_remove_spaces(equations, ',')
             for eq in equations:
                 if '==' not in eq:
                     raise Exception(
                         'Take a look at the reaction model mate, there is no json, xml or correct reaction given'
-                                   ' for reactor {}'.format(intervalName))
-
+                        ' for reactor {}'.format(intervalName))
 
         # find if the interval is dependent on a boolean variable
         boolVar = None
@@ -2344,56 +2438,58 @@ def make_process_intervals(ExcelDict):
             boolVar = boolInformation
 
         # find special component bounds like that for pH
-        boundsComponentStr = DFprocessIntervals.input_bounds[i]
-        if not isinstance(boundsComponentStr,str):
+        boundsComponentStr = DFprocessIntervals.input_bounds[intervalName]
+        if not isinstance(boundsComponentStr, str):
             boundsComponent = {}
         else:
-            boundsComponent = str_2_dict(boundsComponentStr,intervalName)
+            boundsComponent = str_2_dict(boundsComponentStr, intervalName)
 
         # find if there are any utilities that are used
         utilityDict = {}  # only one utilty per process interv al is permitted for the moment
-        if DFprocessIntervals.ut_chemical[i] != 0 :
+        if DFprocessIntervals.ut_chemical[intervalName] != 0:
             # get utility name
-            utilityVariableNames = DFprocessIntervals.ut_chemical[i]
-            utilityVariableNames = split_remove_spaces(utilityVariableNames,',')
+            utilityVariableNames = DFprocessIntervals.ut_chemical[intervalName]
+            utilityVariableNames = split_remove_spaces(utilityVariableNames, ',')
             # get utility parameter
-            utilityParameter = [DFprocessIntervals.mu_ut[i]] # made as a list so in the future multiple utility componets can be added
+            utilityParameter = [DFprocessIntervals.mu_ut[
+                                    intervalName]]  # made as a list so in the future multiple utility componets can be added
             # get price utility
-            utilityPrice = [DFeconomicParameters.ut_chem_price[i]] # made as a list so in the future multiple utility componets can be added
-            #utilityPrice = split_remove_spaces(utilityPrice,',')
+            utilityPrice = [DFeconomicParameters.ut_chem_price[
+                                intervalName]]  # made as a list so in the future multiple utility componets can be added
+            # utilityPrice = split_remove_spaces(utilityPrice,',')
             for j, utilityName in enumerate(utilityVariableNames):
-                utilityDict.update({utilityName: {'cost': utilityPrice[j], 'parameter':utilityParameter[j] } } )
+                utilityDict.update({utilityName: {'cost': utilityPrice[j], 'parameter': utilityParameter[j]}})
 
         # find if the separated streams and where they go to/ the components to separate
         seperationDict = {}
-        outputsStr = DFprocessIntervals.outputs[i]
-        coefStr = DFprocessIntervals.seperation_coef[i]
+        outputsStr = DFprocessIntervals.outputs[intervalName]
+        coefStr = DFprocessIntervals.seperation_coef[intervalName]
         coefList = split_remove_spaces(coefStr, ';')
         amountOfSeperations = len(coefList)
         check_seperation_coef(coefStr, intervalName, amountOfSeperations, DFconnectionMatrix)
 
-        if DFprocessIntervals.seperation_coef[i] != 0: #and DFprocessIntervals.has_seperation[i] < 2 :
+        if DFprocessIntervals.seperation_coef[intervalName] != 0:  # and DFprocessIntervals.has_seperation[i] < 2 :
             for j in range(amountOfSeperations):
-                seperationName = intervalName + '_sep{}'.format(j+1)
+                seperationName = intervalName + '_sep{}'.format(j + 1)
                 coefTuple = stringbounds_2_tuplebounds(coefList[j])
-                outputs = split_remove_spaces(outputsStr, ',' )
+                outputs = split_remove_spaces(outputsStr, ',')
                 specificSeperationDict = {}
                 for k, outputName in enumerate(outputs):
-                    specificSeperationDict.update({outputName:coefTuple[k]})
+                    specificSeperationDict.update({outputName: coefTuple[k]})
                 seperationDict.update({seperationName: specificSeperationDict})
-            #objectReactor.separation = seperationDict
+            # objectReactor.separation = seperationDict
 
         # check if it is mixed with other reactors
-        mixDict = make_mix_dictionary(intervalName= intervalName, DFconnectionMatrix = DFconnectionMatrix)
+        mixDict = make_mix_dictionary(intervalName=intervalName, DFconnectionMatrix=DFconnectionMatrix)
 
         # find to which interval the stream is split to (indicated in the connection matrix)
         intervalRow = DFconnectionMatrix.loc[intervalName]
-        splitList = [] # find the reactor or separation stream to split
+        splitList = []  # find the reactor or separation stream to split
         for j, info in enumerate(intervalRow):
             if isinstance(info, str) and 'split' in info and 'sep' in info:
                 indexSep = info.find('sep')
                 separationStream = info[indexSep:indexSep + 4]
-                splitList.append('{}_{}'.format(intervalName,separationStream))
+                splitList.append('{}_{}'.format(intervalName, separationStream))
 
             elif isinstance(info, str) and 'split' in info and not 'sep' in info:
                 splitList.append(intervalName)
@@ -2402,18 +2498,29 @@ def make_process_intervals(ExcelDict):
         setSplits = set(splitList)
         listSplits = list(setSplits)
 
-        # pass on the connenction information
+        # pass on the connection information
         connectedIntervals = get_connected_intervals(intervalName=intervalName, conectionMatrix=DFconnectionMatrix)
 
+        # pass on the operational variables if there are any
+        operationalVars = DFprocessIntervals.operation_bounds.loc[intervalName]
+        operationalVarDict = {}
+        if isinstance(operationalVars, str):
+            try:
+                operationalVarDict = eval(operationalVars)
+            except:  # raise an exception if the dictionary is not well writen
+                raise Exception("The operational variables {} for interval {} are not in dictionary "
+                                "format: \n {} the format is {'var1': [lb, ub], 'var2': [lb, ub] ... }")
         # make initial interval object
-        objectReactor = ProcessIntervalClass(inputs = inputsReactor, boundryInputVar = boundsComponent,
-                                             connectInfo = connectedIntervals, outputs = outputsReactor,
-                                             reactionEquations= equations, nameDict =nameDict,
-                                             mix= mixDict, utilities=utilityDict, separationDict=seperationDict,
-                                             splitList= listSplits, booleanVariable = boolVar)
+        objectReactor = ProcessIntervalClass(inputs=inputsReactor, boundryInputVar=boundsComponent,
+                                             connectInfo=connectedIntervals, outputs=outputsReactor,
+                                             reactionEquations=equations, nameDict=nameDict,
+                                             mix=mixDict, utilities=utilityDict, separationDict=seperationDict,
+                                             splitList= listSplits, booleanVariable=boolVar,
+                                             operationalVariablesDict=operationalVarDict)
         # put the object in the dictionary
-        objectDictionary.update({intervalName:objectReactor})
+        objectDictionary.update({intervalName: objectReactor})
     return objectDictionary
+
 
 def make_output_intervals(ExcelDict):
     """ Makes the process intervals of outputs.
@@ -2431,7 +2538,7 @@ def make_output_intervals(ExcelDict):
 
     # find the output interval names and information in one step
     output_data = DFIntervals[DFIntervals.output_price != 0].drop(['output_price'], axis=1)
-    objectDictionary = {} # preallcoate a dictionary with the interval names and the interval objects
+    objectDictionary = {}  # preallcoate a dictionary with the interval names and the interval objects
     for i, row in output_data.iterrows():
         intervalName = row.process_intervals.replace(' ', '')
 
@@ -2456,6 +2563,7 @@ def make_output_intervals(ExcelDict):
 
     return objectDictionary
 
+
 def make_waste_interval(ExcelDict):
     """ Makes the process intervals of the waste interval.
 
@@ -2469,9 +2577,7 @@ def make_waste_interval(ExcelDict):
     # retrive data
     DFconnectionMatrix = ExcelDict['connection_DF']
     DFprocessIntervals = ExcelDict['process_interval_DF']
-    DFprocessIntervals = DFprocessIntervals.set_index('process_intervals') # set the index
     DFeconomicParameters = ExcelDict['economic_parameters_DF']
-    DFeconomicParameters = DFeconomicParameters.set_index('process_intervals') # set the index
     intervalName = 'waste'
 
     # find the prices of waste per interval
@@ -2484,18 +2590,19 @@ def make_waste_interval(ExcelDict):
     mixDict = make_mix_dictionary(intervalName=intervalName, DFconnectionMatrix=DFconnectionMatrix)
 
     # make initial interval object
-    objectWaste = WastIntervalClass(mixDict=mixDict, wastePrice=priceWasteDF, wasteVariables= wasteVariables)
+    objectWaste = WastIntervalClass(mixDict=mixDict, wastePrice=priceWasteDF, wasteVariables=wasteVariables)
 
     # put the object in the dictionary
-    objectDictionary ={intervalName:objectWaste}
+    objectDictionary = {intervalName: objectWaste}
 
     return objectDictionary
+
 
 # ============================================================================================================
 # Functions to update the interval objects
 # ============================================================================================================
 
-def update_intervals(allIntervalObjectsDict,ExcelDict):
+def update_intervals(allIntervalObjectsDict, ExcelDict):
     """ Updated the equations of all interval objects. the mixing equations are added, the reaction equations are updated
     and the utlity equations are added.
     # check if this function is really necesary, can't I just get the equations right in one loop? i.e., in the function
@@ -2523,19 +2630,18 @@ def update_intervals(allIntervalObjectsDict,ExcelDict):
                                 'check the connection matrix'.format(intervalName))
 
             simpleConcention, sepKey, splitKey, boolKey = define_connect_info(connectInfo)
-            #simpleConcention = True  # just connecting from one reactor to the next with the connection possibly being a bool
+            # simpleConcention = True  # just connecting from one reactor to the next with the connection possibly being a bool
 
             # get the previous interval object (if there is mixing these variables are ignored)
             previousIntervalName = list(connectedIntervals.keys())[0]
             previousIntervalObject = allIntervalObjectsDict[previousIntervalName]
             enteringVariables = previousIntervalObject.leavingInterval
 
-
-            if len(connectedIntervals) == 1: # in other words no mixing
+            if len(connectedIntervals) == 1:  # in other words no mixing
                 # update_reactor_equations: current interval connected by 1 interval
-                if simpleConcention: # and connectInfo == 1 or if it is 'bool' (does not matter)
+                if simpleConcention:  # and connectInfo == 1 or if it is 'bool' (does not matter)
                     intervalObject.update_interval_equations(enteringVariables)
-                    intervalObject.make_incomming_massbalance_equation(enteringVariables)
+                    intervalObject.make_incoming_massbalance_equation(enteringVariables)
 
                 # update_reactor_equations: current interval is connected by a separation stream and/or split stream
                 elif sepKey and splitKey:
@@ -2544,7 +2650,7 @@ def update_intervals(allIntervalObjectsDict,ExcelDict):
                         if sepKey in var and splitKey in var:
                             newReactorInputs4Interval.append(var)
                     intervalObject.update_interval_equations(newReactorInputs4Interval)
-                    intervalObject.make_incomming_massbalance_equation(newReactorInputs4Interval)
+                    intervalObject.make_incoming_massbalance_equation(newReactorInputs4Interval)
 
                 elif sepKey and not splitKey:
                     newReactorInputs4Interval = []
@@ -2552,25 +2658,27 @@ def update_intervals(allIntervalObjectsDict,ExcelDict):
                         if sepKey in var:
                             newReactorInputs4Interval.append(var)
                     intervalObject.update_interval_equations(newReactorInputs4Interval)
-                    intervalObject.make_incomming_massbalance_equation(newReactorInputs4Interval)
+                    intervalObject.make_incoming_massbalance_equation(newReactorInputs4Interval)
 
-                elif splitKey and not sepKey: # only splitting remains
+                elif splitKey and not sepKey:  # only splitting remains
                     newReactorInputs4Interval = []
                     for var in enteringVariables:
                         if splitKey in var:
                             newReactorInputs4Interval.append(var)
                     intervalObject.update_interval_equations(newReactorInputs4Interval)
-                    intervalObject.make_incomming_massbalance_equation(newReactorInputs4Interval)
+                    intervalObject.make_incoming_massbalance_equation(newReactorInputs4Interval)
 
             # update_reactor_equations:
             # current interval is connected by multiple intervals by MIXING (including mixing separated streams)
-            elif len(connectedIntervals) > 1: # so here is mixing
-                objectDict2mix = {nameObjConect:(allIntervalObjectsDict[nameObjConect], connectedIntervals[nameObjConect]) for nameObjConect in connectedIntervals}
+            elif len(connectedIntervals) > 1:  # so here is mixing
+                objectDict2mix = {
+                    nameObjConect: (allIntervalObjectsDict[nameObjConect], connectedIntervals[nameObjConect]) for
+                    nameObjConect in connectedIntervals}
                 intervalObject.make_mix_equations(objectDict2mix)
                 newReactorInputs4Interval = intervalObject.mixingVariables
 
                 intervalObject.update_interval_equations(newReactorInputs4Interval)
-                intervalObject.make_incomming_massbalance_equation(newReactorInputs4Interval)
+                intervalObject.make_incoming_massbalance_equation(newReactorInputs4Interval)
 
             if intervalObject.utilities:
                 # if the utilities dictionary is not empty, there is a utility to be added to the interval
@@ -2585,6 +2693,7 @@ def update_intervals(allIntervalObjectsDict,ExcelDict):
             objectDict2mix = {nameObjConect: (allIntervalObjectsDict[nameObjConect], connectedIntervals[nameObjConect])
                               for nameObjConect in connectedIntervals}
             intervalObject.make_waste_equations(objectDict2mix)
+
 
 def get_vars_eqs_bounds(objectDict):
     """ Returns all the varible that pyomo needs to declare, the equations (in pyomo format) and a dictionary with the
@@ -2609,8 +2718,8 @@ def get_vars_eqs_bounds(objectDict):
         obj = objectDict[objName]
         equations += obj.pyomoEquations
         pluses = '++'
-        #print(pluses*10 + objName + pluses*10)
-        print('{}__{}__{}'.format(pluses*10, objName, pluses*10))
+        # print(pluses*10 + objName + pluses*10)
+        print('{}__{}__{}'.format(pluses * 10, objName, pluses * 10))
         if obj.label == 'process_interval':
 
             # print the equations per classification
@@ -2651,7 +2760,7 @@ def get_vars_eqs_bounds(objectDict):
 
             print('')
 
-        else: #obj.label == 'output':
+        else:  # obj.label == 'output':
             for eq_interval in obj.pyomoEquations:
                 print(eq_interval)
             print('')  # print a space for readability
@@ -2663,7 +2772,8 @@ def get_vars_eqs_bounds(objectDict):
         boundsContinousVars = boundsContinousVars | obj.boundaries
 
     # remove double variables in the list of continuous variables
-    unique_list_var_continous = list(OrderedDict.fromkeys(continuousVariables))  # preserves order (easier to group the equations per interval this way)
+    unique_list_var_continous = list(OrderedDict.fromkeys(
+        continuousVariables))  # preserves order (easier to group the equations per interval this way)
     unique_list_var_bool = list(OrderedDict.fromkeys(booleanVariables))
 
     # dictionary to bundel  all the varibles
@@ -2673,11 +2783,12 @@ def get_vars_eqs_bounds(objectDict):
 
     return variables, equations, boundsContinousVars
 
+
 # ============================================================================================================
 # Master function: generates the superstructure
 # ============================================================================================================
 
-def make_super_structure(excelFile, printPyomoEq = False):
+def make_super_structure(excelFile, printPyomoEq=False):
     """ Master function: calls all other functions to make the superstructure
 
     Declare all interval variables (capital letters) and component variables (small letters)
@@ -2694,32 +2805,32 @@ def make_super_structure(excelFile, printPyomoEq = False):
     """
 
     model = pe.ConcreteModel()
-    check_excel_file(excelName= excelFile)
-    excelDict = read_excel_sheets4_superstructure(excelName=excelFile )
+    check_excel_file(excelName=excelFile)
+    excelDict = read_excel_sheets4_superstructure(excelName=excelFile)
 
-    boolObject = BooleanClass(ExcelDict= excelDict)
+    boolObject = BooleanClass(ExcelDict=excelDict)
     boolObjectDict = {'boolean_object': boolObject}
-    objectsInputDict = make_input_intervals(ExcelDict= excelDict)
-    objectsReactorDict = make_process_intervals(ExcelDict= excelDict)
-    objectsOutputDict  = make_output_intervals(ExcelDict= excelDict)
-    objectsWasteDict  = make_waste_interval(ExcelDict= excelDict)
+    objectsInputDict = make_input_intervals(ExcelDict=excelDict)
+    objectsReactorDict = make_process_intervals(ExcelDict=excelDict)
+    objectsOutputDict = make_output_intervals(ExcelDict=excelDict)
+    objectsWasteDict = make_waste_interval(ExcelDict=excelDict)
 
-    allObjects =  objectsInputDict | objectsReactorDict | objectsOutputDict | objectsWasteDict
+    allObjects = objectsInputDict | objectsReactorDict | objectsOutputDict | objectsWasteDict
     update_intervals(allObjects, excelDict)
-    allObjects = boolObjectDict | allObjects # add the boolean equations
+    allObjects = boolObjectDict | allObjects  # add the boolean equations
     variables, equations, bounds = get_vars_eqs_bounds(allObjects)
 
-    def boundsRule(model,i):
+    def boundsRule(model, i):
         boudVar = bounds[i]
-        lowerBound = 0 # default
-        upperBound = None # default
-        if isinstance(boudVar,list):
+        lowerBound = 0  # default
+        upperBound = None  # default
+        if isinstance(boudVar, list):
             lowerBound = boudVar[0]
             upperBound = boudVar[1]
-        elif isinstance(boudVar,str): #  'bool' or 'positiveReal' in boudVar
+        elif isinstance(boudVar, str):  # 'bool' or 'positiveReal' in boudVar
             lowerBound = 0
             upperBound = None
-        return (lowerBound,upperBound)
+        return (lowerBound, upperBound)
 
     model.var = pe.Var(variables['continuous'], domain=pe.PositiveReals, bounds=boundsRule)
     if variables['boolean']:
@@ -2732,7 +2843,7 @@ def make_super_structure(excelFile, printPyomoEq = False):
     # introduce the equations to pyomo
     model.constraints = pe.ConstraintList()
     for eq in equations:
-        #print(eq) # printing of equation is now in the function get_vars_eq_bounds
+        # print(eq) # printing of equation is now in the function get_vars_eq_bounds
         try:
             expresion = eval(eq)
         except:
@@ -2754,11 +2865,11 @@ def make_super_structure(excelFile, printPyomoEq = False):
         if not inputPrice:
             raise Exception('Hey you forgot to give a price for the input interval {}'.format(inputVar))
         else:
-            perchaseExpresion += "model.var['{}'] * {} + ".format(inputVar,inputPrice)
+            perchaseExpresion += "model.var['{}'] * {} + ".format(inputVar, inputPrice)
 
     posPlus = perchaseExpresion.rfind('+')
     perchaseExpresion = perchaseExpresion[0:posPlus]
-    perchaseExpresion = '(' +  perchaseExpresion + ')'
+    perchaseExpresion = '(' + perchaseExpresion + ')'
 
     # outputs
     sellExpresion = ''
@@ -2777,7 +2888,7 @@ def make_super_structure(excelFile, printPyomoEq = False):
 
     objectiveExpr = sellExpresion + ' - ' + perchaseExpresion
     print(objectiveExpr)
-    model.profit = pe.Objective(expr= eval(objectiveExpr), sense= pe.maximize)
+    model.profit = pe.Objective(expr=eval(objectiveExpr), sense=pe.maximize)
 
     if printPyomoEq:
         model.pprint()  # debug check
