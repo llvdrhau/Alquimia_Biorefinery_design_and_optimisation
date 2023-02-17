@@ -1741,7 +1741,6 @@ class ProcessIntervalClass:
         for massVar in boundryInputVar:  # this is for when you want to add a specifice bound to a reaction variable SEE EXCEL
             self.boundaries[massVar] = boundryInputVar[massVar]
 
-
     def make_utility_equations(self):
         """
         makes the equations for the flow of the chemical utility and the cost of said utlity
