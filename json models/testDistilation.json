@@ -1,0 +1,28 @@
+{
+    "variables": [
+        "Distillate_DIST1",
+        "Bottom_DIST1",
+        "L_DIST1",
+        "V_DIST1",
+        "Qc_DIST1",
+        "hF_DIST1",
+        "hB_DIST1",
+        "Qr_DIST1",
+        "Q_tot_DIST1"
+    ],
+    "equations": [
+        "model.var['Distillate_DIST1'] == Feed * (x_F - x_B) / (x_D - x_B)",
+        "model.var['Bottom_DIST1'] == Feed - model.var['Distillate_DIST1'] ",
+        "model.var['L_DIST1'] == (Feed * ((model.var['Distillate_DIST1'] * x_D) / (Feed * x_F) - 2.5714285714285716 * model.var['Distillate_DIST1'] * (1 - x_D) / (Feed * (1 - x_F))) / (2.5714285714285716 - 1)) * 1.3",
+        "model.var['V_DIST1'] == model.var['L_DIST1'] + model.var['Distillate_DIST1'] ",
+        "model.var['Qc_DIST1'] == (x_D * 33000 + (1 - x_D) * 40000) * model.var['V_DIST1']",
+        "model.var['hF_DIST1'] == (x_F * 130 + (1 - x_F) * 157) * (80 - 90)",
+        "model.var['hB_DIST1'] == (x_B * 130 + (1 - x_B) * 157) * (100 - 90)",
+        "model.var['Qr_DIST1'] == model.var['Bottom_DIST1'] * model.var['hB_DIST1'] + model.var['Qc_DIST1'] - Feed * model.var['hF_DIST1'] ",
+        "model.var['Q_tot_DIST1'] == model.var['Qr_DIST1'] - model.var['Qc_DIST1']"
+    ],
+    "light_key": "water",
+    "heavy_key": "ace,prop",
+    "lable": "distillation",
+    "name": "DIST1"
+}

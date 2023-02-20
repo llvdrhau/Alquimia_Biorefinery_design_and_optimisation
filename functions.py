@@ -1213,9 +1213,9 @@ class InputIntervalClass:
 
 
 class ProcessIntervalClass:
-    def __init__(self, inputs, outputs, connectInfo, reactionEquations, boundryInputVar, nameDict, mix=None,
-                 utilities=None, booleanVariable=None, splitList=None, separationDict=None,
-                 operationalVariablesDict=None):
+    def __init__(self, inputs, outputs, reactionEquations, boundryInputVar, nameDict, mix=None,
+                 utilities=None, energyUtility = None, booleanVariable=None, splitList=None, separationDict=None,
+                 operationalVariablesDict=None, energyConsumption = 0):
 
         if utilities is None:
             utilities = {}
@@ -1227,10 +1227,14 @@ class ProcessIntervalClass:
             booleanVariable = ''
         if operationalVariablesDict is None:
             operationalVariablesDict = {}
+        if energyUtility is None:
+            energyUtility = {}
 
         self.label = 'process_interval'
         self.booleanVariable = booleanVariable
         self.operationalVariablesDict = operationalVariablesDict
+
+
 
         # further the lable of the interval i.e.:reactor or seperator
         if reactionEquations:
@@ -1298,8 +1302,13 @@ class ProcessIntervalClass:
         # see def make_mixing_equations(), these equations are made in the update when it is known
         # to where each stream is going to and hence which streams are mixed
 
-        # utility equations
+        # utility (chemical) equations
         # are made in the update_function where reactor equations are also completed
+
+        # utility (energy) equations
+        # are made in the update_function because we need to know what is entering the interval
+        # give the varibles needed to the object
+        self.utilityEnergy = energyUtility
 
         # define wat is leaving the reactor
         # can either be from the reactor, the separation process or the spliting
@@ -1650,26 +1659,21 @@ class ProcessIntervalClass:
     def make_incoming_massbalance_equation(self, enteringVariables):
         """
         make the mass balance of the in comming components of an interval before the reaction phase.
-        sum of the mixed components or sum of in coming compontents
+        sum of the mixed components or sum of in coming components
 
         parameters:
-        incomming_components (list):
+        incoming_components (list):
 
         return: updated interval object
         """
 
-        intervalName = list(self.nameDict.keys())[0]
+        intervalName = self.intervalName
         # total flow going into the reactor stage of the interval (after mixing if there is any)
         enteringMassVarible = "{}_mass_entering".format(intervalName)
         enteringMassEqationPyomo = "model.var['{}'] == ".format(enteringMassVarible)
 
         for enteringVars in enteringVariables:
-            # TODO the pH should be specified in a seperate column in the excel file... that way it will not clash with other contious variables
-            # This is the quick fix!! (not ideal I belive)
-            if 'pH' in enteringVars:
-                continue
-            else:
-                enteringMassEqationPyomo += " + model.var['{}']".format(enteringVars)
+            enteringMassEqationPyomo += " + model.var['{}']".format(enteringVars)
 
         # add to the list of equations + variables and update the boundry dictionary
         self.pyomoEquations += [enteringMassEqationPyomo]
@@ -1677,6 +1681,7 @@ class ProcessIntervalClass:
         self.incomingFlowVariable = enteringMassVarible
         self.allVariables['continuous'] += [enteringMassVarible]
         self.boundaries.update({enteringMassVarible: (0, None)})
+        self.enteringVariables = enteringVariables
 
     def update_interval_equations(self, newInputs4Interval):
         """
@@ -1793,8 +1798,87 @@ class ProcessIntervalClass:
 
         # add the cost equation to pyomo equation list
         self.pyomoEquations += massEquations + [utilityCostEqPyomo]
-        self.utilityEquations = self.incomingFlowEquation + massEquations + [utilityCostEqPyomo]
+        self.utilityEquations =  massEquations + [utilityCostEqPyomo]
         # add the inflow equation as well as it relates to the utility equations
+
+    def make_energy_utility_equations(self):
+        """ Makes the equations for the energy consumption of an interval
+
+        Either the energyConsumptionParameter is a parameter (float) in kJ/kg_feed
+        or energyConsumptionParameter is a json file containing the equations for a specific separation process
+
+        """
+        energyConsumptionParameter = self.energyUtility['consumption_parameter']
+        energyPrice = self.energyUtility['price']
+
+        allEnergyEquation = []
+        allEnergyVars = []
+        if isinstance(energyConsumptionParameter, str) and 'json' in energyConsumptionParameter:
+            jsonFile = energyConsumptionParameter
+            jsonLoc = get_location(file=jsonFile)
+            try:
+                with open(jsonLoc) as file:
+                    energyConsumptionObject = json.load(file)
+            except:
+                raise Exception('check the spelling of the json file, of the energy model for the '
+                                'interval {}'.format(self.intervalName))
+
+            # if the separation interval is a distilation
+            if energyConsumptionObject["lable"] == "distillation":
+                eqList = energyConsumptionObject['equations']
+                varList = energyConsumptionObject['variables']
+
+                # get the variables you need
+                # light key var
+                lightKey = energyConsumptionObject['light_key']
+                enteringVars = self.enteringVariables
+                lightKeyVar = [s for s in enteringVars if lightKey in s][0]
+
+                # entering feed var
+                Feed_Var = self.incomingFlowVariable  # in kg/h
+
+                # get the seperation dict to find the desired composition in the distillate and bottom streams
+                separationDict = self.separationDict
+                fractionArry = []
+                for key in separationDict:
+                    streamComposition = separationDict[key] # [s for s in enteringVars if lightKey in s][0]
+                    fractionArry.append(streamComposition[lightKey])
+
+                x_D_var = max(fractionArry)  # fraction of the light key in the distillate is by convention the maximum
+                x_B_var = min(fractionArry)  # fraction of the light key in the bottom is by convention the minimum
+
+                # build equations
+                x_F_var = 'x_F_{}'.format(self.intervalName) # feed variable
+                x_F_eq = " model.var['{}'] == (model.var['{}'] * 0 / model.var['{}']) ".format(x_F_var,lightKeyVar,Feed_Var) # in mass %
+
+                equationsShortcut = []
+                for eq in eqList:
+                    eq = eq.replace('Feed', "model.var['{}']".format(Feed_Var))
+                    eq = eq.replace('x_F', "model.var['{}']".format(x_F_var))
+                    eq = eq.replace('x_D', str(x_D_var))
+                    eq = eq.replace('x_B', str(x_B_var))
+                    equationsShortcut.append(eq)
+
+                # add all the equations and variable to the 'collecting list'
+                allEnergyEquation +=  [x_F_eq] + equationsShortcut
+                allEnergyVars += [x_F_var] + varList
+                for var in allEnergyVars:
+                    self.boundaries.update({var: (1e-6, None)})  # make it so that these variables can not hit zero
+                    # change the feed var so there is no possiblity to dived by zero in the disitillation equations
+                self.boundaries.update({Feed_Var: (1e-6, None)})
+
+        else:
+            energyVar = "energy_consumption_{}".format(self.intervalName)
+            energyConsumptionEq = "model.var['{}'] == {} * model.var['{}']".format(energyVar,energyConsumptionParameter,self.incomingFlowVariable)
+            allEnergyEquation.append(energyConsumptionEq)
+            allEnergyVars.append(energyVar)
+            for var in allEnergyVars:
+                self.boundaries.update({var: (0, None)})  # make it so that these variables can hit zero
+
+        # add all the varibles and equations to the pyomo list, and it's individual list
+        self.pyomoEquations += allEnergyEquation
+        self.allVariables['continuous'] += allEnergyVars
+        self.utilityEnergyEquations = allEnergyEquation
 
     # helping functions not related to making equations
     def get_replacement_dict(self, newVars):
@@ -2085,7 +2169,7 @@ def check_excel_file(excelName):
     DFprocessIntervals = pd.read_excel(loc, sheet_name='process_intervals')
     DFeconomicParameters = pd.read_excel(loc, sheet_name='economic_parameters')
     DFConnectionMatrix = pd.read_excel(loc, sheet_name='connection_matrix')
-    DFAbbr = pd.read_excel(loc, sheet_name='abbr')
+    DFAbbr = pd.read_excel(loc, sheet_name='abbreviations')
 
     # check interval names in the connection matrix and interval list
     intervalNamesIn = remove_spaces(DFIntervals.process_intervals[DFIntervals.input_price != 0].to_list())
@@ -2160,7 +2244,7 @@ def read_excel_sheets4_superstructure(excelName):
     DFprocessIntervals = pd.read_excel(loc, sheet_name='process_intervals', index_col='process_intervals')
     DFeconomicParameters = pd.read_excel(loc, sheet_name='economic_parameters', index_col='process_intervals')
     DFmodels = pd.read_excel(loc, sheet_name='models', index_col='model_name')
-    DFabrriviations = pd.read_excel(loc, sheet_name='abbr')
+    DFabrriviations = pd.read_excel(loc, sheet_name='abbreviations')
 
     ExcelDict = {
         'input_output_DF': DFInOutIntervals,
@@ -2222,7 +2306,7 @@ def make_boolean_equations(DFconnectionMatrix, processIntervalnames):
 
     returns:
         boolean variables (list): list of boolean variables
-        boolean equaitions (lsit): list of boolean equations
+        boolean equations (lsit): list of boolean equations
     """
 
     # prun the Dataframe, anything that does not have a bool label on the diagonal can be droped
@@ -2509,13 +2593,20 @@ def make_process_intervals(ExcelDict):
             except:  # raise an exception if the dictionary is not well writen
                 raise Exception("The operational variables {} for interval {} are not in dictionary "
                                 "format: \n {} the format is {'var1': [lb, ub], 'var2': [lb, ub] ... }")
+
+        # pass on parameters for the energy consumption of the interval
+        energyConsumptionParameter = DFprocessIntervals.energy_consumption.loc[intervalName]
+        energyPrice = DFeconomicParameters.ut_energy_price.loc[intervalName]
+        utilityEnergyDict = {'price':energyPrice, 'consumption_parameter':energyConsumptionParameter }
+
+
         # make initial interval object
-        objectReactor = ProcessIntervalClass(inputs=inputsReactor, boundryInputVar=boundsComponent,
-                                             connectInfo=connectedIntervals, outputs=outputsReactor,
-                                             reactionEquations=equations, nameDict=nameDict,
-                                             mix=mixDict, utilities=utilityDict, separationDict=seperationDict,
+        objectReactor = ProcessIntervalClass(inputs= inputsReactor, boundryInputVar=boundsComponent,
+                                             outputs= outputsReactor, reactionEquations=equations, nameDict=nameDict,
+                                             mix=mixDict, utilities=utilityDict, energyUtility = utilityEnergyDict ,
+                                             separationDict=seperationDict,
                                              splitList= listSplits, booleanVariable=boolVar,
-                                             operationalVariablesDict=operationalVarDict)
+                                             operationalVariablesDict=operationalVarDict )
         # put the object in the dictionary
         objectDictionary.update({intervalName: objectReactor})
     return objectDictionary
@@ -2683,6 +2774,10 @@ def update_intervals(allIntervalObjectsDict, ExcelDict):
                 # if the utilities dictionary is not empty, there is a utility to be added to the interval
                 intervalObject.make_utility_equations()
 
+            energyConsumptionParam = intervalObject.energyConsumptionParameter
+            if isinstance(energyConsumptionParam, str) or energyConsumptionParam != 0:
+                intervalObject.make_energy_utility_equations()
+
         elif label == 'output':
             objectDict2mix = {nameObjConect: (allIntervalObjectsDict[nameObjConect], connectedIntervals[nameObjConect])
                               for nameObjConect in connectedIntervals}
@@ -2729,6 +2824,12 @@ def get_vars_eqs_bounds(objectDict):
                     print(e)
                 print('')
 
+            if hasattr(obj, 'incomingFlowEquation'):
+                print('------ Incoming mass equation ------')
+                enteringEq = obj.incomingFlowEquation[0]
+                print(enteringEq)
+                print('')
+
             if hasattr(obj, 'utilityEquations'):
                 print('------ chemical utility equations ------')
                 utEq = obj.utilityEquations
@@ -2747,6 +2848,13 @@ def get_vars_eqs_bounds(objectDict):
                 print('------ separation equations ------')
                 sepEq = obj.separationEquations
                 for e in sepEq:
+                    print(e)
+                print('')
+
+            if hasattr(obj, 'utilityEnergyEquations'):
+                print('------ Energy utility equations ------')
+                utEnEq = obj.utilityEnergyEquations
+                for e in utEnEq:
                     print(e)
                 print('')
 
@@ -2821,12 +2929,10 @@ def make_super_structure(excelFile, printPyomoEq=False):
 
     def boundsRule(model, i):
         boudVar = bounds[i]
-        lowerBound = 0  # default
-        upperBound = None  # default
         if isinstance(boudVar, list):
             lowerBound = boudVar[0]
             upperBound = boudVar[1]
-        elif isinstance(boudVar, str):  # 'bool' or 'positiveReal' in boudVar
+        else:   #elif isinstance(boudVar, str):  # 'bool' or 'positiveReal' in boudVar
             lowerBound = 0
             upperBound = None
         return (lowerBound, upperBound)

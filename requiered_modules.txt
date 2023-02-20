@@ -1,5 +1,0 @@
-pyomo
-numpy
-matplotlib
-sklearn
-cobra
