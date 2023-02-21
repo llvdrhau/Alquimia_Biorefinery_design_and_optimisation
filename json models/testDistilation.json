@@ -19,7 +19,7 @@
         "model.var['hF_DIST1'] == (x_F * 130 + (1 - x_F) * 157) * (80 - 90)",
         "model.var['hB_DIST1'] == (x_B * 130 + (1 - x_B) * 157) * (100 - 90)",
         "model.var['Qr_DIST1'] == model.var['Bottom_DIST1'] * model.var['hB_DIST1'] + model.var['Qc_DIST1'] - Feed * model.var['hF_DIST1'] ",
-        "model.var['Q_tot_DIST1'] == model.var['Qr_DIST1'] - model.var['Qc_DIST1']"
+        "model.var['Q_tot_DIST1'] == (model.var['Qr_DIST1'] - model.var['Qc_DIST1']) / 3600"
     ],
     "light_key": "water",
     "heavy_key": "ace,prop",

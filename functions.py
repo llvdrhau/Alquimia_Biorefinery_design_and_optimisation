@@ -1799,6 +1799,7 @@ class ProcessIntervalClass:
         # add the cost equation to pyomo equation list
         self.pyomoEquations += massEquations + [utilityCostEqPyomo]
         self.utilityEquations =  massEquations + [utilityCostEqPyomo]
+        self.utilityCostVariable = utlityCostVariable
         # add the inflow equation as well as it relates to the utility equations
 
     def make_energy_utility_equations(self):
@@ -1808,11 +1809,12 @@ class ProcessIntervalClass:
         or energyConsumptionParameter is a json file containing the equations for a specific separation process
 
         """
-        energyConsumptionParameter = self.energyUtility['consumption_parameter']
-        energyPrice = self.energyUtility['price']
+        energyConsumptionParameter = self.utilityEnergy['consumption_parameter']
+        energyPrice = self.utilityEnergy['price']
 
         allEnergyEquation = []
         allEnergyVars = []
+        energyVar = "energy_consumption_{}".format(self.intervalName)
         if isinstance(energyConsumptionParameter, str) and 'json' in energyConsumptionParameter:
             jsonFile = energyConsumptionParameter
             jsonLoc = get_location(file=jsonFile)
@@ -1827,6 +1829,7 @@ class ProcessIntervalClass:
             if energyConsumptionObject["lable"] == "distillation":
                 eqList = energyConsumptionObject['equations']
                 varList = energyConsumptionObject['variables']
+                name = energyConsumptionObject['name']
 
                 # get the variables you need
                 # light key var
@@ -1847,38 +1850,45 @@ class ProcessIntervalClass:
                 x_D_var = max(fractionArry)  # fraction of the light key in the distillate is by convention the maximum
                 x_B_var = min(fractionArry)  # fraction of the light key in the bottom is by convention the minimum
 
-                # build equations
+                # build equations for the fraction of the entering light key in the feed
                 x_F_var = 'x_F_{}'.format(self.intervalName) # feed variable
                 x_F_eq = " model.var['{}'] == (model.var['{}'] * 0 / model.var['{}']) ".format(x_F_var,lightKeyVar,Feed_Var) # in mass %
 
+                # build the equations of the shortcut method
                 equationsShortcut = []
                 for eq in eqList:
                     eq = eq.replace('Feed', "model.var['{}']".format(Feed_Var))
                     eq = eq.replace('x_F', "model.var['{}']".format(x_F_var))
                     eq = eq.replace('x_D', str(x_D_var))
                     eq = eq.replace('x_B', str(x_B_var))
+                    eq = eq.replace('Q_tot_{}'.format(name),"energy_consumption_{}".format(self.intervalName) )
                     equationsShortcut.append(eq)
 
                 # add all the equations and variable to the 'collecting list'
                 allEnergyEquation +=  [x_F_eq] + equationsShortcut
-                allEnergyVars += [x_F_var] + varList
+                allEnergyVars += [x_F_var] + [energyVar] + varList
                 for var in allEnergyVars:
                     self.boundaries.update({var: (1e-6, None)})  # make it so that these variables can not hit zero
                     # change the feed var so there is no possiblity to dived by zero in the disitillation equations
                 self.boundaries.update({Feed_Var: (1e-6, None)})
 
         else:
-            energyVar = "energy_consumption_{}".format(self.intervalName)
             energyConsumptionEq = "model.var['{}'] == {} * model.var['{}']".format(energyVar,energyConsumptionParameter,self.incomingFlowVariable)
             allEnergyEquation.append(energyConsumptionEq)
             allEnergyVars.append(energyVar)
             for var in allEnergyVars:
                 self.boundaries.update({var: (0, None)})  # make it so that these variables can hit zero
 
+        #-------- cost eqution for energy consumption
+        costVariable = "cost_utility_energy_{}".format(self.intervalName)
+        self.boundaries.update({costVariable: (0, None)})
+        costEq =  "model.var['{}'] == {} * model.var['{}'] ".format(costVariable, energyPrice, energyVar)
+
         # add all the varibles and equations to the pyomo list, and it's individual list
-        self.pyomoEquations += allEnergyEquation
-        self.allVariables['continuous'] += allEnergyVars
-        self.utilityEnergyEquations = allEnergyEquation
+        self.pyomoEquations += allEnergyEquation + [costEq]
+        self.allVariables['continuous'] += allEnergyVars + [costVariable]
+        self.utilityEnergyEquations = allEnergyEquation + [costEq]
+        self.utilityEnergyCostVariable = costVariable
 
     # helping functions not related to making equations
     def get_replacement_dict(self, newVars):
@@ -2774,7 +2784,7 @@ def update_intervals(allIntervalObjectsDict, ExcelDict):
                 # if the utilities dictionary is not empty, there is a utility to be added to the interval
                 intervalObject.make_utility_equations()
 
-            energyConsumptionParam = intervalObject.energyConsumptionParameter
+            energyConsumptionParam = intervalObject.utilityEnergy['consumption_parameter']
             if isinstance(energyConsumptionParam, str) or energyConsumptionParam != 0:
                 intervalObject.make_energy_utility_equations()
 
@@ -2788,6 +2798,76 @@ def update_intervals(allIntervalObjectsDict, ExcelDict):
                               for nameObjConect in connectedIntervals}
             intervalObject.make_waste_equations(objectDict2mix)
 
+def make_GREV_equation(objectsOutputDict):
+    # outputs
+    GREV_var = "GREV"
+    GREV_eq = "model.var['{}'] == ".format(GREV_var)
+    for nameObj in objectsOutputDict:
+        outObj = objectsOutputDict[nameObj]
+        outputPrice = outObj.outputPrice
+        outVar = outObj.outputName
+        if not outputPrice:
+            raise Exception('Hey you forgot to give a price for the output interval {}'.format(outVar))
+        else:
+            GREV_eq += "model.var['{}'] * {} + ".format(outVar, outputPrice)
+
+    posPlus = GREV_eq.rfind('+')
+    GREV_eq = GREV_eq[0:posPlus]
+    #GREV_eq = '(' + GREV_eq + ')'
+    
+    return GREV_var, GREV_eq
+
+def make_OPEX_equations(inputObjects, processObjects, wasteObject):
+    """ calculates the OPerating EXpenses of the superstructure: calulations for
+    1) cost of raw material
+    2) cost of utilities (chemicals)
+    3) cost of utilities (energy)
+    4) cost of waste
+    """
+
+    # -------- cost raw materials
+    CostRawMaterialVar =  "Raw_material_cost"
+    CostRawMaterialEq = "model.var['{}'] == ".format(CostRawMaterialVar)
+    perchaseExpresion = ''
+    for nameObj in inputObjects:
+        inObj = inputObjects[nameObj]
+        inputPrice = inObj.inputPrice
+        inputVar = inObj.inputName
+        if not inputPrice:
+            raise Exception('Hey you forgot to give a price for the input interval {}'.format(inputVar))
+        else:
+            CostRawMaterialEq += "model.var['{}'] * {} + ".format(inputVar, inputPrice)
+
+    posPlus = CostRawMaterialEq.rfind('+') # finds the last '+' in the equation
+    CostRawMaterialEq = CostRawMaterialEq[0:posPlus] # deleet the last plus
+
+    # -------- cost utilities (chemicals & energy)
+    costUtilitiesVar = 'Utility_cost'
+    costUtilitiesEq = "model.var['{}'] == ".format(costUtilitiesVar)
+    for nameObj, obj in processObjects.items():
+        if hasattr(obj, 'utilityCostVariable'):
+            utCostVar = obj.utilityCostVariable # cost of chemicals
+            costUtilitiesEq += " model.var['{}'] +".format(utCostVar)
+        if hasattr(obj, 'utilityEnergyCostVariable'):
+            utCostVar = obj.utilityEnergyCostVariable # cost of energy
+            costUtilitiesEq += " model.var['{}'] +".format(utCostVar)
+
+    posPlus = costUtilitiesEq.rfind('+')  # finds the last '+' in the equation
+    CostRawMaterialEq = costUtilitiesEq[0:posPlus]  # deleet the last plus
+
+    # -------- cost of waste
+    # todo make the wast cost
+
+    return CostRawMaterialEq, costUtilitiesEq
+
+def make_cost_model(inputObjects, outputObjects, processObjects, wasteObject):
+    """ makes all  equations and variables related to economic parameters of each interval
+    Params:
+        inputObjects (Dict): a dictionary containing all the input interval objects
+        outputObjects (Dict): a dictionary containing all the output interval objects
+    """
+    GREV_var, GREV_eq = make_GREV_equation(objectsOutputDict= outputObjects)
+    opexEQ = make_OPEX_equations(inputObjects= inputObjects, processObjects=processObjects, wasteObject=wasteObject)
 
 def get_vars_eqs_bounds(objectDict):
     """ Returns all the varible that pyomo needs to declare, the equations (in pyomo format) and a dictionary with the
@@ -2890,7 +2970,6 @@ def get_vars_eqs_bounds(objectDict):
 
     return variables, equations, boundsContinousVars
 
-
 # ============================================================================================================
 # Master function: generates the superstructure
 # ============================================================================================================
@@ -2918,13 +2997,21 @@ def make_super_structure(excelFile, printPyomoEq=False):
     boolObject = BooleanClass(ExcelDict=excelDict)
     boolObjectDict = {'boolean_object': boolObject}
     objectsInputDict = make_input_intervals(ExcelDict=excelDict)
-    objectsReactorDict = make_process_intervals(ExcelDict=excelDict)
+    objectsProcessDict = make_process_intervals(ExcelDict=excelDict)
     objectsOutputDict = make_output_intervals(ExcelDict=excelDict)
     objectsWasteDict = make_waste_interval(ExcelDict=excelDict)
 
-    allObjects = objectsInputDict | objectsReactorDict | objectsOutputDict | objectsWasteDict
+    allObjects = objectsInputDict | objectsProcessDict | objectsOutputDict | objectsWasteDict
+    # update the intervals, so they are conected to the right interval
     update_intervals(allObjects, excelDict)
-    allObjects = boolObjectDict | allObjects  # add the boolean equations
+
+    # make an object with all the equations of the cost models
+    objectCostModel = make_cost_model(inputObjects= objectsInputDict,
+                                      outputObjects= objectsOutputDict,
+                                      processObjects= objectsProcessDict,
+                                      wasteObject= objectsWasteDict )
+
+    allObjects = boolObjectDict | allObjects  # add the logic model and the cost model to the object list
     variables, equations, bounds = get_vars_eqs_bounds(allObjects)
 
     def boundsRule(model, i):
@@ -2960,38 +3047,10 @@ def make_super_structure(excelFile, printPyomoEq=False):
             raise Exception('The following equation can not be read by pyomo: {}'.format(eq))
 
     # define the objective
+    # GREV: gross revenu
+    GREV_var, GREV_eq = make_GREV_equation(objectsOutputDict= objectsOutputDict)
 
-    # inputs
-    perchaseExpresion = ''
-    for nameObj in objectsInputDict:
-        inObj = objectsInputDict[nameObj]
-        inputPrice = inObj.inputPrice
-        inputVar = inObj.inputName
-        if not inputPrice:
-            raise Exception('Hey you forgot to give a price for the input interval {}'.format(inputVar))
-        else:
-            perchaseExpresion += "model.var['{}'] * {} + ".format(inputVar, inputPrice)
-
-    posPlus = perchaseExpresion.rfind('+')
-    perchaseExpresion = perchaseExpresion[0:posPlus]
-    perchaseExpresion = '(' + perchaseExpresion + ')'
-
-    # outputs
-    sellExpresion = ''
-    for nameObj in objectsOutputDict:
-        outObj = objectsOutputDict[nameObj]
-        outputPrice = outObj.outputPrice
-        outVar = outObj.outputName
-        if not outputPrice:
-            raise Exception('Hey you forgot to give a price for the output interval {}'.format(outVar))
-        else:
-            sellExpresion += "model.var['{}'] * {} + ".format(outVar, outputPrice)
-
-    posPlus = sellExpresion.rfind('+')
-    sellExpresion = sellExpresion[0:posPlus]
-    sellExpresion = '(' + sellExpresion + ')'
-
-    objectiveExpr = sellExpresion + ' - ' + perchaseExpresion
+    objectiveExpr = model.var[GREV_var]
     print(objectiveExpr)
     model.profit = pe.Objective(expr=eval(objectiveExpr), sense=pe.maximize)
 

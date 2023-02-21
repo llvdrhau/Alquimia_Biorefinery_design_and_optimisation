@@ -43,7 +43,6 @@ def distillation_check(x_D, x_B, F, x_F, alfa_f,    # for mass balances
     D = F*(x_F - x_B)/(x_D - x_B)
     B = F - D
 
-
     # reflux ratio
     L = (F*( (D*x_D)/(F*x_F) - alfa_f * D*(1-x_D)/ ( F*(1-x_F)) ) / (alfa_f -1)) * 1.3
     V = L + D
@@ -52,13 +51,10 @@ def distillation_check(x_D, x_B, F, x_F, alfa_f,    # for mass balances
     Hvap = x_D * Hvap_LK + (1-x_D) * Hvap_HK
     Qc = Hvap * V
 
-
-
     # reboiler
     hF = (x_F* Cp_LK + (1-x_F) * Cp_HK) *(T_F - T_D)
     hB = (x_B* Cp_LK + (1-x_B) * Cp_HK) *(T_B - T_D)
     Qr = B* hB + Qc - F*hF
-
 
     print('')
     Qtot = Qr - Qc
@@ -146,7 +142,7 @@ def make_distillation_equations(T_F, T_D, T_B,                       # temperatu
     pyomoEquations += [Internal_L_Eq, Internal_V_Eq]
 
     # ----------- condenser duty
-    QcVar = "Qc_{}".format(intervalName)
+    QcVar = "Qc_{}".format(intervalName) # condenser variable in kJ/h
     #Hvap = (x_D * {} + (1 - x_D) * {})
     CondenserDutyEq = "model.var['{}'] == (x_D * {} + (1 - x_D) * {}) * model.var['{}']".format(QcVar, Hvap_LK, Hvap_HK, Vvar)
 
@@ -157,7 +153,7 @@ def make_distillation_equations(T_F, T_D, T_B,                       # temperatu
     # ----------- reboiler duty
     EntalpyFeedVar = "hF_{}".format(intervalName)
     EntalpyBottomVar = "hB_{}".format(intervalName)
-    QrVar = "Qr_{}".format(intervalName) # reboiler variable
+    QrVar = "Qr_{}".format(intervalName) # reboiler variable in kJ/h
 
     EnthalpyFeedEq = "model.var['{}'] == (x_F * {} + (1 - x_F) * {}) * ({} - {})".format(EntalpyFeedVar, Cp_LK, Cp_HK, T_F, T_D)
     EnthalpyBottomEq = "model.var['{}'] == (x_B * {} + (1 - x_B) * {}) * ({} - {})".format(EntalpyBottomVar, Cp_LK, Cp_HK, T_B, T_D)
@@ -170,7 +166,8 @@ def make_distillation_equations(T_F, T_D, T_B,                       # temperatu
 
     # ----------- total duty
     QtotVar = "Q_tot_{}".format(intervalName)
-    QtotEq = "model.var['{}'] == model.var['{}'] - model.var['{}']".format(QtotVar, QrVar, QcVar)
+    QtotEq = "model.var['{}'] == (model.var['{}'] - model.var['{}']) / 3600".format(QtotVar, QrVar, QcVar)
+    # /3600 to get the units into kWh (assuming 1 hour of operation)
 
     # add to variable and equaition lists
     pyomoVariables += [QtotVar]
