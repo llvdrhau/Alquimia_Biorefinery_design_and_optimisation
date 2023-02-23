@@ -6,7 +6,7 @@ from collections import OrderedDict
 import json
 import pyomo.environ as pe
 from f_usefull_functions import *
-
+from f_screen_SBML import count_atom_in_formula
 # from typing import List
 
 """Created on the 30.01.2023

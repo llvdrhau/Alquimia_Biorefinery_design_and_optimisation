@@ -9,9 +9,7 @@ import re
 import seaborn as sns
 
 from sklearn.model_selection import train_test_split
-from sklearn.linear_model import RidgeCV
-from sklearn.linear_model import LassoCV
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import RidgeCV, LassoCV, Ridge, Lasso, LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 
 import json
@@ -57,8 +55,41 @@ class SurrogateModel:
             self.intercept = intercept
         self.lable = lable
 
-def regression_open_fermentation(xdata,ydata, polynomial):
-    pass
+def regression_open_fermentation(xdata, ydata, polynomialDegree, case = 'Lasso'):
+
+    # make the polynomial data
+    poly = PolynomialFeatures(degree=polynomialDegree, include_bias=False)
+    X_poly = poly.fit_transform(xdata)
+
+    # Split data into training and testing sets
+    X_train, X_test, y_train, y_test = train_test_split(X_poly, ydata, test_size=0.2, random_state=42)
+
+    # Fit linear regression model to training data
+    if case == 'Ridge':
+        reg = Ridge().fit(X_train, y_train)
+    elif case == 'Lasso':
+        reg = Lasso().fit(X_train, y_train)
+        #model = Lasso(alpha= 1, max_iter= 4000)
+    elif case == 'Linear':
+        reg = LinearRegression().fit(X_train, y_train)
+    else:
+        raise Exception("The string variable _case_ can only be 'Linear, 'Lasso' or 'Ridge'")
+
+    # Predict Qtot for test data
+    y_pred = reg.predict(X_test)
+
+    plot_parity_plots(yPred= y_pred, yObv= y_test)
+
+    # Plot parity plot
+    # plt.figure(figsize=(6, 6))
+    # sns.set_style('darkgrid')
+    # sns.scatterplot(x=y_test, y=y_pred, alpha=0.7, s=50)
+    # sns.lineplot(x=y_test, y=y_test, color='red')
+    # plt.xlabel('Observed Qtot')
+    # plt.ylabel('Predicted Qtot')
+    # plt.show()
+
+    return reg
 def regression_2_json(data, showPLot = True, save = False, saveName = 'data.json', normalise = False,
                      case = 'Ridge',polynomial=None):
 
@@ -228,10 +259,39 @@ def plot_subplots(x_data, y_data):
     fig, axes = plt.subplots(nrows=num_rows, ncols=2, figsize=(10, 5*num_rows))  # create subplots
     for i, ax in enumerate(axes.flatten()):  # iterate over subplots
         if i < num_cols:  # plot data if there are still columns left
+            sns.set_style('darkgrid')
             sns.scatterplot(x=x_data.squeeze(), y=y_data.iloc[:, i], ax=ax)  # plot i-th column of y_data against x_data using seaborn
             ax.set_title(y_data.columns[i])  # set title to column name
         else:  # remove unused subplots
             ax.remove()
+    fig.tight_layout()  # adjust subplot spacing
+    plt.show()  # display plot
+
+def plot_parity_plots(yPred, yObv):
+    num_cols_yPred = yPred.shape[1]
+    num_cols_yObv = yObv.shape[1]
+
+    subplotTitles = list(yObv.columns)
+    yObv
+
+    if num_cols_yPred != num_cols_yObv:
+        raise Exception('yPred and yObv should be the same size')
+
+    num_cols = yPred.shape[1]  # number of columns in y_data
+    num_rows = (num_cols - 1) // 2 + 1  # calculate number of rows for subplot layout
+    fig, axes = plt.subplots(nrows=num_rows, ncols=2, figsize=(10, 5 * num_rows))  # create subplots
+    sns.set_style('darkgrid')
+    for i, ax in enumerate(axes.flatten()):  # iterate over subplots
+        if i < num_cols:  # plot data if there are still columns left
+            observed = yObv[subplotTitles[i]].to_numpy()
+            predicted = yPred[:,i]
+            sns.scatterplot(x=observed, y=predicted, ax=ax)  # plot i-th column of y_data against x_data using seaborn
+            sns.lineplot(x=predicted, y=predicted, color='red', ax=ax)
+            ax.set_xlabel('Observed Qtot')
+            ax.set_ylabel('Predicted Qtot')
+            ax.set_title(f'Parity plot for {subplotTitles[i]}')  # set title to column name
+        else:  # remove unused subplots
+            fig.delaxes(ax)
     fig.tight_layout()  # adjust subplot spacing
     plt.show()  # display plot
 

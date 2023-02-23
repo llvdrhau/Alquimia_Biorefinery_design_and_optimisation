@@ -20,16 +20,20 @@ if regresionSurrogate:
     # (otherwise the fit is not going to be great, see the propionate plot)
 
     # get the indexes of rows with values greater than 8.48
-    deleted_indexes = x_pH[x_pH < 8.5].index
     x_pH = x_pH[x_pH < 8.5]
-    y_outputs.drop(deleted_indexes)
-    plot_subplots(y_data=y_outputs, x_data=x_pH)
+    x_pH = x_pH.dropna() # drop the nan's
+    indexes = x_pH.index
 
+    y_outputs = y_outputs.loc[x_pH.index]
+
+    #plot_subplots(y_data=y_outputs, x_data=x_pH)
 
     # ---- fit poly data
     polynomial = 4
-    out = regression_2_json(excelFile, normalise= False ,save=False, saveName='open_fermentation_polynomial_case_study.json',
-                         showPLot= True, polynomial= {'pH':polynomial}, case= 'Ridge')
+    model = regression_open_fermentation(xdata= x_pH, ydata= y_outputs, polynomialDegree= 4)
+
+    # out = regression_2_json(excelFile, normalise= False ,save=True, saveName='open_fermentation_polynomial_case_study.json',
+    #                      showPLot= True, polynomial= {'pH':polynomial}, case= 'Ridge')
 
 # -------------------------- SBML models
 if SBMLsurrogate:
