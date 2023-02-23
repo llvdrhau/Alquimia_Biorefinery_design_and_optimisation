@@ -3,7 +3,7 @@
 @author: Lucas Van der Hauwaert lucas.vanderhauwaert@usc.es
 """
 
-from functions import make_super_structure
+from f_make_super_structure import make_super_structure
 import time
 import pyomo.environ as pe
 import pyomo.opt as po
@@ -30,6 +30,7 @@ if switchSolver:
     #     Possible solver are: 'BARON', 'ANTIGONE', 'CPLEX', 'DICOPT'
     # =============================================================================
     #results = opt.solve(superstructure, solver='BARON', keepfiles=True, tee=True)
+
     results = opt.solve(superstructure, keepfiles=True, tee=True)
     for v in superstructure.component_objects(ctype=pe.Var):
         for index in v:

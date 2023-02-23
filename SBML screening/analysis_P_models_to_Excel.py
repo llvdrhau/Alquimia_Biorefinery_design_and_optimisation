@@ -1,4 +1,4 @@
-from functions import *
+from old_scripts.functions import *
 
 modelList = ["P_sherm_model.xml", 'P_propionicum_model.xml', 'PAC_4875_model.xml', 'P_acnes_model.xml', 'P_avidum_model.xml']
 
@@ -13,4 +13,4 @@ for modelName in modelList:
     metbiomass.name = 'Biomass'
     #metbiomass.formula = 'C15.12HNO'
 
-    print_SBML_info_2_excel(modelName=model, idMissingCarbon=None)
+    print_SBML_info_2_excel(modelName=model, idMissingCarbon=None, print2Excel= False)

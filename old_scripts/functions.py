@@ -8,6 +8,7 @@ import warnings
 from collections import OrderedDict
 import json
 import pyomo.environ as pe
+#from f_usefull_functions import *
 
 # from typing import List
 
@@ -1134,7 +1135,6 @@ class BooleanClass:
         # add the equations to the pyomoEquations object
         self.pyomoEquations = equationsSumOfBools + [inputBoolEquation]
 
-
 class InputIntervalClass:
     def __init__(self, inputName, compositionDict, inputPrice, boundryInputVar, boolDict=None,
                  split=None, separationDict=None, booleanVariable=None):
@@ -1202,15 +1202,16 @@ class InputIntervalClass:
                              'boolean': [],  # boolean variables
                              'fraction': []}  # fraction variables
 
-        # make BOUNDRIES for all variables
-        boundaryDict = {self.inputName: boundryInputVar}  # interval variables have bounds
+        # make BOUNDARIES for all variables
+        # interval variables are bounded by inequality equations bounds (see above)
+        boundaryDict = {self.inputName: [0, None]}
+        # all other variables are positiveReals
         for i in componentVariables:
             boundaryDict.update({i: 'positiveReals'})
         self.boundaries = boundaryDict
 
         # put all EQUATIONS that pyomo needs to declare here
         self.pyomoEquations = pyomoEq
-
 
 class ProcessIntervalClass:
     def __init__(self, inputs, outputs, reactionEquations, boundryInputVar, nameDict, mix=None,
@@ -1932,7 +1933,6 @@ class ProcessIntervalClass:
 
         return replacementDict, boundsDict
 
-
 class OutputIntervalClass:
     def __init__(self, outputName, outputBound, outputPrice, outputVariable, mixDict=None):
         if mixDict is None:
@@ -2071,9 +2071,145 @@ class WastIntervalClass:
 
         # add eqautions and variable top the object, so they can be read later on
         self.allVariables['continuous'] += variableList
+        self.costVariable = wasteVariableCost
         self.pyomoEquations += equationList
         for var in variableList:
             self.boundaries.update({var: (0, None)})  # positive reals
+
+class MakeObjectiveClass:
+    def __init__(self, inputObjects, processObjects, outputObjects, wasteObject):
+        """ makes all  equations and variables related to economic parameters of each interval
+        Params:
+            inputObjects (Dict): a dictionary containing all the input interval objects
+            outputObjects (Dict): a dictionary containing all the output interval objects
+        """
+        self.label = 'cost_model'
+        self.allVariables = {'continuous': [],
+                             'boolean': [],
+                             'fraction': []}
+
+
+        GREV_var, GREV_eq = self.make_GREV_equation(objectsOutputDict=outputObjects)
+        OPEX_var, variables, equations = self.make_OPEX_equations(inputObjects=inputObjects, processObjects=processObjects,
+                                                        wasteObject=wasteObject)
+        variableList = [GREV_var] + variables
+        self.pyomoEquations = [GREV_eq] + equations
+        self.allVariables['continuous'] += variableList
+
+        # initiate the dictionary for boundries of the variables
+        self.boundaries = {}
+
+        # all the opex variable can be any real number
+        for var in variables:
+            self.boundaries.update({var: 'Reals'})  # all varible are Real numbers (so can be negative)
+
+        # the GREV_var (Gross revenue) MUST be positive and bigger than 0!!!
+        # : that way you ensure the production of products
+        self.boundaries.update({GREV_var: [0.001, None]})
+
+        # now make the objective that you want to maximise
+        # The EBIT represents the objective function which is the (yearly? or hourly?) profit from
+        # a given operation
+        EBIT = "model.var['{}'] - model.var['{}']".format(GREV_var, OPEX_var)
+        self.EBIT = EBIT
+
+    def make_GREV_equation(self, objectsOutputDict):
+        """ make the equation for the Gross revenue """
+        GREV_var = "GREV"
+        GREV_eq = "model.var['{}'] == ".format(GREV_var)
+        for nameObj in objectsOutputDict:
+            outObj = objectsOutputDict[nameObj]
+            outputPrice = outObj.outputPrice
+            outVar = outObj.outputName
+            if not outputPrice:
+                raise Exception('Hey you forgot to give a price for the output interval {}'.format(outVar))
+            else:
+                GREV_eq += "model.var['{}'] * {} + ".format(outVar, outputPrice)
+
+        posPlus = GREV_eq.rfind('+')
+        GREV_eq = GREV_eq[0:posPlus]
+        # GREV_eq = '(' + GREV_eq + ')'
+
+        return GREV_var, GREV_eq
+
+    def make_OPEX_equations(self, inputObjects, processObjects, wasteObject):
+        """ calculates the OPerating EXpenses of the superstructure: calulations for
+        1) cost of raw material
+        2) cost of utilities (chemicals)
+        3) cost of utilities (energy)
+        4) cost of waste
+        """
+        # preallocate the cost variables and equations that need to be added
+        allCostVariables = []
+        allCostEquations = []
+
+        # -------- cost raw materials
+        CostRawMaterialVar = "Raw_material_cost"
+        CostRawMaterialEq = "model.var['{}'] == ".format(CostRawMaterialVar)
+        for nameObj in inputObjects:
+            inObj = inputObjects[nameObj]
+            inputPrice = inObj.inputPrice
+            inputVar = inObj.inputName
+            if not inputPrice:
+                raise Exception('Hey you forgot to give a price for the input interval {}'.format(inputVar))
+            else:
+                CostRawMaterialEq += "model.var['{}'] * {} + ".format(inputVar, inputPrice)
+
+        posPlus = CostRawMaterialEq.rfind('+')  # finds the last '+' in the equation
+        CostRawMaterialEq = CostRawMaterialEq[0:posPlus]  # deleet the last plus
+
+        # add to the lists of variables and equations
+        allCostEquations.append(CostRawMaterialEq)
+        allCostVariables.append(CostRawMaterialVar)
+        self.CostRawMaterialEq = CostRawMaterialEq
+
+        # -------- cost utilities (chemicals & energy)
+        costUtilitiesVar = 'Utility_cost'
+        costUtilitiesEqLeft = "model.var['{}'] == ".format(costUtilitiesVar)
+        costUtilitiesEqRight = ''
+        for nameObj, obj in processObjects.items():
+            if hasattr(obj, 'utilityCostVariable'):
+                utCostVar = obj.utilityCostVariable  # cost of chemicals
+                costUtilitiesEqRight += " model.var['{}'] +".format(utCostVar)
+            if hasattr(obj, 'utilityEnergyCostVariable'):
+                utCostVar = obj.utilityEnergyCostVariable  # cost of energy
+                costUtilitiesEqRight += " model.var['{}'] +".format(utCostVar)
+
+        posPlus = costUtilitiesEqRight.rfind('+')  # finds the last '+' in the equation
+        costUtilitiesEqRight = costUtilitiesEqRight[0:posPlus]  # delete the last plus
+
+        # if there are cost associated to the use of utilities (that is the right hand side of the equation is not empty)
+        # add the variable and equation to the list of variable and equations to declare
+        if costUtilitiesEqRight:
+            costUtilitiesEq = costUtilitiesEqLeft + costUtilitiesEqRight
+            allCostVariables.append(costUtilitiesVar)
+            allCostEquations.append(costUtilitiesEq)
+            self.CostUtilitiesEq = costUtilitiesEq
+
+        # -------- cost of waste
+        wasteObj = wasteObject['waste']  # the waste object is in a dictionary with length 1 and key: 'waste'
+        if hasattr(wasteObj, 'costVariable'):
+            costWasteVar = wasteObj.costVariable
+            allCostVariables.append(costWasteVar)
+            self.costWasteEq = wasteObj.pyomoEquations[-1] # the last element in the list is the cost equation
+
+        # -------- make the OPEX equation
+        OPEX_var = "OPEX"
+        OPEX_eq = "model.var['{}'] == ".format(OPEX_var)
+        for var in allCostVariables:
+            OPEX_eq += "model.var['{}'] + ".format(var)
+
+        posPlus = OPEX_eq.rfind('+')  # finds the last '+' in the equation
+        OPEX_eq = OPEX_eq[0:posPlus]  # delete the last plus
+
+        self.OPEX_eq = OPEX_eq
+
+        # add to lists
+        allCostVariables.append(OPEX_var)
+        allCostEquations.append(OPEX_eq)
+
+
+        return OPEX_var, allCostVariables, allCostEquations
 
 
 # ============================================================================================================
@@ -2267,7 +2403,6 @@ def read_excel_sheets4_superstructure(excelName):
 
     return ExcelDict
 
-
 def make_mix_dictionary(intervalName, DFconnectionMatrix):
     """ Returns the mixing dictionary based on the connection matrix
 
@@ -2299,7 +2434,6 @@ def make_mix_dictionary(intervalName, DFconnectionMatrix):
         for k, specs in enumerate(specifications):
             mixDict.update({intervals2Mix[k]: specs})
     return mixDict
-
 
 def make_boolean_equations(DFconnectionMatrix, processIntervalnames):
     """ makes the equations that regulate if a certain reactor is chosen or not nl: 1 == sum(boolean variables)
@@ -2375,7 +2509,6 @@ def make_boolean_equations(DFconnectionMatrix, processIntervalnames):
 
     return booleanVariables, equationsSumOfBools
 
-
 # functions to automate making the interval class objects
 def make_input_intervals(ExcelDict):
     """ Makes the process intervals of inputs.
@@ -2443,7 +2576,6 @@ def make_input_intervals(ExcelDict):
         objectDictionary.update({intervalName: objectInput})
 
     return objectDictionary
-
 
 def make_process_intervals(ExcelDict):
     """ Makes the process intervals of the process intervals (excluding inputs and outputs).
@@ -2621,7 +2753,6 @@ def make_process_intervals(ExcelDict):
         objectDictionary.update({intervalName: objectReactor})
     return objectDictionary
 
-
 def make_output_intervals(ExcelDict):
     """ Makes the process intervals of outputs.
 
@@ -2663,7 +2794,6 @@ def make_output_intervals(ExcelDict):
 
     return objectDictionary
 
-
 def make_waste_interval(ExcelDict):
     """ Makes the process intervals of the waste interval.
 
@@ -2697,11 +2827,9 @@ def make_waste_interval(ExcelDict):
 
     return objectDictionary
 
-
 # ============================================================================================================
 # Functions to update the interval objects
 # ============================================================================================================
-
 def update_intervals(allIntervalObjectsDict, ExcelDict):
     """ Updated the equations of all interval objects. the mixing equations are added, the reaction equations are updated
     and the utlity equations are added.
@@ -2797,77 +2925,6 @@ def update_intervals(allIntervalObjectsDict, ExcelDict):
             objectDict2mix = {nameObjConect: (allIntervalObjectsDict[nameObjConect], connectedIntervals[nameObjConect])
                               for nameObjConect in connectedIntervals}
             intervalObject.make_waste_equations(objectDict2mix)
-
-def make_GREV_equation(objectsOutputDict):
-    # outputs
-    GREV_var = "GREV"
-    GREV_eq = "model.var['{}'] == ".format(GREV_var)
-    for nameObj in objectsOutputDict:
-        outObj = objectsOutputDict[nameObj]
-        outputPrice = outObj.outputPrice
-        outVar = outObj.outputName
-        if not outputPrice:
-            raise Exception('Hey you forgot to give a price for the output interval {}'.format(outVar))
-        else:
-            GREV_eq += "model.var['{}'] * {} + ".format(outVar, outputPrice)
-
-    posPlus = GREV_eq.rfind('+')
-    GREV_eq = GREV_eq[0:posPlus]
-    #GREV_eq = '(' + GREV_eq + ')'
-    
-    return GREV_var, GREV_eq
-
-def make_OPEX_equations(inputObjects, processObjects, wasteObject):
-    """ calculates the OPerating EXpenses of the superstructure: calulations for
-    1) cost of raw material
-    2) cost of utilities (chemicals)
-    3) cost of utilities (energy)
-    4) cost of waste
-    """
-
-    # -------- cost raw materials
-    CostRawMaterialVar =  "Raw_material_cost"
-    CostRawMaterialEq = "model.var['{}'] == ".format(CostRawMaterialVar)
-    perchaseExpresion = ''
-    for nameObj in inputObjects:
-        inObj = inputObjects[nameObj]
-        inputPrice = inObj.inputPrice
-        inputVar = inObj.inputName
-        if not inputPrice:
-            raise Exception('Hey you forgot to give a price for the input interval {}'.format(inputVar))
-        else:
-            CostRawMaterialEq += "model.var['{}'] * {} + ".format(inputVar, inputPrice)
-
-    posPlus = CostRawMaterialEq.rfind('+') # finds the last '+' in the equation
-    CostRawMaterialEq = CostRawMaterialEq[0:posPlus] # deleet the last plus
-
-    # -------- cost utilities (chemicals & energy)
-    costUtilitiesVar = 'Utility_cost'
-    costUtilitiesEq = "model.var['{}'] == ".format(costUtilitiesVar)
-    for nameObj, obj in processObjects.items():
-        if hasattr(obj, 'utilityCostVariable'):
-            utCostVar = obj.utilityCostVariable # cost of chemicals
-            costUtilitiesEq += " model.var['{}'] +".format(utCostVar)
-        if hasattr(obj, 'utilityEnergyCostVariable'):
-            utCostVar = obj.utilityEnergyCostVariable # cost of energy
-            costUtilitiesEq += " model.var['{}'] +".format(utCostVar)
-
-    posPlus = costUtilitiesEq.rfind('+')  # finds the last '+' in the equation
-    CostRawMaterialEq = costUtilitiesEq[0:posPlus]  # deleet the last plus
-
-    # -------- cost of waste
-    # todo make the wast cost
-
-    return CostRawMaterialEq, costUtilitiesEq
-
-def make_cost_model(inputObjects, outputObjects, processObjects, wasteObject):
-    """ makes all  equations and variables related to economic parameters of each interval
-    Params:
-        inputObjects (Dict): a dictionary containing all the input interval objects
-        outputObjects (Dict): a dictionary containing all the output interval objects
-    """
-    GREV_var, GREV_eq = make_GREV_equation(objectsOutputDict= outputObjects)
-    opexEQ = make_OPEX_equations(inputObjects= inputObjects, processObjects=processObjects, wasteObject=wasteObject)
 
 def get_vars_eqs_bounds(objectDict):
     """ Returns all the varible that pyomo needs to declare, the equations (in pyomo format) and a dictionary with the
@@ -3001,30 +3058,41 @@ def make_super_structure(excelFile, printPyomoEq=False):
     objectsOutputDict = make_output_intervals(ExcelDict=excelDict)
     objectsWasteDict = make_waste_interval(ExcelDict=excelDict)
 
-    allObjects = objectsInputDict | objectsProcessDict | objectsOutputDict | objectsWasteDict
+    allObjectsDict = objectsInputDict | objectsProcessDict | objectsOutputDict | objectsWasteDict
     # update the intervals, so they are conected to the right interval
-    update_intervals(allObjects, excelDict)
+    update_intervals(allObjectsDict, excelDict)
 
     # make an object with all the equations of the cost models
-    objectCostModel = make_cost_model(inputObjects= objectsInputDict,
+    CostModelObj = MakeObjectiveClass(inputObjects= objectsInputDict,
                                       outputObjects= objectsOutputDict,
                                       processObjects= objectsProcessDict,
-                                      wasteObject= objectsWasteDict )
+                                      wasteObject= objectsWasteDict)
 
-    allObjects = boolObjectDict | allObjects  # add the logic model and the cost model to the object list
+    CostModelDict = {'cost_model':CostModelObj}
+
+    allObjects = boolObjectDict | allObjectsDict | CostModelDict  # add the logic model and the cost model to the object list
     variables, equations, bounds = get_vars_eqs_bounds(allObjects)
 
     def boundsRule(model, i):
         boudVar = bounds[i]
-        if isinstance(boudVar, list):
+        if isinstance(boudVar, list) or isinstance(boudVar, tuple):
             lowerBound = boudVar[0]
             upperBound = boudVar[1]
+
+        elif boudVar == 'positiveReals': # including 0
+            lowerBound = 0 #0.0001
+            upperBound = None
+
+        elif boudVar == 'Reals':
+            lowerBound = None
+            upperBound = None
+
         else:   #elif isinstance(boudVar, str):  # 'bool' or 'positiveReal' in boudVar
             lowerBound = 0
             upperBound = None
         return (lowerBound, upperBound)
 
-    model.var = pe.Var(variables['continuous'], domain=pe.PositiveReals, bounds=boundsRule)
+    model.var = pe.Var(variables['continuous'], domain=pe.Reals, bounds=boundsRule)
     if variables['boolean']:
         # noinspection PyUnresolvedReferences
         model.boolVar = pe.Var(variables['boolean'], domain=pe.Boolean)
@@ -3047,13 +3115,13 @@ def make_super_structure(excelFile, printPyomoEq=False):
             raise Exception('The following equation can not be read by pyomo: {}'.format(eq))
 
     # define the objective
-    # GREV: gross revenu
-    GREV_var, GREV_eq = make_GREV_equation(objectsOutputDict= objectsOutputDict)
-
-    objectiveExpr = model.var[GREV_var]
+    # EBIT
+    objectiveExpr = CostModelObj.EBIT
+    print("the objective of the model is to maximise the EBIT: ")
     print(objectiveExpr)
-    model.profit = pe.Objective(expr=eval(objectiveExpr), sense=pe.maximize)
+    model.profit = pe.Objective(expr=eval(objectiveExpr), sense=pe.maximize) # sense=pe.maximize
 
+    #model.pprint()
     if printPyomoEq:
         model.pprint()  # debug check
 

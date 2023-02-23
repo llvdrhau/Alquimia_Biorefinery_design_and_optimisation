@@ -84,7 +84,7 @@ def make_elasticNet_model(ExcelName, iterations = 1000, modelName = '', plotSwit
         plt.show()
 
     if modelName:
-        with open("stringEquationVector.bin", "wb") as modelName:  # "wb" because we want to write in binary mode
+        with open("old_files/stringEquationVector.bin", "wb") as modelName:  # "wb" because we want to write in binary mode
             pickle.dump(stringEquationVector, modelName)
 
         # if we want to relaod in other scripts:

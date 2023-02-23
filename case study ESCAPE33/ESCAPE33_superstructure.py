@@ -3,7 +3,7 @@
 @author: Lucas Van der Hauwaert lucas.vanderhauwaert@usc.es
 """
 
-from functions import make_super_structure
+from old_scripts.functions import make_super_structure
 import pyomo.environ as pe
 import pyomo.opt as po
 

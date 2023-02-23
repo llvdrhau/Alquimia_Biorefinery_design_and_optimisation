@@ -1,4 +1,4 @@
-from functions import *
+from old_scripts.functions import *
 from cobra.io import write_sbml_model
 # this is just a quick fix to roughly make the massbalances correct (not in detail like fix_model_sherm.py)
 

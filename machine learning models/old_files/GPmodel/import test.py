@@ -6,5 +6,5 @@ Created on Tue May 17 18:33:41 2022
 """
 import pickle
 
-m = pickle.load( open( "save.p", "rb" ))
+m = pickle.load(open("save.p", "rb"))
 print(m)

@@ -1,4 +1,4 @@
-from functions import *
+from old_scripts.functions import *
 from cobra.io import write_sbml_model
 
 '''

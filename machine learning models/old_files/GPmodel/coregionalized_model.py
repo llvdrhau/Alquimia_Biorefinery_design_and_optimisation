@@ -54,7 +54,7 @@ print(m)
 
 #%% 
 import pickle
-pickle.dump( m, open( "save.coModel", "wb" ) )
+pickle.dump(m, open("save.coModel", "wb"))
 
 # =============================================================================
 # with open('save.pkl', 'wb') as file:

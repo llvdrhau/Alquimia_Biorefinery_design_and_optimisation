@@ -1,14 +1,12 @@
-"""
-functions to find surrogate models with machinelearning models and SBML models
-the models are transformed into a JSON  file so it can be read by the superstructure functions
-"""
+
 import os
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from functions import carbon_balance_in_out
+from old_scripts.functions import carbon_balance_in_out
 import cobra.io
 import re
+import seaborn as sns
 
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import RidgeCV
@@ -18,6 +16,12 @@ from sklearn.preprocessing import PolynomialFeatures
 
 import json
 import math
+from f_usefull_functions import get_location
+
+"""
+functions to find surrogate models with machinelearning models and SBML models
+the models are transformed into a JSON  file so it can be read by the superstructure functions
+"""
 
 def find_carbons_in_formula(formula):
     metFormula = formula
@@ -39,7 +43,6 @@ def find_carbons_in_formula(formula):
                 continue
     return nrOfCarbons
 
-
 class SurrogateModel:
     def __init__(self,name, outputs, coef, lable, intercept= None):
         self.name = name
@@ -54,14 +57,14 @@ class SurrogateModel:
             self.intercept = intercept
         self.lable = lable
 
-
-def regression_2_json(ExcelName, showPLot = True, save = False, saveName = 'data.json', normalise = False,
+def regression_open_fermentation(xdata,ydata, polynomial):
+    pass
+def regression_2_json(data, showPLot = True, save = False, saveName = 'data.json', normalise = False,
                      case = 'Ridge',polynomial=None):
-    loc = os.getcwd()
-    posAlquimia = loc.find('Alquimia')
-    loc = loc[0:posAlquimia + 8]
-    # modelLocations = loc + r'\excel files\' + modelName
-    dataLocation = loc + r"\machine learning models\excel_data\{}".format(ExcelName)
+
+    if isinstance(data,str) and ':xlsx' in data:
+        pass
+    dataLocation = get_location(file= data, case='ML')
 
     if polynomial is None:
         polynomial = {}
@@ -85,7 +88,7 @@ def regression_2_json(ExcelName, showPLot = True, save = False, saveName = 'data
                 key = name + '**{}'.format(nr)
                 dict2Pandas.update({key:col})
             X = pd.DataFrame(dict2Pandas)
-            #X = X_new # todo shiiiit what if more then one variable!!
+
 
 
     # target values (the reactor outputs)
@@ -212,6 +215,26 @@ def regression_2_json(ExcelName, showPLot = True, save = False, saveName = 'data
 
 
     return surrogateModel,modelDictionary
+
+def plot_subplots(x_data, y_data):
+    """ plots the data of the model we want to regress """
+
+    num_cols_x = x_data.shape[1]
+    if num_cols_x > 1:
+        raise Exception('The number of inputs should not be larger then 1')
+
+    num_cols = y_data.shape[1]  # number of columns in y_data
+    num_rows = (num_cols - 1) // 2 + 1  # calculate number of rows for subplot layout
+    fig, axes = plt.subplots(nrows=num_rows, ncols=2, figsize=(10, 5*num_rows))  # create subplots
+    for i, ax in enumerate(axes.flatten()):  # iterate over subplots
+        if i < num_cols:  # plot data if there are still columns left
+            sns.scatterplot(x=x_data.squeeze(), y=y_data.iloc[:, i], ax=ax)  # plot i-th column of y_data against x_data using seaborn
+            ax.set_title(y_data.columns[i])  # set title to column name
+        else:  # remove unused subplots
+            ax.remove()
+    fig.tight_layout()  # adjust subplot spacing
+    plt.show()  # display plot
+
 
 def SBML_2_json(modelName, substrate_exchange_rnx, product_exchange_rnx, newObjectiveReaction = None, saveName = None,
                 substrate2zero= 'Ex_S_cpd00027_ext', missingCarbonId = None, printEq = False, checkCarbon = True, save = False):

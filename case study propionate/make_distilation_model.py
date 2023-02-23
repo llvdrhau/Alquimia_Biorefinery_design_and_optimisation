@@ -1,13 +1,6 @@
-import mpmath
-import numpy as np
+
 import os
 import json
-import seaborn as sns
-from sklearn.linear_model import LinearRegression
-from sklearn.linear_model import Lasso
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import PolynomialFeatures
-import matplotlib.pyplot as plt
 
 def distillation_check(x_D, x_B, F, x_F, alfa_f,    # for mass balances
                       Hvap_LK, Hvap_HK,             # for condenser duty
