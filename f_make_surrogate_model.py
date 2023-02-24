@@ -5,41 +5,23 @@ import numpy as np
 import matplotlib.pyplot as plt
 from old_scripts.functions import carbon_balance_in_out
 import cobra.io
-import re
+
 import seaborn as sns
 
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import RidgeCV, LassoCV, Ridge, Lasso, LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
+from sklearn.metrics import r2_score, mean_squared_error
 
 import json
 import math
 from f_usefull_functions import get_location
+from f_screen_SBML import count_carbon_in_formula, count_atom_in_formula
 
 """
 functions to find surrogate models with machinelearning models and SBML models
 the models are transformed into a JSON  file so it can be read by the superstructure functions
 """
-
-def find_carbons_in_formula(formula):
-    metFormula = formula
-    splitFormula = re.split('(\d+)', metFormula)
-    nrOfCarbons = 0  # just in case something wierd happens
-    if 'C' not in metFormula:  # if there is no carbon in the formula
-        nrOfCarbons = 0
-    else:
-        for j, element in enumerate(splitFormula):
-            if 'C' in element and len(element) == 1:
-                nrOfCarbons = int(splitFormula[j + 1])
-            elif 'C' in element and len(element) > 1:
-                posCarbon = element.index('C')
-                if element[posCarbon + 1].isupper():  # for case like CH4 there is no 1 next to the C
-                    nrOfCarbons = 1  # only one carbon
-                else:
-                    continue  # for cases like Co (cobalt) just skip
-            else:
-                continue
-    return nrOfCarbons
 
 class SurrogateModel:
     def __init__(self,name, outputs, coef, lable, intercept= None):
@@ -55,20 +37,20 @@ class SurrogateModel:
             self.intercept = intercept
         self.lable = lable
 
-def regression_open_fermentation(xdata, ydata, polynomialDegree, case = 'Lasso'):
+def regression_open_fermentation(xdata, ydata, polynomialDegree, case = 'Lasso', plot = True ):
 
     # make the polynomial data
-    poly = PolynomialFeatures(degree=polynomialDegree, include_bias=False)
+    poly = PolynomialFeatures(degree=polynomialDegree, include_bias=True)
     X_poly = poly.fit_transform(xdata)
 
     # Split data into training and testing sets
-    X_train, X_test, y_train, y_test = train_test_split(X_poly, ydata, test_size=0.2, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(X_poly, ydata, test_size=0.35, random_state=42)
 
     # Fit linear regression model to training data
     if case == 'Ridge':
         reg = Ridge().fit(X_train, y_train)
     elif case == 'Lasso':
-        reg = Lasso().fit(X_train, y_train)
+        reg = Lasso(alpha= 0.002).fit(X_train, y_train)
         #model = Lasso(alpha= 1, max_iter= 4000)
     elif case == 'Linear':
         reg = LinearRegression().fit(X_train, y_train)
@@ -77,19 +59,194 @@ def regression_open_fermentation(xdata, ydata, polynomialDegree, case = 'Lasso')
 
     # Predict Qtot for test data
     y_pred = reg.predict(X_test)
+    r2_scores = r2_score(y_test, y_pred, multioutput='raw_values')
+    MSE = mean_squared_error(y_test, y_pred, multioutput='raw_values')
+    coefs = reg.coef_
 
-    plot_parity_plots(yPred= y_pred, yObv= y_test)
+    # print info
+    print("R2 score for each output variable:", r2_scores)
+    print("mean_squared_error for each output variable:", MSE)
+    print('')
+    print("the ceof are:", coefs)
 
-    # Plot parity plot
-    # plt.figure(figsize=(6, 6))
-    # sns.set_style('darkgrid')
-    # sns.scatterplot(x=y_test, y=y_pred, alpha=0.7, s=50)
-    # sns.lineplot(x=y_test, y=y_test, color='red')
-    # plt.xlabel('Observed Qtot')
-    # plt.ylabel('Predicted Qtot')
-    # plt.show()
 
+    # only dependent on 1 variable, so we can plot the outcome of the model vs the pH
+    # create data to plot the model
+    colName = xdata.columns[0]
+    x_data_model = np.linspace(min(xdata[colName]), max(xdata[colName]), num=100)
+    x_data_model = x_data_model.reshape((len(x_data_model), 1)) # reshape
+    x_poly_data_model = poly.fit_transform(x_data_model)
+    y_data_model = reg.predict(x_poly_data_model)
+
+    # check out the  plots
+    if plot:
+        plot_parity_plots(yPred= y_pred, yObv= y_test)
+        plot_model_vs_data(x_data=X_poly[:,1] , y_data= ydata, x_data_model = x_data_model.squeeze(), y_data_model= y_data_model)
     return reg
+
+
+def plot_data_subplots(x_data, y_data):
+    """ plots the data of the model we want to regress """
+
+    num_cols_x = x_data.shape[1]
+    if num_cols_x > 1:
+        raise Exception('The number of inputs should not be larger then 1')
+
+    num_cols = y_data.shape[1]  # number of columns in y_data
+    num_rows = (num_cols - 1) // 2 + 1  # calculate number of rows for subplot layout
+    fig, axes = plt.subplots(nrows=num_rows, ncols=2, figsize=(10, 5*num_rows))  # create subplots
+    for i, ax in enumerate(axes.flatten()):  # iterate over subplots
+        if i < num_cols:  # plot data if there are still columns left
+            sns.set_style('darkgrid')
+            sns.scatterplot(x=x_data.squeeze(), y=y_data.iloc[:, i], ax=ax)  # plot i-th column of y_data against x_data using seaborn
+            ax.set_title(y_data.columns[i])  # set title to column name
+        else:  # remove unused subplots
+            ax.remove()
+    fig.tight_layout()  # adjust subplot spacing
+    plt.show()  # display plot
+
+def plot_parity_plots(yPred, yObv):
+    num_cols_yPred = yPred.shape[1]
+    num_cols_yObv = yObv.shape[1]
+
+    subplotTitles = list(yObv.columns)
+    if num_cols_yPred != num_cols_yObv:
+        raise Exception('yPred and yObv should be the same size')
+
+    num_cols = yPred.shape[1]  # number of columns in y_data
+    num_rows = (num_cols - 1) // 2 + 1  # calculate number of rows for subplot layout
+    fig, axes = plt.subplots(nrows=num_rows, ncols=2, figsize=(10, 5 * num_rows))  # create subplots
+    sns.set_style('darkgrid')
+    for i, ax in enumerate(axes.flatten()):  # iterate over subplots
+        if i < num_cols:  # plot data if there are still columns left
+            observed = yObv[subplotTitles[i]].to_numpy()
+            predicted = yPred[:,i]
+            sns.scatterplot(x=observed, y=predicted, ax=ax)  # plot i-th column of y_data against x_data using seaborn
+            sns.lineplot(x=predicted, y=predicted, color='red', ax=ax)
+            ax.set_xlabel('Observed Qtot')
+            ax.set_ylabel('Predicted Qtot')
+            ax.set_title(f'Parity plot for {subplotTitles[i]}')  # set title to column name
+        else:  # remove unused subplots
+            fig.delaxes(ax)
+    fig.tight_layout()  # adjust subplot spacing
+    plt.show()  # display plot
+
+def plot_model_vs_data(x_data, y_data, x_data_model, y_data_model):
+
+    num_cols = y_data.shape[1]  # number of columns in y_data
+    num_rows = (num_cols - 1) // 2 + 1  # calculate number of rows for subplot layout
+    fig, axes = plt.subplots(nrows=num_rows, ncols=2, figsize=(10, 5 * num_rows))  # create subplots
+    for i, ax in enumerate(axes.flatten()):  # iterate over subplots
+        if i < num_cols:  # plot data if there are still columns left
+            sns.set_style('darkgrid')
+            sns.scatterplot(x=x_data, y=y_data.iloc[:, i], ax=ax)  # plot i-th column of y_data against x_data using seaborn
+            sns.lineplot(x= x_data_model, y= y_data_model[:,i], ax= ax)
+            ax.set_title(y_data.columns[i])  # set title to column name
+        else:  # remove unused subplots
+            ax.remove()
+    fig.tight_layout()  # adjust subplot spacing
+    plt.show()  # display plot
+
+
+# turn the models into json files
+def SBML_2_json(modelName, substrate_exchange_rnx, product_exchange_rnx, case = 'carbon_yield',
+                newObjectiveReaction = None, saveName = None, substrate2zero= 'Ex_S_cpd00027_ext',
+                missingCarbonId = None, printEq = False, checkCarbon = False, save = False):
+
+    loc = os.getcwd()
+    posAlquimia = loc.find('Alquimia')
+    loc = loc[0:posAlquimia + 8]
+    # modelLocations = loc + r'\excel files\' + modelName
+    modelLocation = loc + r"\SBML models\{}".format(modelName)
+
+    if saveName is None:
+        saveName = modelName.replace('.xml','.json')
+
+    allYields_FBA =[]
+    allEquations = []
+
+    model = cobra.io.read_sbml_model(modelLocation)
+    # make sure the right objective is set
+    if newObjectiveReaction:
+        model.objective = newObjectiveReaction
+
+    # change the standard exchange reaction to zero
+    exchange_rnx_2_zero = substrate2zero
+    model.reactions.get_by_id(exchange_rnx_2_zero).bounds = 0, 0
+
+    coefDict = {}
+    outputVariables = []
+    if printEq:
+        print(modelName)
+    for product in product_exchange_rnx:
+        productMet = model.reactions.get_by_id(product).reactants[0]
+        productName = productMet.name
+        Cprod = count_atom_in_formula(metabolite= productMet, atom='C')
+        MW_prod = productMet.formula_weight
+
+        strEq = '{} == '.format(productName)
+        outputVariables.append(productName)
+        substrateCoefDict = {}
+        for substrate in substrate_exchange_rnx:
+            # set all substrates to zero
+            for exchRnx in substrate_exchange_rnx:
+                model.reactions.get_by_id(exchRnx).bounds = 0, 0
+            # change bound of new desired substrate to -10 mol/h/gDW
+            model.reactions.get_by_id(substrate).bounds = -10, 0
+
+            # do regular FBA
+            solution = model.optimize()
+            FBA_substrate_flux = solution.fluxes[substrate]
+
+            # if the model does not consume the substrate then there is a problem
+            if FBA_substrate_flux >= 0: # consuming reactions are negative, that's why >= is used
+                raise Exception('The model {} does not consume the substrate {} so a yield can not be obtained'.format(modelName, substrate))
+
+            substrateMet = model.reactions.get_by_id(substrate).reactants[0]
+            substrateName = substrateMet.name
+            Csub = count_atom_in_formula(metabolite= substrateMet, atom= 'C')
+            MW_sub = substrateMet.formula_weight
+
+            # get the flux solutions
+            FBA_product_flux = solution.fluxes[product]
+
+            # get the right type of yield base on the given case
+            if case == 'carbon_yield':
+                FBA_yield = abs((FBA_product_flux / FBA_substrate_flux) * (Cprod * 12) / (Csub * 12))  # in gramsC / grams C: 12 gCarbon/mol
+
+            elif case == 'mass_yield':
+                FBA_yield = abs((FBA_product_flux / FBA_substrate_flux) * MW_prod / MW_sub)  # in gramsC / grams C: 12 gCarbon/mol
+
+            else:
+                raise Exception("The variable 'case' (= {}) can only take the string 'carbon_yield' or 'mass_yield' ".format(case))
+
+            allYields_FBA.append(FBA_yield)
+            strEq += ' + {} * {}'.format(FBA_yield, substrateName)
+            substrateCoefDict.update({substrateName:FBA_yield})
+        coefDict.update({productName:substrateCoefDict})
+        allEquations.append(strEq)
+        if printEq:
+            print(strEq)
+
+    if printEq:
+        print('') # extra space to make it more readable
+
+    if checkCarbon:
+        carbon_balance_in_out(modelLocation=model, metIDsMissingCarbon=missingCarbonId, tol=1e-4)
+
+    surrogateModel = SurrogateModel(name=modelName, outputs=outputVariables, coef=coefDict,
+                                    lable='SBML')
+
+    if save:
+        loc = os.getcwd()
+        posAlquimia = loc.find('Alquimia')
+        loc = loc[0:posAlquimia + 8]
+        loc = loc + r'\json models' + r'\{}'.format(saveName)
+        with open(loc, 'w+', encoding='utf-8') as f:
+            json.dump(surrogateModel.__dict__, f, ensure_ascii=False, indent=4)
+
+    return allEquations, allYields_FBA
+
 def regression_2_json(data, showPLot = True, save = False, saveName = 'data.json', normalise = False,
                      case = 'Ridge',polynomial=None):
 
@@ -247,129 +404,22 @@ def regression_2_json(data, showPLot = True, save = False, saveName = 'data.json
 
     return surrogateModel,modelDictionary
 
-def plot_subplots(x_data, y_data):
-    """ plots the data of the model we want to regress """
-
-    num_cols_x = x_data.shape[1]
-    if num_cols_x > 1:
-        raise Exception('The number of inputs should not be larger then 1')
-
-    num_cols = y_data.shape[1]  # number of columns in y_data
-    num_rows = (num_cols - 1) // 2 + 1  # calculate number of rows for subplot layout
-    fig, axes = plt.subplots(nrows=num_rows, ncols=2, figsize=(10, 5*num_rows))  # create subplots
-    for i, ax in enumerate(axes.flatten()):  # iterate over subplots
-        if i < num_cols:  # plot data if there are still columns left
-            sns.set_style('darkgrid')
-            sns.scatterplot(x=x_data.squeeze(), y=y_data.iloc[:, i], ax=ax)  # plot i-th column of y_data against x_data using seaborn
-            ax.set_title(y_data.columns[i])  # set title to column name
-        else:  # remove unused subplots
-            ax.remove()
-    fig.tight_layout()  # adjust subplot spacing
-    plt.show()  # display plot
-
-def plot_parity_plots(yPred, yObv):
-    num_cols_yPred = yPred.shape[1]
-    num_cols_yObv = yObv.shape[1]
-
-    subplotTitles = list(yObv.columns)
-    yObv
-
-    if num_cols_yPred != num_cols_yObv:
-        raise Exception('yPred and yObv should be the same size')
-
-    num_cols = yPred.shape[1]  # number of columns in y_data
-    num_rows = (num_cols - 1) // 2 + 1  # calculate number of rows for subplot layout
-    fig, axes = plt.subplots(nrows=num_rows, ncols=2, figsize=(10, 5 * num_rows))  # create subplots
-    sns.set_style('darkgrid')
-    for i, ax in enumerate(axes.flatten()):  # iterate over subplots
-        if i < num_cols:  # plot data if there are still columns left
-            observed = yObv[subplotTitles[i]].to_numpy()
-            predicted = yPred[:,i]
-            sns.scatterplot(x=observed, y=predicted, ax=ax)  # plot i-th column of y_data against x_data using seaborn
-            sns.lineplot(x=predicted, y=predicted, color='red', ax=ax)
-            ax.set_xlabel('Observed Qtot')
-            ax.set_ylabel('Predicted Qtot')
-            ax.set_title(f'Parity plot for {subplotTitles[i]}')  # set title to column name
-        else:  # remove unused subplots
-            fig.delaxes(ax)
-    fig.tight_layout()  # adjust subplot spacing
-    plt.show()  # display plot
-
-
-def SBML_2_json(modelName, substrate_exchange_rnx, product_exchange_rnx, newObjectiveReaction = None, saveName = None,
-                substrate2zero= 'Ex_S_cpd00027_ext', missingCarbonId = None, printEq = False, checkCarbon = True, save = False):
-    loc = os.getcwd()
-    posAlquimia = loc.find('Alquimia')
-    loc = loc[0:posAlquimia + 8]
-    # modelLocations = loc + r'\excel files\' + modelName
-    modelLocation = loc + r"\SBML models\{}".format(modelName)
-
-    if saveName is None:
-        saveName = modelName.replace('.xml','.json')
-
-    allYields_FBA =[]
-    allEquations = []
-
-    model = cobra.io.read_sbml_model(modelLocation)
-    # make sure the right objective is set
-    if newObjectiveReaction:
-        model.objective = newObjectiveReaction
-
-    # change the standard exchange reaction to zero
-    exchange_rnx_2_zero = substrate2zero
-    model.reactions.get_by_id(exchange_rnx_2_zero).bounds = 0, 0
-
+def regression_2_json_v2(outputNames, featureNames, model ,saveName, save = True):
+    coef_ = model.coef_
+    interpect_ = model.intercept_
     coefDict = {}
-    outputVariables = []
-    if printEq:
-        print(modelName)
-    for product in product_exchange_rnx:
-        productMet = model.reactions.get_by_id(product).reactants[0]
-        productName = productMet.name
-        productFormula = productMet.formula
-        Cprod = find_carbons_in_formula(productFormula)
-        strEq = '{} == '.format(productName)
-        outputVariables.append(productName)
-        substrateCoefDict = {}
-        for substrate in substrate_exchange_rnx:
-            # set all substrates to zero
-            for exchRnx in substrate_exchange_rnx:
-                model.reactions.get_by_id(exchRnx).bounds = 0, 0
-            # change bound of new desired substrate to -10 mol/h/gDW
-            model.reactions.get_by_id(substrate).bounds = -10, 0
+    interpectDict = {}
+    for i, out in enumerate(outputNames):
+        featureCoefDict = {}
+        interpectDict.update({out:interpect_[i]})
+        for j, feature in enumerate(featureNames):
+            coefOfFeature = coef_[i, j]
+            featureCoefDict.update({feature: coefOfFeature})  # can't put a np array in a json file
+        coefDict.update({out: featureCoefDict})
 
-            # do regular FBA
-            solution = model.optimize()
-            FBA_substrate_flux = solution.fluxes[substrate]
 
-            # if the model does not consume the substrate then there is a problem
-            if FBA_substrate_flux >= 0: # consuming reactions are negative, that's why >= is used
-                raise Exception('The model {} does not consume the substrate {} so a yield can not be obtained'.format(modelName, substrate))
-
-            substrateMet = model.reactions.get_by_id(substrate).reactants[0]
-            substrateName = substrateMet.name
-            substrateFormula = substrateMet.formula
-            Csub = find_carbons_in_formula(substrateFormula)
-
-            FBA_product_flux = solution.fluxes[product]
-            FBA_yield = abs((FBA_product_flux / FBA_substrate_flux) * (Cprod * 12) / (Csub * 12))  # in gramsC / grams C: 12 gCarbon/mol
-            allYields_FBA.append(FBA_yield)
-            strEq += ' + {} * {}'.format(FBA_yield, substrateName)
-            substrateCoefDict.update({substrateName:FBA_yield})
-        coefDict.update({productName:substrateCoefDict})
-        allEquations.append(strEq)
-        if printEq:
-            print(strEq)
-
-    if printEq:
-        print('') # extra space to make it more readable
-
-    if checkCarbon:
-        carbon_balance_in_out(modelLocation=model, metIDsMissingCarbon=missingCarbonId, tol=1e-4)
-
-    surrogateModel = SurrogateModel(name=modelName, outputs=outputVariables, coef=coefDict,
-                                    lable='SBML')
-
+    surrogateModel = SurrogateModel(name=saveName, outputs=outputNames, coef=coefDict, intercept= interpectDict,
+                                    lable='other')
     if save:
         loc = os.getcwd()
         posAlquimia = loc.find('Alquimia')
@@ -377,5 +427,3 @@ def SBML_2_json(modelName, substrate_exchange_rnx, product_exchange_rnx, newObje
         loc = loc + r'\json models' + r'\{}'.format(saveName)
         with open(loc, 'w+', encoding='utf-8') as f:
             json.dump(surrogateModel.__dict__, f, ensure_ascii=False, indent=4)
-
-    return allEquations, allYields_FBA

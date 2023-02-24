@@ -14,7 +14,7 @@ if regresionSurrogate:
     dataLocation = get_location(file=excelFile, case='ML')
     x_pH = pd.read_excel(dataLocation, sheet_name= 'inputs')
     y_outputs = pd.read_excel(dataLocation, sheet_name= 'outputs')
-    #plot_subplots(y_data=y_outputs, x_data=x_pH)
+    #plot_data_subplots(y_data=y_outputs, x_data=x_pH)
 
     # deleet the row where the pH is larger than 8.49
     # (otherwise the fit is not going to be great, see the propionate plot)
@@ -23,17 +23,30 @@ if regresionSurrogate:
     x_pH = x_pH[x_pH < 8.5]
     x_pH = x_pH.dropna() # drop the nan's
     indexes = x_pH.index
-
     y_outputs = y_outputs.loc[x_pH.index]
 
-    #plot_subplots(y_data=y_outputs, x_data=x_pH)
+    # plot the data to see the patterns
+    plot_data_subplots(y_data=y_outputs, x_data=x_pH)
 
     # ---- fit poly data
-    polynomial = 4
-    model = regression_open_fermentation(xdata= x_pH, ydata= y_outputs, polynomialDegree= 4)
+    polynomial = 6
+    model = regression_open_fermentation(xdata= x_pH, ydata= y_outputs, polynomialDegree= polynomial,
+                                         case= 'Linear', plot= False)
+    # compare to other scenarios
+    # model = regression_open_fermentation(xdata=x_pH, ydata=y_outputs, polynomialDegree=5, case='Linear')
+    # model = regression_open_fermentation(xdata=x_pH, ydata=y_outputs, polynomialDegree=6, case='Linear')
 
-    # out = regression_2_json(excelFile, normalise= False ,save=True, saveName='open_fermentation_polynomial_case_study.json',
-    #                      showPLot= True, polynomial= {'pH':polynomial}, case= 'Ridge')
+    # output names are the column names (could also change)
+    outputNames = list(y_outputs.columns)
+
+    # the inputs are the polynomials of the feature pH
+    featureNames = []
+    for i in range(polynomial):
+        featureNames.append('pH**{}'.format(i))
+
+    regression_2_json_v2(outputNames, featureNames, model,
+                         saveName = 'open_fermentation_polynomial_case_study.json', save=True)
+
 
 # -------------------------- SBML models
 if SBMLsurrogate:
