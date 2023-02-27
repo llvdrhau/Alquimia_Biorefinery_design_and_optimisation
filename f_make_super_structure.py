@@ -183,7 +183,7 @@ def make_str_eq_json(modelObject, equationInfo):
             yieldEq += ' + {} * {} '.format(featureAbbr, featureCoef)
         if lable == 'SBML':
             equation = '{} == {}'.format(outAbrr, yieldEq)
-        else:
+        else: # very redundant
             yieldEq += ' + {}'.format(intercept[out])
             equation = '{} == ({}) * {}'.format(outAbrr, yieldEq, yieldOf)
         print(equation)

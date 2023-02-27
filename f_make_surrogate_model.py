@@ -24,7 +24,7 @@ the models are transformed into a JSON  file so it can be read by the superstruc
 """
 
 class SurrogateModel:
-    def __init__(self,name, outputs, coef, lable, intercept= None):
+    def __init__(self,name, outputs, coef, lable, maxConcentration = None ,intercept= None):
         self.name = name
         self.outputs = outputs
         self.coef = coef
@@ -36,6 +36,20 @@ class SurrogateModel:
         else:
             self.intercept = intercept
         self.lable = lable
+
+        if maxConcentration is None:
+            maxConcentration = {}
+
+        if maxConcentration:
+            key = list(maxConcentration.keys())[0]
+            val = list(maxConcentration.values()) [0]
+            self.waterEq = 'water == {} / {}'.format(key, val)
+
+            #for key, val in maxConcentration.items():
+
+
+
+
 
 def regression_open_fermentation(xdata, ydata, polynomialDegree, case = 'Lasso', plot = True ):
 
@@ -149,15 +163,29 @@ def plot_model_vs_data(x_data, y_data, x_data_model, y_data_model):
 
 
 # turn the models into json files
-def SBML_2_json(modelName, substrate_exchange_rnx, product_exchange_rnx, case = 'carbon_yield',
+def SBML_2_json(modelName, substrate_exchange_rnx, product_exchange_rnx, case = 'carbon_yield', maxConcentration= None,
                 newObjectiveReaction = None, saveName = None, substrate2zero= 'Ex_S_cpd00027_ext',
                 missingCarbonId = None, printEq = False, checkCarbon = False, save = False):
 
-    loc = os.getcwd()
-    posAlquimia = loc.find('Alquimia')
-    loc = loc[0:posAlquimia + 8]
-    # modelLocations = loc + r'\excel files\' + modelName
-    modelLocation = loc + r"\SBML models\{}".format(modelName)
+    """ Starting from the SBML model a json file is created so that the equations can be quickly constructed in pyomo
+    Params:
+        * modelName(str): the name of the model
+        * substrate_exchange_rnx (list): list of substrate id's that are of interest
+        * product_exchange_rnx (list): list of product id's that are of interest
+        * case (str): what the yield schould be based on nl carbon yield or mass yield
+        * maxConcentration (float): the maximum concentration that a reactor can have for a certain product!
+        this parameter determines how much water needs to be added to the reactor (!!! kg/L !!!)
+        * newObjectiveReaction (str): ID of the reaction you maximise (default is alway biomass)
+        * missingCarbonId (str): ID of a metabolite that has a missing formula and you want to estimate it with the
+        check carbon function
+
+    returns:
+        a json file save in 'json models'
+        allEquations
+        allYields_FBA
+    """
+
+    modelLocation = get_location(modelName)
 
     if saveName is None:
         saveName = modelName.replace('.xml','.json')
@@ -165,7 +193,9 @@ def SBML_2_json(modelName, substrate_exchange_rnx, product_exchange_rnx, case = 
     allYields_FBA =[]
     allEquations = []
 
+    #  read in the SBML model
     model = cobra.io.read_sbml_model(modelLocation)
+
     # make sure the right objective is set
     if newObjectiveReaction:
         model.objective = newObjectiveReaction
@@ -235,7 +265,7 @@ def SBML_2_json(modelName, substrate_exchange_rnx, product_exchange_rnx, case = 
         carbon_balance_in_out(modelLocation=model, metIDsMissingCarbon=missingCarbonId, tol=1e-4)
 
     surrogateModel = SurrogateModel(name=modelName, outputs=outputVariables, coef=coefDict,
-                                    lable='SBML')
+                                    lable='SBML', maxConcentration = maxConcentration)
 
     if save:
         loc = os.getcwd()
