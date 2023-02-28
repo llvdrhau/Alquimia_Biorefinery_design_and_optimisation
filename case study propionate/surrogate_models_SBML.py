@@ -49,6 +49,7 @@ products = ['Ex_S_cpd00141_ext',   # acetate
             'Ex_S_cpd00029_ext',    # propionate
             'Ex_S_biomass_ext']     # biomass
 
+maxProductConcentration = {'Propionate': 0.030} # in kg/L
 sbmlSherm = SBML_2_json(modelName=organism, substrate_exchange_rnx=substrates, product_exchange_rnx=products,
                        case= 'mass_yield', saveName=saveName, save = saveSwitch, checkCarbon= carbonCheckSwitch,
-                       printEq= printSwitch)
+                       printEq= printSwitch, maxConcentration= maxProductConcentration)

@@ -434,7 +434,7 @@ def regression_2_json(data, showPLot = True, save = False, saveName = 'data.json
 
     return surrogateModel,modelDictionary
 
-def regression_2_json_v2(outputNames, featureNames, model ,saveName, save = True):
+def regression_2_json_v2(outputNames, featureNames, model ,saveName, save = True, maxConcentration = None):
     coef_ = model.coef_
     interpect_ = model.intercept_
     coefDict = {}
@@ -449,7 +449,7 @@ def regression_2_json_v2(outputNames, featureNames, model ,saveName, save = True
 
 
     surrogateModel = SurrogateModel(name=saveName, outputs=outputNames, coef=coefDict, intercept= interpectDict,
-                                    lable='other')
+                                    lable='other', maxConcentration= maxConcentration)
     if save:
         loc = os.getcwd()
         posAlquimia = loc.find('Alquimia')

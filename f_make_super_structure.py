@@ -136,7 +136,14 @@ def make_str_eq_json(modelObject, equationInfo):
     intercept = modelObject['intercept']
     name = modelObject['name']
     lable = modelObject['lable']
-    yieldOf = equationInfo['yield_of']
+
+    if 'waterEq' in modelObject:
+        waterEq = modelObject['waterEq']
+    else:
+        waterEq = '' # make an empty equation
+
+    yieldOf = equationInfo['yield_of'] # kind of useless
+
     # make abbreviations dictionary
     abbrDict = {}
 
@@ -166,8 +173,12 @@ def make_str_eq_json(modelObject, equationInfo):
     print(name)
     for out in outputs:
         outAbrr = abbrDict[out]
-        # eqY = '{} == '.format(outAbrr)
         coefOfOutputs = coef[out]
+
+        # update the water Eq
+        waterEq = waterEq.replace(out,outAbrr)
+
+        # preallocate the right side of the reaction equation
         yieldEq = ''
         for feature in coefOfOutputs:
             ### this for loop to replace all the full variable names with the abbreviuations
@@ -189,7 +200,8 @@ def make_str_eq_json(modelObject, equationInfo):
         print(equation)
         print('')
         equationList.append(equation)
-
+    if waterEq: # if the string is not empty add it to the list of equations
+        equationList.append(waterEq)
     return equationList
 
 

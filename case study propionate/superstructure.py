@@ -9,17 +9,8 @@ import pyomo.environ as pe
 import pyomo.opt as po
 
 excelFile = 'propionate_case_study.xlsx'
-
 start_time = time.time()
 superstructure = make_super_structure(excelFile= excelFile, printPyomoEq= False)
-end_time = time.time()
-
-run_time =  end_time - start_time
-
-print('')
-print('The run time is: {} seconds'.format(run_time))
-print('')
-
 
 switchSolver = True
 if switchSolver:
@@ -43,3 +34,9 @@ if switchSolver:
             a = pe.value(v2[index2])
             print('The objective value is:')
             print('{0} = {1}'.format(v2[index2], pe.value(v2[index2])))
+
+end_time = time.time()
+run_time =  end_time - start_time
+print('')
+print('The run time is: {} seconds'.format(run_time))
+print('')

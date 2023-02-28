@@ -36,5 +36,6 @@
         "CV_Propionate": -1.7114572301434714,
         "CV_Biomass": 46.53076755888427
     },
-    "lable": "other"
+    "lable": "other",
+    "waterEq": "water == CV_Propionate / 0.025"
 }

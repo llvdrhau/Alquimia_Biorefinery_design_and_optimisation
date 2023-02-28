@@ -23,7 +23,7 @@ indexes = x_pH.index
 y_outputs = y_outputs.loc[x_pH.index]
 
 # plot the data to see the patterns
-plot_data_subplots(y_data=y_outputs, x_data=x_pH)
+# plot_data_subplots(y_data=y_outputs, x_data=x_pH)
 
 # ---- fit poly data
 polynomial = 6
@@ -41,5 +41,7 @@ featureNames = []
 for i in range(polynomial):
     featureNames.append('pH**{}'.format(i))
 
-regression_2_json_v2(outputNames, featureNames, model,
-                     saveName = 'open_fermentation_polynomial_case_study.json', save=False)
+# CV_Propionate is the name of propionate in the model!! carefull to get this right or you'll get an error
+maxProductConcentration= {'CV_Propionate': 25e-3} # 25 g/L or 0.025 kg/L
+regression_2_json_v2(outputNames, featureNames, model, maxConcentration = maxProductConcentration,
+                     saveName = 'open_fermentation_polynomial_case_study.json', save=True)
