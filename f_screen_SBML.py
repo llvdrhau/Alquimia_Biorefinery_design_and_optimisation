@@ -1,10 +1,13 @@
-import pandas as pd
+import re
+import warnings
+
 import cobra
 import cobra.io
-import re
 import numpy as np
-import warnings
+import pandas as pd
+
 from f_usefull_functions import *
+
 
 ########################################################################################################################
 # ============================================================================================================
@@ -204,7 +207,7 @@ def carbon_balance_in_out(modelLocation, metIDsMissingCarbon=None, tol=0.0001):
         modelName = modelLocation.split("\\")[-1]
         modelName = modelName.replace(".xml", "")
     else:
-        model = modelLocation  # then it will be the passed on model
+        model = modelLocation  # then it will be the passed on as a COBRA model
         modelName = 'derp idk look if the model has a name in its struture'
 
     if metIDsMissingCarbon is None:
@@ -248,11 +251,20 @@ def carbon_balance_in_out(modelLocation, metIDsMissingCarbon=None, tol=0.0001):
 
 
 # originaly from the file print_model_2_excel
-def string_reactions(reaction, case='names'):
+def string_reactions(reaction, case='names', printFlux = False):
     """ returns the reaction as a string with the stoichiometry and prints it to the terminal
     """
 
     rxn = reaction
+    if printFlux:
+        try:
+            flux = rxn.flux
+        except:
+            flux = 'Undetermined'
+            print('use model.optimise before calling this function to get the fluxes')
+    else:
+        flux = 'Undetermined'
+
     reactants = rxn.reactants
     reactantStr = ''
     stoiFactor = rxn.metabolites
@@ -260,10 +272,12 @@ def string_reactions(reaction, case='names'):
     for metReac in reactants:
         if case == 'names':
             reactName = metReac.name
-        else:
+        elif case == 'formulas':
             reactName = metReac.formula
             if reactName == '':
                 reactName = "###"
+        else:
+             raise Exception("the option 'case' can only be 'names' or 'formulas' ")
 
         stoi = stoiFactor[metReac]
         reactantStr += '{} {} + '.format(stoi, reactName)
@@ -282,8 +296,16 @@ def string_reactions(reaction, case='names'):
         productStr += '{} {} + '.format(stoi, prodName)
 
     reactionStr = "{} = {}".format(reactantStr, productStr)
-    return reactionStr
+    return reactionStr, flux
 
+
+def print_all_rxn_of_metabolite(metabolite, case='names', printFlux=False):
+    allRxn = list(metabolite.reactions)
+    for rxn in allRxn:
+        strRnx, flux = string_reactions(reaction= rxn, case= case, printFlux=printFlux)
+        print(strRnx)
+        if printFlux:
+            print('the flux of this reaction is : {} \n'.format(flux))
 
 def find_unbalanced_rxn_of_element(model, stoiMatrix, fluxArray, element, elementCount):
     MM = {'C': 12, 'O': 15.99, 'H': 1}
@@ -324,8 +346,8 @@ def get_list_metabolite_ids_names(model):
     names = []
     ids = []
     for met in metabolites:
-        names.append(met.id)
-        ids.append(met.name)
+        names.append(met.name)
+        ids.append(met.id)
 
     DFidName = pd.DataFrame({'IDs': ids, 'Names': names})
     return DFidName
@@ -437,7 +459,7 @@ def print_SBML_info_2_excel(modelName, idMissingCarbon=None, saveName=None, tole
     # find the ingoing and outgoing fluxes
     inputDF, outputDF = carbon_balance_in_out(modelLocation=model, metIDsMissingCarbon=idMissingCarbon, tol=tolerance)
 
-    # calculate the mass of carbon at goes missing in each reaction (exculed the exchage reactions?)
+    # calculate the mass of carbon at goes missing in each reaction (excluded the exchange reactions?)
     # exclude the transfer (exchange reactions) reactions
     exchRxn = model.exchanges
     # transform id's to a list
@@ -646,3 +668,47 @@ def fix_missing_formulas(model, fixDict, maxIterations=10):
 
     return model, estimateFormulas
 
+
+def ATP_Biomass_Ratio(model, biomassRxnID, ATPmetID, modelName):
+    """
+    prints the flux of biomass and the total flux of produced ATP
+
+    Params:
+        model (COBRA model): the cobra model
+        biomassRxnID (str):  the exchange reaction ID of biomass
+        ATPmetID (str): the metabolite ID of ATP
+        modelName (str): name of the model
+
+    Returns:
+        printed results of the biomass flux, ATP flux and the BM/ATP ratio
+
+    """
+    # get the flux solution
+    solutions = model.optimize()
+    fluxArray = solutions.fluxes
+
+    # get the stoichiometric matrix
+    StoiMatrixDF = cobra.util.create_stoichiometric_matrix(model, array_type='DataFrame')  # [:,0:posExchangeRxn]
+
+    # find the ATP producing flux
+    RowATP = StoiMatrixDF.loc[ATPmetID]
+    fluxATP = RowATP * fluxArray
+
+    fluxList = []
+    for flux in fluxATP:
+        if flux > 0:
+            fluxList.append(flux)
+    totalATPFlux = sum(fluxList)
+
+    # find the biomass flux
+    biomassExReaction = model.reactions.get_by_id(biomassRxnID)
+    biomassFlux = biomassExReaction.flux
+
+    # the ratio
+    ATP_BM_ratio = totalATPFlux / biomassFlux
+
+    print('model:', modelName)
+    print('the total flux of ATP is: ', totalATPFlux)
+    print('the total flux of BM is: ', biomassFlux)
+    print('the total ratio ATP/BM is: ', ATP_BM_ratio)
+    print('')

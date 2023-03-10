@@ -2370,7 +2370,7 @@ def make_super_structure(excelFile, printPyomoEq=False):
     objectiveExpr = CostModelObj.EBIT
     print("the objective of the model is to maximise the EBIT: ")
     print(objectiveExpr)
-    model.profit = pe.Objective(expr=eval(objectiveExpr), sense=pe.maximize) # sense=pe.maximize
+    model.objectiveValue = pe.Objective(expr=eval(objectiveExpr), sense=pe.maximize) # sense=pe.maximize
 
     #model.pprint()
     if printPyomoEq:

@@ -48,9 +48,6 @@ class SurrogateModel:
             #for key, val in maxConcentration.items():
 
 
-
-
-
 def regression_open_fermentation(xdata, ydata, polynomialDegree, case = 'Lasso', plot = True ):
 
     # make the polynomial data
