@@ -47,7 +47,6 @@ if regresionSurrogate:
     regression_2_json_v2(outputNames, featureNames, model,
                          saveName = 'open_fermentation_polynomial_case_study.json', save=True)
 
-
 # -------------------------- SBML models
 if SBMLsurrogate:
 

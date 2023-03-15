@@ -261,7 +261,7 @@ def string_reactions(reaction, case='names', printFlux = False):
             flux = rxn.flux
         except:
             flux = 'Undetermined'
-            print('use model.optimise before calling this function to get the fluxes')
+            print('use model.optimize() before calling this function to get the fluxes')
     else:
         flux = 'Undetermined'
 
@@ -484,13 +484,16 @@ def print_SBML_info_2_excel(modelName, idMissingCarbon=None, saveName=None, tole
     exchangeMetID = []
     exchangeName = []
     exchangeRxnID = []
+    exchangeFLux = []
     for exRxn in exchRxn:
         exchangeRxnID.append(exRxn.id)
+        exchangeFLux.append(exRxn.flux)
+
         for exMet in exRxn.metabolites:
             exchangeMetID.append(exMet.id)
             exchangeName.append(exMet.name)
 
-    exchangeDict = {'Name': exchangeName, 'metabolite id': exchangeMetID, 'reaction id': exchangeRxnID}
+    exchangeDict = {'Name': exchangeName, 'metabolite id': exchangeMetID, 'reaction id': exchangeRxnID, 'flux':exchangeFLux}
     DFexchange = pd.DataFrame(data=exchangeDict)
 
     if print2Excel:
@@ -498,8 +501,8 @@ def print_SBML_info_2_excel(modelName, idMissingCarbon=None, saveName=None, tole
         with pd.ExcelWriter(saveLocation) as writer:
             StoiMatrixDF.to_excel(writer, sheet_name='StoichiometricMatrix')
             fluxArray.to_excel(writer, sheet_name='ReactionFluxes')
-            CarbonsDF.to_excel(writer, sheet_name='CarbonsPerMetbolite')
             DFexchange.to_excel(writer, sheet_name='Exchange reactions')
+            CarbonsDF.to_excel(writer, sheet_name='CarbonsPerMetbolite')
             DFmetRnx.to_excel(writer, sheet_name='MissingFormulaReactions')
             DFMetIdNames.to_excel(writer, sheet_name='ID 2 name')
             DFcarbon.to_excel(writer, sheet_name='Carbon Balance')

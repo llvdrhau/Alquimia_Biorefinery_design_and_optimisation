@@ -9,15 +9,23 @@ save = False
 loc_model = get_location(modelName)
 model = cobra.io.read_sbml_model(loc_model)
 model.optimize()
+
+ExGlucoseId = 'S_cpd00027_ext'
+ExGlucoseMet = model.metabolites.get_by_id(ExGlucoseId)
+print_all_rxn_of_metabolite(ExGlucoseMet, case='names', printFlux=True)
+
+
 # ----------------------------------------------------------- split into compartments
 # define compartments a compartment
 
 cytoGlucose = model.metabolites.get_by_id('S_cpd00027_c0')
 print_all_rxn_of_metabolite(cytoGlucose, case='names', printFlux=True)
 
+# change model reactions
 print(model.exchanges)
 model.add_metabolites(Metabolite('co2_e', name='CO2', compartment='e'))
 model.add_boundary(model.metabolites.get_by_id("co2_e"), type="exchange")
+
 model._compartments = {'c': 'Cytoplasma', 'e': 'Extracellular'}
 print(model.exchanges)
 
