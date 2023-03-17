@@ -35,7 +35,8 @@ print_all_rxn_of_metabolite(extraMet, case='names', printFlux=True)
 
 
 # ----------------- split into compartments by re-moving and adding new boundry reactions
-#
+# TODO make a loop over this code to change each boundry reaction
+# see chatGTP as well
 # Get the original (faulty) exchange reactions (even though there is only one compartment for the time being,
 # It does a good job at guessing what they are in this case)
 listExchRxn = model.exchanges
