@@ -251,7 +251,7 @@ def carbon_balance_in_out(modelLocation, metIDsMissingCarbon=None, tol=0.0001):
 
 
 # originaly from the file print_model_2_excel
-def string_reactions(reaction, case='names', printFlux = False):
+def string_reactions(reaction, case='names', printFlux=False):
     """ returns the reaction as a string with the stoichiometry and prints it to the terminal
     """
 
@@ -276,8 +276,10 @@ def string_reactions(reaction, case='names', printFlux = False):
             reactName = metReac.formula
             if reactName == '':
                 reactName = "###"
+        elif case == 'id':
+            reactName = metReac.id
         else:
-             raise Exception("the option 'case' can only be 'names' or 'formulas' ")
+            raise Exception("the option 'case' can only be 'names' or 'formulas' ")
 
         stoi = stoiFactor[metReac]
         reactantStr += '{} {} + '.format(stoi, reactName)
@@ -287,10 +289,14 @@ def string_reactions(reaction, case='names', printFlux = False):
     for metProd in products:
         if case == 'names':
             prodName = metProd.name
-        else:
+
+        elif case == 'formulas':
             prodName = metProd.formula
             if prodName == '':
                 prodName = "###"  # so it is easier to see if it is missing
+
+        elif case == 'id':
+            prodName = metProd.id
 
         stoi = stoiFactor[metProd]
         productStr += '{} {} + '.format(stoi, prodName)
@@ -302,10 +308,12 @@ def string_reactions(reaction, case='names', printFlux = False):
 def print_all_rxn_of_metabolite(metabolite, case='names', printFlux=False):
     allRxn = list(metabolite.reactions)
     for rxn in allRxn:
-        strRnx, flux = string_reactions(reaction= rxn, case= case, printFlux=printFlux)
+        strRnx, flux = string_reactions(reaction=rxn, case=case, printFlux=printFlux)
         print(strRnx)
         if printFlux:
-            print('the flux of this reaction is : {} \n'.format(flux))
+            print('the flux of reaction {} is : {} mmol/gDW/h \n '
+                  'the bounds are {} mmol/gDW/h \n'.format(rxn.id, flux, rxn.bounds))
+
 
 def find_unbalanced_rxn_of_element(model, stoiMatrix, fluxArray, element, elementCount):
     MM = {'C': 12, 'O': 15.99, 'H': 1}
@@ -493,7 +501,8 @@ def print_SBML_info_2_excel(modelName, idMissingCarbon=None, saveName=None, tole
             exchangeMetID.append(exMet.id)
             exchangeName.append(exMet.name)
 
-    exchangeDict = {'Name': exchangeName, 'metabolite id': exchangeMetID, 'reaction id': exchangeRxnID, 'flux':exchangeFLux}
+    exchangeDict = {'Name': exchangeName, 'metabolite id': exchangeMetID, 'reaction id': exchangeRxnID,
+                    'flux': exchangeFLux}
     DFexchange = pd.DataFrame(data=exchangeDict)
 
     if print2Excel:
@@ -566,9 +575,40 @@ def get_metabolites_whith_missing_formula(model):
     return missing
 
 
+def estimate_biomass_formula_from_products(model, reactionID):
+    """calculates formula for biomass based on the reactants when no explicit biomass metabolite is given
+    (carbon hydrogen and oxygen)
+
+    input:
+        model (model)
+        reaction (reactionID): reaction ID to estimnate the formula from
+
+    returns:
+        formula (str): estimate of the foprmula
+
+    """
+    rxn = model.reactions.get_by_id(reactionID)
+    stoichiometry = rxn.metabolites
+    rxnReactants = rxn.reactants
+
+    elements = ['C', 'H', 'O']
+    missingDict = {}
+    for ele in elements:
+        elementInProducts = count_element_in_list(reaction=rxn, reactionList=rxnReactants, element=ele)
+        # also accounts for the stoichiometry
+        missingDict.update({ele: elementInProducts})
+
+    formulaEstimate = 'C{}H{}O{}'.format(missingDict['C'], missingDict['H'], missingDict['O'])
+    MW = 12* missingDict['C'] + missingDict['H'] + 15.99 * missingDict['O']
+    return formulaEstimate, MW
+
+
 def estimate_formula(model, estimationDict):
     '''
     estimates the formula (CxHyOz) based of the stoichiometry of the given reaction in estimationDict
+    inputs:
+        model (CobraPy model)
+        estimationDict (Dict): dictionary { metabolite you want to estimate the formula of : reaction to estimate from}
     '''
     formulaDict = {}
     for metID in estimationDict:
@@ -675,16 +715,13 @@ def fix_missing_formulas(model, fixDict, maxIterations=10):
 def ATP_Biomass_Ratio(model, biomassRxnID, ATPmetID, modelName):
     """
     prints the flux of biomass and the total flux of produced ATP
-
     Params:
         model (COBRA model): the cobra model
         biomassRxnID (str):  the exchange reaction ID of biomass
         ATPmetID (str): the metabolite ID of ATP
         modelName (str): name of the model
-
     Returns:
         printed results of the biomass flux, ATP flux and the BM/ATP ratio
-
     """
     # get the flux solution
     solutions = model.optimize()
@@ -708,10 +745,12 @@ def ATP_Biomass_Ratio(model, biomassRxnID, ATPmetID, modelName):
     biomassFlux = biomassExReaction.flux
 
     # the ratio
-    ATP_BM_ratio = totalATPFlux / biomassFlux
+    BM_ATP_ratio =  biomassFlux/ totalATPFlux
 
     print('model:', modelName)
-    print('the total flux of ATP is: ', totalATPFlux)
-    print('the total flux of BM is: ', biomassFlux)
-    print('the total ratio ATP/BM is: ', ATP_BM_ratio)
+    print('the total flux (mmol/g/h) of ATP is: ', totalATPFlux)
+    print('the total flux (mmol/g/h) of BM is: ', biomassFlux)
+    print('the total ratio BM/ATP (mmolBM/mmolATP) is: ', BM_ATP_ratio)
     print('')
+
+    return  BM_ATP_ratio

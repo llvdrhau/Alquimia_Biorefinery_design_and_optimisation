@@ -1,47 +1,49 @@
 from f_screen_SBML import *
 
-modelName = 'p-thermo.xml'
+modelName = 'iNF517.xml'
+# Lactococcus lactis subsp. cremoris MG1363
+# from BIGGMODELS: http://bigg.ucsd.edu/models/iNF517
+
 loc_sher = get_location(modelName)
 model = cobra.io.read_sbml_model(loc_sher)
 model.name = modelName
-
-# # ----------------------------------------------------- look at anaerobic conditions' hello
-# make anaerobic, o2 exchange reaction to zero
-o2_exchRxn_ID = 'EX_o2_e'
-o2_exchRxn = model.reactions.get_by_id(o2_exchRxn_ID).bounds = 0, 0
-carbon_balance_in_out(model)
 model.optimize()
-#print_SBML_info_2_excel(modelName=model, saveName= 'analysis_p_thermo.xlsx', print2Excel= True)
+# print_SBML_info_2_excel(modelName=model, saveName= 'analysis_iNF517.xlsx', print2Excel= True)
 
-print('Extracellular \n')
+# ----------------------------------------------------- look at anaerobic condition
+
+print('Extracellular GLUCOSE \n')
 ExGlucoseId = 'glc__D_e'
 ExGlucoseMet = model.metabolites.get_by_id(ExGlucoseId)
 print_all_rxn_of_metabolite(ExGlucoseMet, case='id', printFlux=True)
 
-print('Cytosol \n')
+print('Cytosol GLUCOSE \n')
 CytoGlucoseId = 'glc__D_c'
 CytoGlucoseMet = model.metabolites.get_by_id(CytoGlucoseId)
 print_all_rxn_of_metabolite(CytoGlucoseMet, case='id', printFlux=True)
 
-print('ETHANOL in Cytosol \n')
-CytoEthId = 'etoh_c'
-CytoEthMet = model.metabolites.get_by_id(CytoEthId)
+print('Acetate in Cytosol \n')
+acID = 'ac_c'
+CytoEthMet = model.metabolites.get_by_id(acID)
 print_all_rxn_of_metabolite(CytoEthMet, case='id', printFlux=True)
 
-print('ETHANOL in Extracellular \n')
-CytoEthId = 'etoh_e'
+print('Acetate in Extracellular \n')
+CytoEthId = 'ac_e'
 CytoEthMet = model.metabolites.get_by_id(CytoEthId)
 print_all_rxn_of_metabolite(CytoEthMet, case='id', printFlux=True)
 
 # # ----------------------------------------------------- get the atp biomass ratio
-# # metabolite and reaction id's
-biomassExReactionID = 'EX_Biomass_e'
+# metabolite and reaction id's
+biomassExReactionID = 'BIOMASS_LLA'
 ATPMetaboliteID = 'atp_c'
+
+bmFormula , MWbm = estimate_biomass_formula_from_products(model = model, reactionID=biomassExReactionID)
+print(bmFormula)
 # print the ratios
-ATP_Biomass_Ratio(model=model, biomassRxnID=biomassExReactionID,
+ratio = ATP_Biomass_Ratio(model=model, biomassRxnID=biomassExReactionID,
                   ATPmetID=ATPMetaboliteID, modelName=modelName)
 
-
-
+ratio2 = ratio * MWbm
+print(ratio2)
 
 
