@@ -312,7 +312,8 @@ def print_all_rxn_of_metabolite(metabolite, case='names', printFlux=False):
         print(strRnx)
         if printFlux:
             print('the flux of reaction {} is : {} mmol/gDW/h \n '
-                  'the bounds are {} mmol/gDW/h \n'.format(rxn.id, flux, rxn.bounds))
+                  'the bounds are {} mmol/gDW/h \n'
+                  'the compartment(s) of the reactions are {} \n'.format(rxn.id, flux, rxn.bounds, rxn.compartments))
 
 
 def find_unbalanced_rxn_of_element(model, stoiMatrix, fluxArray, element, elementCount):
@@ -712,7 +713,7 @@ def fix_missing_formulas(model, fixDict, maxIterations=10):
     return model, estimateFormulas
 
 
-def ATP_Biomass_Ratio(model, biomassRxnID, ATPmetID, modelName):
+def ATP_Biomass_Ratio(model, biomassRxnID, ATPmetID, modelName = 'NONE', printResults = True):
     """
     prints the flux of biomass and the total flux of produced ATP
     Params:
@@ -747,10 +748,50 @@ def ATP_Biomass_Ratio(model, biomassRxnID, ATPmetID, modelName):
     # the ratio
     BM_ATP_ratio =  biomassFlux/ totalATPFlux
 
-    print('model:', modelName)
-    print('the total flux (mmol/g/h) of ATP is: ', totalATPFlux)
-    print('the total flux (mmol/g/h) of BM is: ', biomassFlux)
-    print('the total ratio BM/ATP (mmolBM/mmolATP) is: ', BM_ATP_ratio)
-    print('')
+    if printResults:
+        print('model:', modelName)
+        print('the total flux (mmol/g/h) of ATP is: ', totalATPFlux)
+        print('the total flux (mmol/g/h) of BM is: ', biomassFlux)
+        print('the total ratio BM/ATP (mmolBM/mmolATP) is: ', BM_ATP_ratio)
+        print('')
 
     return  BM_ATP_ratio
+
+
+def find_yield(model, substrateExchangeRxnID, productExchangeRxnID, printResults = False):
+    """
+    Finds the yields of a product derived from a given substrate
+
+    Params:
+        model (model): GEM model
+        substrateID (str): id of the exchange reaction of the substrate
+        productID (str): id of the exchange reaction of the product
+
+    returs
+        yield (float): returns the yield of the specified compounds
+
+    """
+    model.optimize()
+
+    # get the reactions:
+    RxnSubstrate = model.reactions.get_by_id(substrateExchangeRxnID)
+    RxnProduct = model.reactions.get_by_id(productExchangeRxnID)
+
+    # get the metabolite objects
+    metSubstrate =  RxnSubstrate.reactants[0]
+    metProduct = RxnProduct.reactants[0]
+
+    # get the molecular weight
+    mwSubstrate = metSubstrate.formula_weight
+    mwProduct = metProduct.formula_weight
+
+    # get the fluxes
+    fluxSubstrate = RxnSubstrate.flux
+    fluxProduct = RxnProduct.flux
+
+    ratio = - (fluxProduct * mwProduct) / (fluxSubstrate * mwSubstrate)
+
+    if printResults:
+        print('the yield (g/g) of {} is: {} \n'.format(metProduct.name, ratio))
+
+    return ratio

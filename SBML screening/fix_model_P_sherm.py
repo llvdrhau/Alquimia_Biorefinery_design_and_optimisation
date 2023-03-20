@@ -10,7 +10,7 @@ to see which reactions are leaking certain elements
 modelName = "P_sherm_model.xml"
 loc_sher = get_location(modelName)
 model = cobra.io.read_sbml_model(loc_sher)
-model.name = "P_sherm_model"
+model.name = "P_sherm_V2"
 
 # bioMass metabolite does not have a name
 metbiomassId = 'S_biomass_ext'
@@ -85,7 +85,18 @@ print(estimastesFormuals)
 # check in the Excel file if mass balances now comply
 print_SBML_info_2_excel(modelName=model, print2Excel= True, saveName= 'analysis_sherm_after_fix.xlsx')
 
+
+# ----------------- split into compartments by re-moving and adding new boundry reactions
+# Get the original (faulty) exchange reactions (even though there is only one compartment for the time being,
+# It does a good job at guessing what they are in this case)
+model._compartments = {'c': 'Cytoplasma', 'e': 'Extracellular'}
+listExchRxn = model.exchanges
+for original_reaction in listExchRxn:
+    # Create a new exchange reaction with the same metabolites as the original reaction
+    metabolite = original_reaction.reactants[0]  # there is only going to be one metabolite in the reaction reactants
+    metabolite.compartment = 'e'
+
 # save the model
-save = False
+save = True
 if save:
-    write_sbml_model(model, r"C:\Users\lucas\PycharmProjects\Alquimia\SBML models\P_sherm_lvdh.xml")
+    write_sbml_model(model, r"C:\Users\lucas\PycharmProjects\Alquimia\SBML models\P_sherm_V2.xml")

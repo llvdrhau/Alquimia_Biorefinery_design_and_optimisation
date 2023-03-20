@@ -6,9 +6,9 @@ modelName = ["P_avidum_model.xml",
              "P_propionicum_model.xml",
              "PAC_4875_model.xml"]
 
-saveName = ['P_avidum_lvdh.xml',
-            "P_propionicum_lvdh.xml",
-            "PAC_4875_lvdh.xml"]
+saveName = ['P_avidum_V2.xml',
+            "P_propionicum_V2.xml",
+            "PAC_4875_V2.xml"]
 
 for i,modelName in enumerate(modelName):
     loc_model = get_location(modelName)
@@ -21,4 +21,16 @@ for i,modelName in enumerate(modelName):
     metbiomass.name = 'Biomass'
     metbiomass.formula = 'C36.74H43.76O24.42'
     print_SBML_info_2_excel(modelName=model, print2Excel=False, saveName='test666.xlsx')
+
+    # ----------------- split into compartments by re-moving and adding new boundry reactions
+    # Get the original (faulty) exchange reactions (even though there is only one compartment for the time being,
+    # It does a good job at guessing what they are in this case)
+    model._compartments = {'c': 'Cytoplasma', 'e': 'Extracellular'}
+    listExchRxn = model.exchanges
+    for original_reaction in listExchRxn:
+        # Create a new exchange reaction with the same metabolites as the original reaction
+        metabolite = original_reaction.reactants[0]  # there is only going to be one metabolite in the reaction reactants
+        metabolite.compartment = 'e'
+
+    # save to correct file location
     write_sbml_model(model, r"C:\Users\lucas\PycharmProjects\Alquimia\SBML models\{}".format(saveName[i]))
