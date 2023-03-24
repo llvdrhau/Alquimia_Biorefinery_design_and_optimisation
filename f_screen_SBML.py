@@ -64,10 +64,13 @@ def count_carbon_in_formula(metFormula):
 
 
 def count_atom_in_formula(metabolite, atom):
-    try:
-        count = metabolite.elements[atom]
-    except:
-        count = 0  # if the atoom is not a key, it is not in the formula and therefore zero
+    if atom == 'e-':
+        count = metabolite.charge
+    else:
+        try:
+            count = metabolite.elements[atom]
+        except:
+            count = 0  # if the atom is not a key, it is not in the formula and therefore zero
     return count
 
 
@@ -317,7 +320,19 @@ def print_all_rxn_of_metabolite(metabolite, case='names', printFlux=False):
 
 
 def find_unbalanced_rxn_of_element(model, stoiMatrix, fluxArray, element, elementCount):
-    MM = {'C': 12, 'O': 15.99, 'H': 1}
+    """ finds the reactions where the given element is unbalanced
+    Params:
+        model: COBRA model
+        stoiMatrix (DF): Pandas Dataframe of the stoichiometric matrix
+        fluxArray (Series): Pandas series with the flux of all reactions'
+        element (str): can either be 'C', 'O', 'H' or 'e-'
+        elementCount (list): list of # carbons per metabolite of the model
+
+    Returns:
+          DFUnbalancedElementReactions (DF): A dataframe with all the unbalanced reactions
+    """
+
+    MM = {'C': 12, 'O': 15.99, 'H': 1, 'e-': 1}
     fluxArrayNp = np.array(fluxArray).reshape(-1, 1)  # reshape the flux array
     elementArray = np.array(elementCount)
     elementArray = elementArray.reshape(-1, 1)
@@ -341,6 +356,7 @@ def find_unbalanced_rxn_of_element(model, stoiMatrix, fluxArray, element, elemen
     DictMissingElementInRxn = {'Reaction Id': unbalancedId, '{}(g{})'.format(element, element): unbalanced,
                                'reaction': rxnUnblanaced}
     DFUnbalancedElementReactions = pd.DataFrame(DictMissingElementInRxn)
+
     return DFUnbalancedElementReactions
 
 
@@ -416,15 +432,19 @@ def print_SBML_info_2_excel(modelName, idMissingCarbon=None, saveName=None, tole
     carbonCount = []
     oxygenCount = []
     hydrogenCount = []
+    chargeCount = []
+
     for met in metabolites:
         formula = met.formula
         carbon = count_atom_in_formula(metabolite=met, atom='C')
         oxygen = count_atom_in_formula(metabolite=met, atom='O')
         hydrogen = count_atom_in_formula(metabolite=met, atom='H')
+        charge = count_atom_in_formula(metabolite= met, atom='e-')
 
         carbonCount.append(carbon)
         oxygenCount.append(oxygen)
         hydrogenCount.append(hydrogen)
+        chargeCount.append(charge)
 
         if not formula:
             metID.append(met.id)
@@ -487,6 +507,9 @@ def print_SBML_info_2_excel(modelName, idMissingCarbon=None, saveName=None, tole
     DFhydrogen = find_unbalanced_rxn_of_element(model=model, stoiMatrix=st, fluxArray=fluxArray,
                                                 element='H', elementCount=hydrogenCount)
 
+    DFcharge =  find_unbalanced_rxn_of_element(model=model, stoiMatrix=st, fluxArray=fluxArray,
+                                                element='e-', elementCount=chargeCount)
+
     DFMetIdNames = get_list_metabolite_ids_names(model)
 
     # get a list of metabolites that can be exchanged (ids and names)
@@ -509,17 +532,18 @@ def print_SBML_info_2_excel(modelName, idMissingCarbon=None, saveName=None, tole
     if print2Excel:
         saveLocation = r'C:\Users\lucas\PycharmProjects\Alquimia\SBML screening\Excel analysis\{}'.format(saveName)
         with pd.ExcelWriter(saveLocation) as writer:
-            StoiMatrixDF.to_excel(writer, sheet_name='StoichiometricMatrix')
-            fluxArray.to_excel(writer, sheet_name='ReactionFluxes')
-            DFexchange.to_excel(writer, sheet_name='Exchange reactions')
-            CarbonsDF.to_excel(writer, sheet_name='CarbonsPerMetbolite')
-            DFmetRnx.to_excel(writer, sheet_name='MissingFormulaReactions')
-            DFMetIdNames.to_excel(writer, sheet_name='ID 2 name')
-            DFcarbon.to_excel(writer, sheet_name='Carbon Balance')
-            DFoxygen.to_excel(writer, sheet_name='Oxygen Balance')
-            DFhydrogen.to_excel(writer, sheet_name='Hydrogen Balance')
-            inputDF.to_excel(writer, sheet_name='Carbon Input')
-            outputDF.to_excel(writer, sheet_name='Carbon output')
+            StoiMatrixDF.to_excel(writer, sheet_name='Stoichiometric_matrix')
+            fluxArray.to_excel(writer, sheet_name='Reaction_fluxes')
+            DFexchange.to_excel(writer, sheet_name='Exchange_reactions')
+            CarbonsDF.to_excel(writer, sheet_name='Carbons_Per_Metbolite')
+            DFmetRnx.to_excel(writer, sheet_name='Missing_Formula_Reactions')
+            DFMetIdNames.to_excel(writer, sheet_name='ID_2_name')
+            DFcarbon.to_excel(writer, sheet_name='Carbon_Balance')
+            DFoxygen.to_excel(writer, sheet_name='Oxygen_Balance')
+            DFhydrogen.to_excel(writer, sheet_name='Hydrogen_Balance')
+            DFcharge.to_excel(writer, sheet_name='Electron_Balance')
+            inputDF.to_excel(writer, sheet_name='Carbon_Input')
+            outputDF.to_excel(writer, sheet_name='Carbon_Output')
 
 
 # functions to help fix the models
@@ -637,7 +661,7 @@ def estimate_formula(model, estimationDict):
                 elementMissingMet = round(elementMissingMet, 2)
             missingDict.update({ele: elementMissingMet})
 
-        formulaEstimate = 'C{}H{}O{}'.format(missingDict['C'], missingDict['H'], missingDict['O'])
+        formulaEstimate = 'C{}H{}O{}'.format(round(missingDict['C']), round(missingDict['H']), round(missingDict['O']))
         formulaDict.update({metID: formulaEstimate})
     return formulaDict
 
@@ -768,7 +792,7 @@ def find_yield(model, substrateExchangeRxnID, productExchangeRxnID, printResults
         productID (str): id of the exchange reaction of the product
 
     returs
-        yield (float): returns the yield of the specified compounds
+        yield (float): returns the yield of the specified compounds in g/g
 
     """
     model.optimize()
@@ -789,9 +813,28 @@ def find_yield(model, substrateExchangeRxnID, productExchangeRxnID, printResults
     fluxSubstrate = RxnSubstrate.flux
     fluxProduct = RxnProduct.flux
 
-    ratio = - (fluxProduct * mwProduct) / (fluxSubstrate * mwSubstrate)
+    try:
+        ratio = - (fluxProduct * mwProduct) / (fluxSubstrate * mwSubstrate)
+    except: # if the division is by zero (a nonsense result) return ratio = 0
+        ratio = 0
 
     if printResults:
         print('the yield (g/g) of {} is: {} \n'.format(metProduct.name, ratio))
 
     return ratio
+
+def is_protein_met(metabolite):
+    """ checks if the given metaboltie is a protein base on the chemical formula"""
+    elements = ['C', 'N', 'H', 'O']
+    elementDict = {}
+
+    for e in elements:
+        nElement = count_atom_in_formula(metabolite= metabolite,atom=e)
+        elementDict.update({e:nElement})
+
+    if elementDict['C'] >= 2 and elementDict['N'] >= 1 and elementDict['H'] >= 4 and elementDict['O'] >= 2 :
+        protein = True
+    else:
+        protein = False
+
+    return protein

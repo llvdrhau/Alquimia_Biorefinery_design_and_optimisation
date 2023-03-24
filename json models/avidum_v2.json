@@ -1,0 +1,40 @@
+{
+    "name": "P_avidum_V2.xml",
+    "outputs": [
+        "Propionate",
+        "Acetate",
+        "Biomass"
+    ],
+    "coef": {
+        "Propionate": {
+            "D-Glucose": 0.29501065648186636,
+            "D-Fructose": 0.3196029558525675,
+            "Glycerol": 0.2403675763513983,
+            "Galactose": 0.319602955852573,
+            "L-Lactate": 0.46559284084211533,
+            "Maltose": 0.3088640714138845
+        },
+        "Acetate": {
+            "D-Glucose": 0.05288994955434368,
+            "D-Fructose": 0.006937509873636265,
+            "Glycerol": 0.0,
+            "Galactose": 0.0022962013061466366,
+            "L-Lactate": 0.0011610928678735793,
+            "Maltose": 0.002417051831194978
+        },
+        "Biomass": {
+            "D-Glucose": 0.407692797106526,
+            "D-Fructose": 0.4076927971065215,
+            "Glycerol": 0.3153820654465484,
+            "Galactose": 0.40769279710652545,
+            "L-Lactate": 0.20615317905127278,
+            "Maltose": 0.4291499265890329
+        }
+    },
+    "intercept": {
+        "Propionate": "",
+        "Acetate": "",
+        "Biomass": ""
+    },
+    "lable": "SBML"
+}

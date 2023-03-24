@@ -10,7 +10,7 @@ to see which reactions are leaking certain elements
 modelName = "P_sherm_model.xml"
 loc_sher = get_location(modelName)
 model = cobra.io.read_sbml_model(loc_sher)
-model.name = "P_sherm_V2"
+model.name = "P_sherm"
 
 # bioMass metabolite does not have a name
 metbiomassId = 'S_biomass_ext'
@@ -77,7 +77,7 @@ fixDict4 = {
     'S_cpdnew26_c0': 'rxnnew72_c0',  # Small molecule pool
 }
 
-fixDict = result = {**fixDict1, **fixDict2, **fixDict3, **fixDict4}
+fixDict = {**fixDict1, **fixDict2, **fixDict3, **fixDict4}
 model, estimastesFormuals = fix_missing_formulas(model= model, fixDict= fixDict, maxIterations=20)
 print(estimastesFormuals)
 

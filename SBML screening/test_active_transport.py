@@ -82,6 +82,7 @@ for name in modelNames:
 
     yield_prop = find_yield(model=model, substrateExchangeRxnID=exchangeRxnId_Glucose,
                             productExchangeRxnID=exchangeRxnId_Propionate)
+
     yield_ace = find_yield(model=model, substrateExchangeRxnID=exchangeRxnId_Glucose,
                            productExchangeRxnID=exchangeRxnId_Acetate)
 

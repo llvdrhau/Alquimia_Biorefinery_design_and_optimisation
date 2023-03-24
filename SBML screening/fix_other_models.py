@@ -19,7 +19,7 @@ for i,modelName in enumerate(modelName):
     metbiomassId = 'S_biomass_ext'
     metbiomass = model.metabolites.get_by_id(metbiomassId)
     metbiomass.name = 'Biomass'
-    metbiomass.formula = 'C36.74H43.76O24.42'
+    metbiomass.formula = 'C36H43O24' # not rounded off 'C36.74H43.76O24.42'
     print_SBML_info_2_excel(modelName=model, print2Excel=False, saveName='test666.xlsx')
 
     # ----------------- split into compartments by re-moving and adding new boundry reactions
