@@ -1,4 +1,5 @@
 import os
+import json
 
 ########################################################################################################################
 # ============================================================================================================
@@ -124,3 +125,16 @@ def get_location(file, case = ''):
             loc = loc + r'\json models' + file
 
     return loc
+
+def save_2_json(saveName, saveObject):
+    """ saves an object or dictionary to a json file """
+
+    if not isinstance(saveObject, dict):
+        saveObject = saveObject.__dict__
+
+    loc = os.getcwd()
+    posAlquimia = loc.find('Alquimia')
+    loc = loc[0:posAlquimia + 8]
+    loc = loc + r'\json models' + r'\{}'.format(saveName)
+    with open(loc, 'w+', encoding='utf-8') as f:
+        json.dump(saveObject, f, ensure_ascii=False, indent=4)

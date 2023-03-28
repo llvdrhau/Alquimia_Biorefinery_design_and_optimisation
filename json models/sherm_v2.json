@@ -27,5 +27,6 @@
         "Acetate": "",
         "Biomass": ""
     },
-    "lable": "SBML"
+    "lable": "SBML",
+    "waterEq": "water == Propionate / 0.018"
 }

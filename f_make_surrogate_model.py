@@ -14,7 +14,7 @@ from sklearn.metrics import r2_score, mean_squared_error
 
 import json
 import math
-from f_usefull_functions import get_location
+from f_usefull_functions import get_location, save_2_json
 from f_screen_SBML import count_atom_in_formula, carbon_balance_in_out, find_yield, is_protein_met
 
 """
@@ -696,7 +696,7 @@ def regression_2_json(data, showPLot=True, save=False, saveName='data.json', nor
                      'CV_Equations': {'coef': coefDict, 'intercept': model.intercept_}})
 
     surrogateModel = SurrogateModel(name=saveName, outputs=outputVariables, coef=coefDict, intercept=intercepts,
-                                    lable='other')
+                                    lable='yield_equation')
     if save:
         loc = os.getcwd()
         posAlquimia = loc.find('Alquimia')
@@ -725,11 +725,8 @@ def regression_2_json_v2(outputNames, featureNames, model, saveName, save=True, 
         coefDict.update({out: featureCoefDict})
 
     surrogateModel = SurrogateModel(name=saveName, outputs=outputNames, coef=coefDict, intercept=interpectDict,
-                                    lable='other', maxConcentration=maxConcentration)
+                                    lable='yield_equation', maxConcentration=maxConcentration)
     if save:
-        loc = os.getcwd()
-        posAlquimia = loc.find('Alquimia')
-        loc = loc[0:posAlquimia + 8]
-        loc = loc + r'\json models' + r'\{}'.format(saveName)
-        with open(loc, 'w+', encoding='utf-8') as f:
-            json.dump(surrogateModel.__dict__, f, ensure_ascii=False, indent=4)
+       save_2_json(saveName=saveName, saveObject=surrogateModel)
+
+

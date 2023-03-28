@@ -7,6 +7,7 @@ import json
 import pyomo.environ as pe
 from f_usefull_functions import *
 from f_screen_SBML import count_atom_in_formula
+
 # from typing import List
 
 """Created on the 30.01.2023
@@ -15,7 +16,6 @@ from f_screen_SBML import count_atom_in_formula
 
 All functions used to create superstructure models
 """
-
 
 
 ########################################################################################################################
@@ -140,19 +140,28 @@ def make_str_eq_json(modelObject, equationInfo):
     if 'waterEq' in modelObject:
         waterEq = modelObject['waterEq']
     else:
-        waterEq = '' # make an empty equation
+        waterEq = ''  # make an empty equation
 
-    yieldOf = equationInfo['yield_of'] # kind of useless
+    # if the equation is to determin the yield of the reaction then we need to know from what component to take the
+    # yield of! specified in the Excel sheet 'models', column  'yield_of'
+    yieldOf = equationInfo['yield_of']
 
     # make abbreviations dictionary
     abbrDict = {}
 
-    # get the variable names of the inputs and outputs in the reaction and their respecitive abbreviations
-    varNameInputs = split_remove_spaces(equationInfo.input_name, ',')
+    # get the variable names of the inputs and outputs in the reaction and their respective abbreviations
+    if not equationInfo.input_name: # in other words the input names and abbreviations stay as their originals.
+        # used for cluster inputs
+        key1 = list(coef.keys())[0] # just take the first key, the substrates are the same for all the products
+        varNameInputs = list(coef[key1].keys())
+        AbrrInputs = varNameInputs
+    else:
+        varNameInputs = split_remove_spaces(equationInfo.input_name, ',')
+        AbrrInputs = split_remove_spaces(equationInfo.input_abrr, ',')
+
     varNameOutputs = split_remove_spaces(equationInfo.output_name, ',')
     varNames = varNameInputs + varNameOutputs
 
-    AbrrInputs = split_remove_spaces(equationInfo.input_abrr, ',')
     AbrrOutputs = split_remove_spaces(equationInfo.output_abrr, ',')
     Abrr = AbrrInputs + AbrrOutputs
 
@@ -176,7 +185,7 @@ def make_str_eq_json(modelObject, equationInfo):
         coefOfOutputs = coef[out]
 
         # update the water Eq
-        waterEq = waterEq.replace(out,outAbrr)
+        waterEq = waterEq.replace(out, outAbrr)
 
         # preallocate the right side of the reaction equation
         yieldEq = ''
@@ -192,15 +201,22 @@ def make_str_eq_json(modelObject, equationInfo):
             ###
             featureCoef = coefOfOutputs[feature]
             yieldEq += ' + {} * {} '.format(featureAbbr, featureCoef)
+
+        # if the eqation is from a sbml/GEM model the yield is already calculated
         if lable == 'SBML':
             equation = '{} == {}'.format(outAbrr, yieldEq)
-        else: # very redundant
+
+        # if the yield of the reaction needs to be caluculated, we need to know what input to take the yield of
+        elif lable == 'yield_equation':  # the lable is then "yield_equation"
             yieldEq += ' + {}'.format(intercept[out])
             equation = '{} == ({}) * {}'.format(outAbrr, yieldEq, yieldOf)
-        print(equation)
-        print('')
+        else:
+            raise Exception("the lable given for the surrogate model '{}' must be either 'SBML' or "
+                            "'yield_equation' ".format(name))
+        # print(equation)
+        # print('')
         equationList.append(equation)
-    if waterEq: # if the string is not empty add it to the list of equations
+    if waterEq:  # if the string is not empty add it to the list of equations
         equationList.append(waterEq)
     return equationList
 
@@ -261,7 +277,7 @@ def define_connect_info(connectInfo):
 
 class BooleanClass:
     def __init__(self, ExcelDict):
-        """ makes the equations that regulate if a certain reactor is chosen or not nl: 1 == sum(boolean variables)
+        """ makes the equations that regulate if a certain process is chosen or not nl: 1 == sum(boolean variables)
         the function works as followed: the DFconnectionMatrix excludes the inputs!! important!! the input boolean variables
         are regulated in the first input objected.
 
@@ -282,18 +298,103 @@ class BooleanClass:
         inputIntervalNames = DFIntervals.loc[posInputs, 'process_intervals'].to_list()
 
         # ------------------------------ intput boolean equations---------------------------------------------------
-        # We need to find out which inputs are bound to boolean variables amongst the input variable themselves
-        # i.e., if only certain inputs can be chosen amoung multiple possible inputs
-        # in other words we need to find the boolean variables from the connenction matrix (diagonals of the matrix) so the
-        # activation equation sum(y) == 1 can be made. this is what the nex for loop is used for
+        # We need to find out which inputs are bound to boolean variables amongst the input variable themselves i.e.,
+        # if only certain inputs can be chosen amongst multiple possible inputs in other words we need to find the
+        # boolean variables from the connenction matrix (diagonals of the matrix) so the activation equation sum(y)
+        # == 1 can be made.
+
+        # there are 2 possible ways, the specific inputs can be specified in the Excel file or selected from a list in
+        # the case of "input clusters" clusters are made apparent when the column components in the Excel sheet
+        # input_output_intervals contains a string to a .json file
 
         inputBooleanVariables = []  # prealloccate
-        inputBoolEquation = "1 == "
+        ClusterDict = {} # prealloccate
+        inputBoolEquation = "1 == " # bool amoug different input intervals
+        inputBoolEquationCluster = "1 == " #bool equation for selection of substrtate in cluster of 1 interval
+        equationCheck = inputBoolEquation
+        clusterSwitch = False
         for i, intervalName in enumerate(inputIntervalNames):
-            inputBoolVar = DFconnectionMatrix[intervalName][intervalName]  # diagonal position of the connention matrix
+            componentSpecification = DFIntervals.loc[posInputs, 'components'][i]
+            inputClusterDict = {}  # preallocate
+            if '.json' in componentSpecification: # remember it's a pandas series still
+                clusterSwitch = True
+            if clusterSwitch:
+                jsonFile = componentSpecification
+                jsonLoc = get_location(file=jsonFile)
+                with open(jsonLoc) as file:
+                    inputs_prices = json.load(file)
+                inputNames = list(inputs_prices.keys())
+                inputBooleanVariables = []  # prealloccate
+
+                # only one input from the cluster can be chosen
+                for iName in inputNames:
+                    inputBoolVar = 'y_{}_{}'.format(iName,inputIntervalNames[0])
+                    inputBooleanVariables.append(inputBoolVar)
+                    inputBoolEquationCluster += " + " + "model.boolVar['{}']".format(inputBoolVar)
+                    price = inputs_prices[iName]
+                    inputClusterDict.update({iName: {'price': price, 'bool': inputBoolVar}})
+                # make the over arcing dictionary
+                ClusterDict.update({intervalName:inputClusterDict})
+
+            # look if there is a boolean amoung the input variables
+            inputBoolVar = DFconnectionMatrix[intervalName][intervalName]  # diagonal position of the connection matrix
             if isinstance(inputBoolVar, str):
                 inputBooleanVariables.append(inputBoolVar)
                 inputBoolEquation += " + " + "model.boolVar['{}']".format(inputBoolVar)
+
+        inputBoolEquation = [inputBoolEquation]
+        inputBoolEquationCluster = [inputBoolEquationCluster]
+        # if where is only a single input just make a boolean equation y = 1, so it is always chosen
+        # (best to acctually avoid) how could we do this?
+        if equationCheck == inputBoolEquation[0]:
+            inputBoolEquation = [] # just empty
+        if equationCheck == inputBoolEquationCluster[0]:
+            inputBoolEquationCluster = []  # just empty
+
+
+        # # find out if your working with clusters
+        # componentSpecification = '' # preallocate to avoid errors
+        # clusterSwitch = False
+        # if len(inputIntervalNames) == 1:
+        #     componentSpecification = DFIntervals.loc[posInputs, 'components'][0]
+        #     if '.json' in componentSpecification: # remember it's a pandas series still
+        #         clusterSwitch = True
+        #
+        # # if there is a cluster of inputs to chose from, make the boolean equation based on the input.json file given in
+        # # the components column
+        # inputClusterDict = {} # preallocate
+        # if clusterSwitch:
+        #     jsonFile = componentSpecification
+        #     jsonLoc = get_location(file=jsonFile)
+        #     with open(jsonLoc) as file:
+        #         inputs_prices = json.load(file)
+        #     inputNames = list(inputs_prices.keys())
+        #     inputBooleanVariables = []  # prealloccate
+        #
+        #     inputBoolEquation = "1 == "
+        #     for iName in inputNames:
+        #         inputBoolVar = 'y_{}_{}'.format(iName,inputIntervalNames[0])
+        #         inputBooleanVariables.append(inputBoolVar)
+        #         inputBoolEquation += " + " + "model.boolVar['{}']".format(inputBoolVar)
+        #         price = inputs_prices[iName]
+        #         inputClusterDict.update({iName: {'price': price, 'bool': inputBoolVar}})
+        #
+        # else:
+        #     inputBooleanVariables = []  # prealloccate
+        #     inputBoolEquation = "1 == "
+        #     equationCheck = inputBoolEquation
+        #     for i, intervalName in enumerate(inputIntervalNames):
+        #         inputBoolVar = DFconnectionMatrix[intervalName][intervalName]  # diagonal position of the connention matrix
+        #         if isinstance(inputBoolVar, str):
+        #             inputBooleanVariables.append(inputBoolVar)
+        #             inputBoolEquation += " + " + "model.boolVar['{}']".format(inputBoolVar)
+
+            # # if where is only a single input just make a boolean equation y = 1, so it is always chosen
+            # # (best to acctually avoid) how could we do this?
+            # if equationCheck == inputBoolEquation:
+            #     inputBoolVar = 'y'
+            #     inputBooleanVariables.append(inputBoolVar)
+            #     inputBoolEquation += " + " + "model.boolVar['{}']".format(inputBoolVar)
 
         # if there exist bool inputs, make a unique list
         if len(inputBooleanVariables) != len(set(inputBooleanVariables)):
@@ -301,21 +402,22 @@ class BooleanClass:
             raise Exception("The boolean variables for the inputs are not unique, check the diagonals of the "
                             "input intervals of the connection matrix ")
 
+
         # ------------------------------ other interval boolean equations-----------------------------------------------
         # main idea:
         # 1) loop over the rows of the DF.
-        # 2) count the colums of this row which are not zero in  sequence! (save the interval names in a list)
+        # 2) count the columns of this row which are not zero in  sequence! (save the interval names in a list)
         # 3) the longest list is the list of intervals dependant of the boolean variable
         # 4) the boolean variable can be found on the diagonal (i.e. with the same row and column index)
         # 5) make the boolean equation
-        # 6) deleet the columns that contain the sequence
+        # 6) delete the columns that contain the sequence
         # 7) restart at step 1 till the DF is empty
 
         # make a list of all the intervals excluding the inputs
         DFconnectionMatrix = DFconnectionMatrix.drop(labels=inputIntervalNames, axis=1)
         processIntervalnames = list(DFconnectionMatrix.index)[len(inputIntervalNames):]
 
-        # prun the Dataframe, anything that does not have a bool label on the diagonal can be droped
+        # prun the Dataframe, anything that does not have a bool label on the diagonal can be dropped
         toDrop = []
         for i in processIntervalnames:
             if not isinstance(DFconnectionMatrix[i][i], str):
@@ -359,17 +461,20 @@ class BooleanClass:
             if DFconnectionMatrix.empty:
                 switch = False
 
-            # if itteration 50 is hit, then stop the program, somthing wrong is going on
+            # if iteration 50 is hit, then stop the program, somthing wrong is going on
             if iteration > 50:
                 raise Exception(
                     "50 iteration have passed to try and make the boolean equations, check to see if the "
                     "connection matrix is correctly formulated or check the function 'make_boolean_equations'")
 
-        # while loop has stoped
+        # while loop has stopped
         # check that all the boolean variables have unique values
         uniqueSet = set(booleanVariables)
         if len(uniqueSet) != len(booleanVariables):
             raise Exception("the boolean variables are not all unique, check the diagonal of the connection matrix")
+
+        # add the cluster dictionary to the object, empty if there is none
+        self.clusterDict = ClusterDict
 
         # add the boolean variables to the allVariable dictionary
         allBoolVariables = booleanVariables + inputBooleanVariables
@@ -384,10 +489,11 @@ class BooleanClass:
         self.boundaries = booleanBounds
 
         # add the equations to the pyomoEquations object
-        self.pyomoEquations = equationsSumOfBools + [inputBoolEquation]
+        self.pyomoEquations = equationsSumOfBools + inputBoolEquation + inputBoolEquationCluster
+
 
 class InputIntervalClass:
-    def __init__(self, inputName, compositionDict, inputPrice, boundryInputVar, boolDict=None,
+    def __init__(self, inputName, compositionDict, inputPrice, boundryInputVar,clusterDict,boolDict=None,
                  split=None, separationDict=None, booleanVariable=None):
         if separationDict is None:
             separationDict = {}
@@ -413,9 +519,12 @@ class InputIntervalClass:
         # change the composition names in the dictionary
         compositionDictNew = {}
         initialCompositionNames = []
-        for i in compositionDict:
-            compositionDictNew.update({i + addOn4Variables: compositionDict[i]})
-            initialCompositionNames.append(i)
+        if len(compositionDict) == 1 and '.json' in list(compositionDict.keys())[0]:
+            compositionDictNew = compositionDict # keep the json name in the dictionary
+        else:
+            for i in compositionDict:
+                compositionDictNew.update({i + addOn4Variables: compositionDict[i]})
+                initialCompositionNames.append(i)
         # self.initialCompositionNames = initialCompositionNames
         self.compositionDict = compositionDictNew
 
@@ -426,29 +535,64 @@ class InputIntervalClass:
                                 "avoid conflict with the equations".format(inputName, i))
 
         # make the component equations as string equations
-        for component in compositionDictNew:
-            eqPy = "model.var['{}'] == {} * model.var['{}']".format(component, self.compositionDict[component],
-                                                                    self.inputName)
-            pyomoEq.append(eqPy)
-        componentVariables = list(compositionDictNew.keys())
+        # --------------------------------------------------------------------------- cluster section
+        try:
+            intervalCluster = clusterDict[inputName]
+        except:
+            intervalCluster = {}
 
-        self.boolDict = boolDict  # necesary?
-        self.split = split  # necesary?
-        self.separationDict = separationDict  # necesary?
-        self.leavingInterval = componentVariables
+        self.clusterDict = intervalCluster
 
-        if booleanVariable:
-            activationEqPyoUB = "model.var['{}'] <= {} * model.boolVar['{}'] ".format(self.inputName,
-                                                                                      boundryInputVar[1],
-                                                                                      booleanVariable)
-            activationEqPyoLB = "{} * model.boolVar['{}']  <= model.var['{}'] ".format(boundryInputVar[0],
-                                                                                       booleanVariable, self.inputName)
-            pyomoEq.append(activationEqPyoLB)
-            pyomoEq.append(activationEqPyoUB)
+        if intervalCluster: # i.e., working with clusters, if not clusterDict is empty
+            for key in intervalCluster:
+                # activation equations
+                inputVariable = key
+                booleanVariable = intervalCluster[key]['bool']
+                activationEqPyoUB = "model.var['{}'] <= {} * model.boolVar['{}'] ".format(inputVariable,
+                                                                                          boundryInputVar[1],
+                                                                                          booleanVariable)
 
+                activationEqPyoLB = "{} * model.boolVar['{}']  <= model.var['{}'] ".format(boundryInputVar[0],
+                                                                                           booleanVariable,
+                                                                                           inputVariable)
+                # add to the list of equations
+                pyomoEq.append(activationEqPyoLB)
+                pyomoEq.append(activationEqPyoUB)
+
+            # declare component variables
+            componentVariables = list(intervalCluster.keys())
+            continuousVariables = componentVariables
+            self.leavingInterval = componentVariables
+            #if compositionDictNew
+
+        else: # --------------------------------------------------------------------  non- cluster section
+            for component in compositionDictNew:
+                eqPy = "model.var['{}'] == {} * model.var['{}']".format(component, self.compositionDict[component],
+                                                                        self.inputName)
+                pyomoEq.append(eqPy)
+
+            componentVariables = list(compositionDictNew.keys())
+            continuousVariables = componentVariables + [self.inputName]
+
+            self.boolDict = boolDict  # necesary?
+            self.split = split  # necesary?
+            self.separationDict = separationDict  # necesary?
+            self.leavingInterval = componentVariables
+
+
+            if booleanVariable:
+                activationEqPyoUB = "model.var['{}'] <= {} * model.boolVar['{}'] ".format(self.inputName,
+                                                                                          boundryInputVar[1],
+                                                                                          booleanVariable)
+                activationEqPyoLB = "{} * model.boolVar['{}']  <= model.var['{}'] ".format(boundryInputVar[0],
+                                                                                           booleanVariable, self.inputName)
+                pyomoEq.append(activationEqPyoLB)
+                pyomoEq.append(activationEqPyoUB)
+
+
+
+        # ----------------- check ------------------------------------------------------------- point charly
         #  put all VARIABLES that pyomo needs to declare here
-        continuousVariables = componentVariables + [self.inputName]
-
         self.allVariables = {'continuous': continuousVariables,  # continous variables
                              'boolean': [],  # boolean variables
                              'fraction': []}  # fraction variables
@@ -464,10 +608,11 @@ class InputIntervalClass:
         # put all EQUATIONS that pyomo needs to declare here
         self.pyomoEquations = pyomoEq
 
+
 class ProcessIntervalClass:
     def __init__(self, inputs, outputs, reactionEquations, boundryInputVar, nameDict, mix=None,
-                 utilities=None, energyUtility = None, booleanVariable=None, splitList=None, separationDict=None,
-                 operationalVariablesDict=None, energyConsumption = 0):
+                 utilities=None, energyUtility=None, booleanVariable=None, splitList=None, separationDict=None,
+                 operationalVariablesDict=None, energyConsumption=0):
 
         if utilities is None:
             utilities = {}
@@ -485,8 +630,6 @@ class ProcessIntervalClass:
         self.label = 'process_interval'
         self.booleanVariable = booleanVariable
         self.operationalVariablesDict = operationalVariablesDict
-
-
 
         # further the lable of the interval i.e.:reactor or seperator
         if reactionEquations:
@@ -672,7 +815,7 @@ class ProcessIntervalClass:
                     helpingDict.update({out: newOutputName})  # helpìng dictionary for the serparation equations
 
             if booleanVariable:
-                eqPyo = make_eqation_bool_dependent(equation= eqPyo, booleanVariable= booleanVariable)
+                eqPyo = make_eqation_bool_dependent(equation=eqPyo, booleanVariable=booleanVariable)
 
             ReactorEquationsPyomo.append(eqPyo)
 
@@ -910,7 +1053,7 @@ class ProcessIntervalClass:
 
     def make_incoming_massbalance_equation(self, enteringVariables):
         """
-        make the mass balance of the in comming components of an interval before the reaction phase.
+        make the mass balance of the in coming components of an interval before the reaction phase.
         sum of the mixed components or sum of in coming components
 
         parameters:
@@ -926,6 +1069,10 @@ class ProcessIntervalClass:
 
         for enteringVars in enteringVariables:
             enteringMassEqationPyomo += " + model.var['{}']".format(enteringVars)
+
+        if self.booleanVariable:
+            enteringMassEqationPyomo = make_eqation_bool_dependent(equation=enteringMassEqationPyomo,
+                                                                   booleanVariable=self.booleanVariable)
 
         # add to the list of equations + variables and update the boundry dictionary
         self.pyomoEquations += [enteringMassEqationPyomo]
@@ -952,7 +1099,7 @@ class ProcessIntervalClass:
         """
 
         intervalType = self.intervalType
-        name = list(self.nameDict.keys())[0] # for debugging porposes
+        name = list(self.nameDict.keys())[0]  # for debugging porposes
         # print(name)
 
         replacementDict, boundsDict = self.get_replacement_dict(newInputs4Interval)
@@ -1050,7 +1197,7 @@ class ProcessIntervalClass:
 
         # add the cost equation to pyomo equation list
         self.pyomoEquations += massEquations + [utilityCostEqPyomo]
-        self.utilityEquations =  massEquations + [utilityCostEqPyomo]
+        self.utilityEquations = massEquations + [utilityCostEqPyomo]
         self.utilityCostVariable = utlityCostVariable
         # add the inflow equation as well as it relates to the utility equations
 
@@ -1096,15 +1243,16 @@ class ProcessIntervalClass:
                 separationDict = self.separationDict
                 fractionArry = []
                 for key in separationDict:
-                    streamComposition = separationDict[key] # [s for s in enteringVars if lightKey in s][0]
+                    streamComposition = separationDict[key]  # [s for s in enteringVars if lightKey in s][0]
                     fractionArry.append(streamComposition[lightKey])
 
                 x_D_var = max(fractionArry)  # fraction of the light key in the distillate is by convention the maximum
                 x_B_var = min(fractionArry)  # fraction of the light key in the bottom is by convention the minimum
 
                 # build equations for the fraction of the entering light key in the feed
-                x_F_var = 'x_F_{}'.format(self.intervalName) # feed variable
-                x_F_eq = " model.var['{}'] == (model.var['{}'] * 0 / model.var['{}']) ".format(x_F_var,lightKeyVar,Feed_Var) # in mass %
+                x_F_var = 'x_F_{}'.format(self.intervalName)  # feed variable
+                x_F_eq = " model.var['{}'] == (model.var['{}'] * 0 / model.var['{}']) ".format(x_F_var, lightKeyVar,
+                                                                                               Feed_Var)  # in mass %
 
                 # build the equations of the shortcut method
                 equationsShortcut = []
@@ -1113,11 +1261,11 @@ class ProcessIntervalClass:
                     eq = eq.replace('x_F', "model.var['{}']".format(x_F_var))
                     eq = eq.replace('x_D', str(x_D_var))
                     eq = eq.replace('x_B', str(x_B_var))
-                    eq = eq.replace('Q_tot_{}'.format(name),"energy_consumption_{}".format(self.intervalName) )
+                    eq = eq.replace('Q_tot_{}'.format(name), "energy_consumption_{}".format(self.intervalName))
                     equationsShortcut.append(eq)
 
                 # add all the equations and variable to the 'collecting list'
-                allEnergyEquation +=  [x_F_eq] + equationsShortcut
+                allEnergyEquation += [x_F_eq] + equationsShortcut
                 allEnergyVars += [x_F_var] + [energyVar] + varList
                 for var in allEnergyVars:
                     self.boundaries.update({var: (1e-6, None)})  # make it so that these variables can not hit zero
@@ -1125,16 +1273,18 @@ class ProcessIntervalClass:
                 self.boundaries.update({Feed_Var: (1e-6, None)})
 
         else:
-            energyConsumptionEq = "model.var['{}'] == {} * model.var['{}']".format(energyVar,energyConsumptionParameter,self.incomingFlowVariable)
+            energyConsumptionEq = "model.var['{}'] == {} * model.var['{}']".format(energyVar,
+                                                                                   energyConsumptionParameter,
+                                                                                   self.incomingFlowVariable)
             allEnergyEquation.append(energyConsumptionEq)
             allEnergyVars.append(energyVar)
             for var in allEnergyVars:
                 self.boundaries.update({var: (0, None)})  # make it so that these variables can hit zero
 
-        #-------- cost eqution for energy consumption
+        # -------- cost eqution for energy consumption
         costVariable = "cost_utility_energy_{}".format(self.intervalName)
         self.boundaries.update({costVariable: (0, None)})
-        costEq =  "model.var['{}'] == {} * model.var['{}'] ".format(costVariable, energyPrice, energyVar)
+        costEq = "model.var['{}'] == {} * model.var['{}'] ".format(costVariable, energyPrice, energyVar)
 
         # add all the varibles and equations to the pyomo list, and it's individual list
         self.pyomoEquations += allEnergyEquation + [costEq]
@@ -1162,27 +1312,27 @@ class ProcessIntervalClass:
         operationalVarsDict = self.operationalVariablesDict
         utilityVars = self.utilities
 
-        boundsDict = {} # preallocate
-        replacementDict = {} # preallocate
+        boundsDict = {}  # preallocate
+        replacementDict = {}  # preallocate
         for i in initialVars:
             for j in newVars:
                 if i in j:  # the initial variable (of Excel) is always in the new name, that's how you can find wat belongs to where
                     replacementDict.update({i: j})
-                    boundsDict.update({j:'positiveReals'})
-
+                    boundsDict.update({j: 'positiveReals'})
 
         # ideally you should call the new varible that is missing from the object self. This way you won't come into
         # conflict if you change the naming convention...
         for var in operationalVarsDict:
             newOperationalVar = '{}_{}'.format(var, itervalName)
             replacementDict.update({var: newOperationalVar})
-            boundsDict.update({newOperationalVar:operationalVarsDict[var]})
+            boundsDict.update({newOperationalVar: operationalVarsDict[var]})
 
         for var in utilityVars:
             newOperationalVar = '{}_{}'.format(var, itervalName)
             replacementDict.update({var: newOperationalVar})
 
         return replacementDict, boundsDict
+
 
 class OutputIntervalClass:
     def __init__(self, outputName, outputBound, outputPrice, outputVariable, mixDict=None):
@@ -1233,6 +1383,7 @@ class OutputIntervalClass:
         self.allEquations = [eqEnd]
         self.pyomoEquations = [pyomoEqEnd]
         # self.endVariables = endVar
+
 
 class WastIntervalClass:
     def __init__(self, wasteVariables, wastePrice, mixDict=None):
@@ -1327,6 +1478,7 @@ class WastIntervalClass:
         for var in variableList:
             self.boundaries.update({var: (0, None)})  # positive reals
 
+
 class MakeObjectiveClass:
     def __init__(self, inputObjects, processObjects, outputObjects, wasteObject):
         """ makes all  equations and variables related to economic parameters of each interval
@@ -1339,10 +1491,11 @@ class MakeObjectiveClass:
                              'boolean': [],
                              'fraction': []}
 
-
         GREV_var, GREV_eq = self.make_GREV_equation(objectsOutputDict=outputObjects)
-        OPEX_var, variables, equations = self.make_OPEX_equations(inputObjects=inputObjects, processObjects=processObjects,
-                                                        wasteObject=wasteObject)
+        OPEX_var, variables, equations = self.make_OPEX_equations(inputObjects=inputObjects,
+                                                                  processObjects=processObjects,
+                                                                  wasteObject=wasteObject)
+
         variableList = [GREV_var] + variables
         self.pyomoEquations = [GREV_eq] + equations
         self.allVariables['continuous'] += variableList
@@ -1395,19 +1548,31 @@ class MakeObjectiveClass:
         allCostEquations = []
 
         # -------- cost raw materials
+
         CostRawMaterialVar = "Raw_material_cost"
         CostRawMaterialEq = "model.var['{}'] == ".format(CostRawMaterialVar)
         for nameObj in inputObjects:
+            # retrive the object from the dictionary
             inObj = inputObjects[nameObj]
+
+            # retrive info from the object
             inputPrice = inObj.inputPrice
             inputVar = inObj.inputName
-            if not inputPrice:
-                raise Exception('Hey you forgot to give a price for the input interval {}'.format(inputVar))
-            else:
+            inputCluster = inObj.clusterDict
+
+            if inputCluster:
+              for substrate in  inputCluster:
+                  inputPrice = inputCluster[substrate]['price']
+                  CostRawMaterialEq += "model.var['{}'] * {} + ".format(substrate, inputPrice)
+
+            elif isinstance(inputPrice, float) or isinstance(inputPrice, int):
                 CostRawMaterialEq += "model.var['{}'] * {} + ".format(inputVar, inputPrice)
+            else:
+                raise Exception('Hey you forgot to give a price or list of substrates (clusterDict) for the input '
+                                'interval {}'.format(inputVar))
 
         posPlus = CostRawMaterialEq.rfind('+')  # finds the last '+' in the equation
-        CostRawMaterialEq = CostRawMaterialEq[0:posPlus]  # deleet the last plus
+        CostRawMaterialEq = CostRawMaterialEq[0:posPlus]  # delete the last plus
 
         # add to the lists of variables and equations
         allCostEquations.append(CostRawMaterialEq)
@@ -1442,7 +1607,7 @@ class MakeObjectiveClass:
         if hasattr(wasteObj, 'costVariable'):
             costWasteVar = wasteObj.costVariable
             allCostVariables.append(costWasteVar)
-            self.costWasteEq = wasteObj.pyomoEquations[-1] # the last element in the list is the cost equation
+            self.costWasteEq = wasteObj.pyomoEquations[-1]  # the last element in the list is the cost equation
 
         # -------- make the OPEX equation
         OPEX_var = "OPEX"
@@ -1458,7 +1623,6 @@ class MakeObjectiveClass:
         # add to lists
         allCostVariables.append(OPEX_var)
         allCostEquations.append(OPEX_eq)
-
 
         return OPEX_var, allCostVariables, allCostEquations
 
@@ -1609,7 +1773,11 @@ def check_excel_file(excelName):
 
     missingAbbr = abbrSet - abbrExcel
     if missingAbbr:
-        raise Exception('You are missing a definition for the following abbreviations: {}'.format(missingAbbr))
+        for abv in missingAbbr:
+            if ".json" in abv:
+                pass
+            else:
+                raise Exception('You are missing a definition for the following abbreviations: {}'.format(missingAbbr))
     else:
         pass
 
@@ -1654,6 +1822,7 @@ def read_excel_sheets4_superstructure(excelName):
 
     return ExcelDict
 
+
 def make_mix_dictionary(intervalName, DFconnectionMatrix):
     """ Returns the mixing dictionary based on the connection matrix
 
@@ -1685,6 +1854,7 @@ def make_mix_dictionary(intervalName, DFconnectionMatrix):
         for k, specs in enumerate(specifications):
             mixDict.update({intervals2Mix[k]: specs})
     return mixDict
+
 
 def make_boolean_equations(DFconnectionMatrix, processIntervalnames):
     """ makes the equations that regulate if a certain reactor is chosen or not nl: 1 == sum(boolean variables)
@@ -1760,8 +1930,9 @@ def make_boolean_equations(DFconnectionMatrix, processIntervalnames):
 
     return booleanVariables, equationsSumOfBools
 
+
 # functions to automate making the interval class objects
-def make_input_intervals(ExcelDict):
+def make_input_intervals(ExcelDict, clusterDict):
     """ Makes the process intervals of inputs.
 
     parameters:
@@ -1783,9 +1954,11 @@ def make_input_intervals(ExcelDict):
     componentsList = DFIntervals.components[posInputs]
     compositionsList = DFIntervals.composition[posInputs]
 
-    ####
+    # find upper and lower bounds on the mass
     inBoundsLow = DFIntervals.lower_bound[posInputs].to_numpy()
     inBoundsUpper = DFIntervals.upper_bound[posInputs].to_numpy()
+
+    ### the input price can be either specifed or can be read from the json file incase it's a cluster
     inputPrices = inputPrices[posInputs]
 
     # define fixed parameters cost raw material
@@ -1805,9 +1978,17 @@ def make_input_intervals(ExcelDict):
         inputPrice = inputPriceDict[intervalName]
         boundryInput = boundryDict[intervalName]
         componentsOfInterval = componentsList[i].split(",")
-        compositionsofInterval = compositionsList[i]  # string or 1, depends if there are different components
+        compositionsofInterval = compositionsList[i]  # string or 1, depends on if there are different components
+
+        # preallocate lists and dictionaries
         compsitionDictionary = {}  # preallocate dictionary
-        if compositionsofInterval == 1:  # if it is one, no need to loop over the dictionary, there is only one compound
+
+        # make the composition dictionary
+        # Todo for future me, may be in a cluster you would like to select mixtures... adapt the code for this necessity
+        #  if required in the future
+        # compositionsofInterval would be the variable specifying how many substrates you would want to select
+
+        if not isinstance(compositionsofInterval, str) and compositionsofInterval == 1:  # if it is one, no need to loop over the dictionary, there is only one compound
             component = componentsOfInterval[0].replace(' ', '')
             fraction = compositionsofInterval  # should always be one component in the stream
             compsitionDictionary.update({component: fraction})
@@ -1823,10 +2004,11 @@ def make_input_intervals(ExcelDict):
         # create object
         objectInput = InputIntervalClass(inputName=intervalName, compositionDict=compsitionDictionary,
                                          inputPrice=inputPrice, boundryInputVar=boundryInput,
-                                         booleanVariable=booleanVar)
+                                         booleanVariable=booleanVar, clusterDict=clusterDict )
         objectDictionary.update({intervalName: objectInput})
 
     return objectDictionary
+
 
 def make_process_intervals(ExcelDict):
     """ Makes the process intervals of the process intervals (excluding inputs and outputs).
@@ -1851,7 +2033,13 @@ def make_process_intervals(ExcelDict):
         intervalName = intervalName.replace(' ', '')  # remove annoying spaces
         # inputs of reactor
         inputsReactor = DFprocessIntervals.inputs[intervalName]
-        inputsReactor = split_remove_spaces(inputsReactor, ',')
+        if ".json" in inputsReactor:
+            jsonLoc = get_location(file=inputsReactor)
+            with open(jsonLoc) as file:
+                inputsObject = json.load(file)
+                inputsReactor = list(inputsObject.keys())
+        else:
+            inputsReactor = split_remove_spaces(inputsReactor, ',')
         # outputs of the reactor
         outputsReactor = DFprocessIntervals.outputs[intervalName]
         outputsReactor = split_remove_spaces(outputsReactor, ',')
@@ -1990,19 +2178,19 @@ def make_process_intervals(ExcelDict):
         # pass on parameters for the energy consumption of the interval
         energyConsumptionParameter = DFprocessIntervals.energy_consumption.loc[intervalName]
         energyPrice = DFeconomicParameters.ut_energy_price.loc[intervalName]
-        utilityEnergyDict = {'price':energyPrice, 'consumption_parameter':energyConsumptionParameter }
-
+        utilityEnergyDict = {'price': energyPrice, 'consumption_parameter': energyConsumptionParameter}
 
         # make initial interval object
-        objectReactor = ProcessIntervalClass(inputs= inputsReactor, boundryInputVar=boundsComponent,
-                                             outputs= outputsReactor, reactionEquations=equations, nameDict=nameDict,
-                                             mix=mixDict, utilities=utilityDict, energyUtility = utilityEnergyDict ,
+        objectReactor = ProcessIntervalClass(inputs=inputsReactor, boundryInputVar=boundsComponent,
+                                             outputs=outputsReactor, reactionEquations=equations, nameDict=nameDict,
+                                             mix=mixDict, utilities=utilityDict, energyUtility=utilityEnergyDict,
                                              separationDict=seperationDict,
-                                             splitList= listSplits, booleanVariable=boolVar,
-                                             operationalVariablesDict=operationalVarDict )
+                                             splitList=listSplits, booleanVariable=boolVar,
+                                             operationalVariablesDict=operationalVarDict)
         # put the object in the dictionary
         objectDictionary.update({intervalName: objectReactor})
     return objectDictionary
+
 
 def make_output_intervals(ExcelDict):
     """ Makes the process intervals of outputs.
@@ -2045,6 +2233,7 @@ def make_output_intervals(ExcelDict):
 
     return objectDictionary
 
+
 def make_waste_interval(ExcelDict):
     """ Makes the process intervals of the waste interval.
 
@@ -2077,6 +2266,7 @@ def make_waste_interval(ExcelDict):
     objectDictionary = {intervalName: objectWaste}
 
     return objectDictionary
+
 
 # ============================================================================================================
 # Functions to update the interval objects
@@ -2176,6 +2366,7 @@ def update_intervals(allIntervalObjectsDict, ExcelDict):
             objectDict2mix = {nameObjConect: (allIntervalObjectsDict[nameObjConect], connectedIntervals[nameObjConect])
                               for nameObjConect in connectedIntervals}
             intervalObject.make_waste_equations(objectDict2mix)
+
 
 def get_vars_eqs_bounds(objectDict):
     """ Returns all the varible that pyomo needs to declare, the equations (in pyomo format) and a dictionary with the
@@ -2278,6 +2469,7 @@ def get_vars_eqs_bounds(objectDict):
 
     return variables, equations, boundsContinousVars
 
+
 # ============================================================================================================
 # Master function: generates the superstructure
 # ============================================================================================================
@@ -2303,8 +2495,10 @@ def make_super_structure(excelFile, printPyomoEq=False):
     excelDict = read_excel_sheets4_superstructure(excelName=excelFile)
 
     boolObject = BooleanClass(ExcelDict=excelDict)
+    clusterDict = boolObject.clusterDict # the cluster dictionary is already made in the boolean object
+
     boolObjectDict = {'boolean_object': boolObject}
-    objectsInputDict = make_input_intervals(ExcelDict=excelDict)
+    objectsInputDict = make_input_intervals(ExcelDict=excelDict,clusterDict=clusterDict)
     objectsProcessDict = make_process_intervals(ExcelDict=excelDict)
     objectsOutputDict = make_output_intervals(ExcelDict=excelDict)
     objectsWasteDict = make_waste_interval(ExcelDict=excelDict)
@@ -2314,12 +2508,12 @@ def make_super_structure(excelFile, printPyomoEq=False):
     update_intervals(allObjectsDict, excelDict)
 
     # make an object with all the equations of the cost models
-    CostModelObj = MakeObjectiveClass(inputObjects= objectsInputDict,
-                                      outputObjects= objectsOutputDict,
-                                      processObjects= objectsProcessDict,
-                                      wasteObject= objectsWasteDict)
+    CostModelObj = MakeObjectiveClass(inputObjects=objectsInputDict,
+                                      outputObjects=objectsOutputDict,
+                                      processObjects=objectsProcessDict,
+                                      wasteObject=objectsWasteDict)
 
-    CostModelDict = {'cost_model':CostModelObj}
+    CostModelDict = {'cost_model': CostModelObj}
 
     allObjects = boolObjectDict | allObjectsDict | CostModelDict  # add the logic model and the cost model to the object list
     variables, equations, bounds = get_vars_eqs_bounds(allObjects)
@@ -2330,15 +2524,15 @@ def make_super_structure(excelFile, printPyomoEq=False):
             lowerBound = boudVar[0]
             upperBound = boudVar[1]
 
-        elif boudVar == 'positiveReals': # including 0
-            lowerBound = 0 #0.0001
+        elif boudVar == 'positiveReals':  # including 0
+            lowerBound = 0  # 0.0001
             upperBound = None
 
         elif boudVar == 'Reals':
             lowerBound = None
             upperBound = None
 
-        else:   #elif isinstance(boudVar, str):  # 'bool' or 'positiveReal' in boudVar
+        else:  # elif isinstance(boudVar, str):  # 'bool' or 'positiveReal' in boudVar
             lowerBound = 0
             upperBound = None
         return (lowerBound, upperBound)
@@ -2355,10 +2549,12 @@ def make_super_structure(excelFile, printPyomoEq=False):
     model.constraints = pe.ConstraintList()
     for eq in equations:
         # print(eq) # printing of equation is now in the function get_vars_eq_bounds
+        # expresion = eval(eq)
+        # model.constraints.add(expresion)
         try:
             expresion = eval(eq)
         except:
-            raise Exception('The following equation can not be read by pyomo: {}'.format(eq))
+            raise Exception('The following equation can not be read by eval: {}'.format(eq))
 
         try:
             model.constraints.add(expresion)
@@ -2370,9 +2566,9 @@ def make_super_structure(excelFile, printPyomoEq=False):
     objectiveExpr = CostModelObj.EBIT
     print("the objective of the model is to maximise the EBIT: ")
     print(objectiveExpr)
-    model.objectiveValue = pe.Objective(expr=eval(objectiveExpr), sense=pe.maximize) # sense=pe.maximize
+    model.objectiveValue = pe.Objective(expr=eval(objectiveExpr), sense=pe.maximize)  # sense=pe.maximize
 
-    #model.pprint()
+    # model.pprint()
     if printPyomoEq:
         model.pprint()  # debug check
 
