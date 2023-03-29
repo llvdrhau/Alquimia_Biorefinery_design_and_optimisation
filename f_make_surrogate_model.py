@@ -22,7 +22,10 @@ functions to find surrogate models with machinelearning models and SBML models
 the models are transformed into a JSON  file so it can be read by the superstructure functions
 """
 
-
+# --------------------------------------------------------------------------------------
+#Surogate model class
+# ------------------------------------------- -------------------------------------------
+# Class to make all surrogate models uniform!
 class SurrogateModel:
     def __init__(self, name, outputs, coef, lable, maxConcentration=None, intercept=None):
         self.name = name
@@ -48,6 +51,9 @@ class SurrogateModel:
             # for key, val in maxConcentration.items():
 
 
+# # ------------------------------------------- -------------------------------------------
+# Surogate model functions open_fermentation unit
+# # ------------------------------------------- -------------------------------------------
 def regression_open_fermentation(xdata, ydata, polynomialDegree, case='Lasso', plot=True):
     # make the polynomial data
     poly = PolynomialFeatures(degree=polynomialDegree, include_bias=True)
@@ -160,8 +166,183 @@ def plot_model_vs_data(x_data, y_data, x_data_model, y_data_model):
     fig.tight_layout()  # adjust subplot spacing
     plt.show()  # display plot
 
+def regression_2_json(data, showPLot=True, save=False, saveName='data.json', normalise=False,
+                      case='Ridge', polynomial=None):
+    if isinstance(data, str) and ':xlsx' in data:
+        pass
+    dataLocation = get_location(file=data, case='ML')
 
-# turn the models into json files
+    if polynomial is None:
+        polynomial = {}
+
+    # features
+    X = pd.read_excel(dataLocation, sheet_name='inputs')
+    inputNames = list(X.keys())
+
+    for name in inputNames:
+        polynomialKeys = list(polynomial.keys())
+        if len(polynomialKeys) > 1:
+            raise Exception('so something to fix, you can not have more then two variables makes it messy fix the code '
+                            'if you have time, if not put the features als polynomials in the excel file xoxox Lucas of the past')
+        if name in polynomialKeys:
+            x = X[name].to_numpy()
+            nPolynoms = polynomial[name]
+            X_new = PolynomialFeatures(nPolynoms).fit_transform(x.reshape((len(x), 1)))
+            # X_new = X_new[:,1:len(X_new)]
+            dict2Pandas = {}
+            for nr, col in enumerate(X_new.T):  # don't forget to transpose the matrix to loop over the cols
+                key = name + '**{}'.format(nr)
+                dict2Pandas.update({key: col})
+            X = pd.DataFrame(dict2Pandas)
+
+    # target values (the reactor outputs)
+    Y = pd.read_excel(dataLocation, sheet_name='outputs')
+    outputNames = list(Y.keys())
+
+    if normalise:
+        # normalise
+        for input in X:
+            meanInput = X[input].mean()
+            stdInput = X[input].std()
+            inputNormalised = (X[input] - meanInput) / stdInput
+            X[input] = inputNormalised
+
+    if polynomial and normalise:
+        inputNames = list(X.keys())
+        dropName = inputNames[0]  # the bais is what you want to make into ones
+        X[dropName] = np.zeros(shape=(len(X), 1))  # bais should be ones not nan if normalised
+
+        # normalise
+        # for output in Y:
+        #     meanInput = Y[output].mean()
+        #     stdInput = Y[output].std()
+        #     outputNormalised = (Y[output] - meanInput) / stdInput
+        #     Y[output] = outputNormalised
+
+    # plot variables
+    rows = 2
+    cols = math.ceil(Y.shape[1] / 2)
+
+    # ridge regression for each output
+    outputVariables = []
+    coefficients = {}
+    intercepts = {}
+    coefMatrix = np.zeros(
+        shape=(len(Y.keys()), len(X.keys())))  # columns are the inputs (= features) rows the output variables
+    modelDictionary = {}
+    jsonDict = {}
+
+    for i, outName in enumerate(Y):
+        # select output
+        output = Y[outName]
+        # split training data/ test data
+        X_train, X_test, y_train, y_test = train_test_split(X, output, test_size=0.2,
+                                                            random_state=2)  # random_state = 2, so consistent results are obtained (2 being the seed)
+        # define model
+        alfas_ridge = (1e-2, 1e-1, 1.0, 10.0, 100.0)
+        alfas_lasso = (1e-12, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1.0, 10.0, 100.0, 500, 800, 1000)
+        if case == 'Ridge':
+            model = RidgeCV(alphas=alfas_ridge)
+        elif case == 'Lasso':
+            model = LassoCV(alphas=alfas_lasso, max_iter=10000)
+            # model = Lasso(alpha= 1, max_iter= 4000)
+        elif case == 'Linear':
+            model = LinearRegression()
+        else:
+            raise Exception("The string variable _case_ can only be 'Linear, 'Lasso' or 'Ridge'")
+        # model = Ridge(alpha=1)
+        # fit model
+        model.fit(X_train, y_train)
+
+        ##### check if the fit is OK
+        # Make predictions using the testing set
+        y_predicted = model.predict(X)
+        y_observed = output
+
+        # subplot to evaluate goodness of fit
+        ax = plt.subplot(rows, cols, i + 1)
+        ax.plot(y_observed, y_predicted, 'k*')
+        minimum = min([min(y_observed), min(y_predicted)])
+        maximum = max([max(y_observed), max(y_predicted)])
+        ax.plot([minimum, maximum], [minimum, maximum], 'r')  # plot diagonal
+        ax.set_title(outName)
+        ax.set_xlabel("real")
+        ax.set_ylabel("predicted")
+        # add equation to the vector of strings => 'y = ax + b'
+        yName = outName
+        outputVariables.append(yName)
+        eq = yName + ' == '
+        for j, xname in enumerate(X):
+            eq = eq + ' + ' + xname + ' * {0}'.format(model.coef_[j])
+            coefficients.update()
+            coefMatrix[i, j] = model.coef_[j]
+        eq = eq + ' + {}'.format(model.intercept_)
+
+        intercepts.update({outName: model.intercept_})
+
+        if case == 'Lasso' or case == 'Ridge':
+            print(model.alpha_)
+        print('the model coef are {}'.format(model.coef_))
+        print('the model intercept is {}'.format(model.intercept_))
+        normFactor = 1 / (max(y_predicted) - min(y_predicted))
+        NMSE = math.sqrt(sum((y_observed - y_predicted) ** 2) / len(y_observed)) * normFactor
+        print('the NMSE is: {}'.format(NMSE))
+        print(eq)
+        modelDictionary.update({outName: (model, X, output)})  # X are the inputs
+
+    if showPLot:
+        plt.show()
+
+    coefDict = {}
+    for i, out in enumerate(outputNames):
+        featureCoefDict = {}
+        for j, feature in enumerate(X):
+            coefOfFeature = coefMatrix[i, j]
+            featureCoefDict.update({feature: coefOfFeature})  # can't put a np array in a json file
+        coefDict.update({out: featureCoefDict})
+    # coefficients.update({'coefficients':coefDict})
+    jsonDict.update({'lable': case,
+                     'Name': saveName,
+                     'CV_Equations': {'coef': coefDict, 'intercept': model.intercept_}})
+
+    surrogateModel = SurrogateModel(name=saveName, outputs=outputVariables, coef=coefDict, intercept=intercepts,
+                                    lable='yield_equation')
+    if save:
+        loc = os.getcwd()
+        posAlquimia = loc.find('Alquimia')
+        loc = loc[0:posAlquimia + 8]
+        loc = loc + r'\json models' + r'\{}'.format(saveName)
+        with open(loc, 'w+', encoding='utf-8') as f:
+            json.dump(surrogateModel.__dict__, f, ensure_ascii=False, indent=4)
+
+        # with open("/path/to/file.json", "w+") as f:
+        #    json.dump(object_to_write, f)
+
+    return surrogateModel, modelDictionary
+
+
+def regression_2_json_v2(outputNames, featureNames, model, saveName, save=True, maxConcentration=None):
+    coef_ = model.coef_
+    interpect_ = model.intercept_
+    coefDict = {}
+    interpectDict = {}
+    for i, out in enumerate(outputNames):
+        featureCoefDict = {}
+        interpectDict.update({out: interpect_[i]})
+        for j, feature in enumerate(featureNames):
+            coefOfFeature = coef_[i, j]
+            featureCoefDict.update({feature: coefOfFeature})  # can't put a np array in a json file
+        coefDict.update({out: featureCoefDict})
+
+    surrogateModel = SurrogateModel(name=saveName, outputs=outputNames, coef=coefDict, intercept=interpectDict,
+                                    lable='yield_equation', maxConcentration=maxConcentration)
+    if save:
+       save_2_json(saveName=saveName, saveObject=surrogateModel)
+
+# # ------------------------------------------- -------------------------------------------
+# Surogate model functions for GEMS
+# # ------------------------------------------- -------------------------------------------
+
 def SBML_2_json(modelName, substrate_exchange_rnx, product_exchange_rnx, case='carbon_yield', maxConcentration=None,
                 newObjectiveReaction=None, saveName=None, substrate2zero='Ex_S_cpd00027_ext',
                 printEq=False, save=False):
@@ -555,178 +736,77 @@ def substrate_run_through(substrateNames, modelName, ignore, include):
     ignored = list(set(keepList) ^ set(substrateNames))
     return keepList, ignored
 
+# # ------------------------------------------- -------------------------------------------
+# Surrogate model functions distillation units
+# # ------------------------------------------- -------------------------------------------
+def simulate_distilation(x_D, x_B, F, x_F, alfa_f,    # for mass balances
+                      Hvap_LK, Hvap_HK,             # for condenser duty
+                      T_F, T_D, T_B, Cp_LK, Cp_HK,  # for reboiler duty
+                       printResults = False):
+    """
+        Calculates the flow of mass, reflux ratio, and energy requirements for a distillation column.
 
-def regression_2_json(data, showPLot=True, save=False, saveName='data.json', normalise=False,
-                      case='Ridge', polynomial=None):
-    if isinstance(data, str) and ':xlsx' in data:
-        pass
-    dataLocation = get_location(file=data, case='ML')
+        Parameters:
 
-    if polynomial is None:
-        polynomial = {}
-
-    # features
-    X = pd.read_excel(dataLocation, sheet_name='inputs')
-    inputNames = list(X.keys())
-
-    for name in inputNames:
-        polynomialKeys = list(polynomial.keys())
-        if len(polynomialKeys) > 1:
-            raise Exception('so something to fix, you can not have more then two variables makes it messy fix the code '
-                            'if you have time, if not put the features als polynomials in the excel file xoxox Lucas of the past')
-        if name in polynomialKeys:
-            x = X[name].to_numpy()
-            nPolynoms = polynomial[name]
-            X_new = PolynomialFeatures(nPolynoms).fit_transform(x.reshape((len(x), 1)))
-            # X_new = X_new[:,1:len(X_new)]
-            dict2Pandas = {}
-            for nr, col in enumerate(X_new.T):  # don't forget to transpose the matrix to loop over the cols
-                key = name + '**{}'.format(nr)
-                dict2Pandas.update({key: col})
-            X = pd.DataFrame(dict2Pandas)
-
-    # target values (the reactor outputs)
-    Y = pd.read_excel(dataLocation, sheet_name='outputs')
-    outputNames = list(Y.keys())
-
-    if normalise:
-        # normalise
-        for input in X:
-            meanInput = X[input].mean()
-            stdInput = X[input].std()
-            inputNormalised = (X[input] - meanInput) / stdInput
-            X[input] = inputNormalised
-
-    if polynomial and normalise:
-        inputNames = list(X.keys())
-        dropName = inputNames[0]  # the bais is what you want to make into ones
-        X[dropName] = np.zeros(shape=(len(X), 1))  # bais should be ones not nan if normalised
-
-        # normalise
-        # for output in Y:
-        #     meanInput = Y[output].mean()
-        #     stdInput = Y[output].std()
-        #     outputNormalised = (Y[output] - meanInput) / stdInput
-        #     Y[output] = outputNormalised
-
-    # plot variables
-    rows = 2
-    cols = math.ceil(Y.shape[1] / 2)
-
-    # ridge regression for each output
-    outputVariables = []
-    coefficients = {}
-    intercepts = {}
-    coefMatrix = np.zeros(
-        shape=(len(Y.keys()), len(X.keys())))  # columns are the inputs (= features) rows the output variables
-    modelDictionary = {}
-    jsonDict = {}
-
-    for i, outName in enumerate(Y):
-        # select output
-        output = Y[outName]
-        # split training data/ test data
-        X_train, X_test, y_train, y_test = train_test_split(X, output, test_size=0.2,
-                                                            random_state=2)  # random_state = 2, so consistent results are obtained (2 being the seed)
-        # define model
-        alfas_ridge = (1e-2, 1e-1, 1.0, 10.0, 100.0)
-        alfas_lasso = (1e-12, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1.0, 10.0, 100.0, 500, 800, 1000)
-        if case == 'Ridge':
-            model = RidgeCV(alphas=alfas_ridge)
-        elif case == 'Lasso':
-            model = LassoCV(alphas=alfas_lasso, max_iter=10000)
-            # model = Lasso(alpha= 1, max_iter= 4000)
-        elif case == 'Linear':
-            model = LinearRegression()
-        else:
-            raise Exception("The string variable _case_ can only be 'Linear, 'Lasso' or 'Ridge'")
-        # model = Ridge(alpha=1)
-        # fit model
-        model.fit(X_train, y_train)
-
-        ##### check if the fit is OK
-        # Make predictions using the testing set
-        y_predicted = model.predict(X)
-        y_observed = output
-
-        # subplot to evaluate goodness of fit
-        ax = plt.subplot(rows, cols, i + 1)
-        ax.plot(y_observed, y_predicted, 'k*')
-        minimum = min([min(y_observed), min(y_predicted)])
-        maximum = max([max(y_observed), max(y_predicted)])
-        ax.plot([minimum, maximum], [minimum, maximum], 'r')  # plot diagonal
-        ax.set_title(outName)
-        ax.set_xlabel("real")
-        ax.set_ylabel("predicted")
-        # add equation to the vector of strings => 'y = ax + b'
-        yName = outName
-        outputVariables.append(yName)
-        eq = yName + ' == '
-        for j, xname in enumerate(X):
-            eq = eq + ' + ' + xname + ' * {0}'.format(model.coef_[j])
-            coefficients.update()
-            coefMatrix[i, j] = model.coef_[j]
-        eq = eq + ' + {}'.format(model.intercept_)
-
-        intercepts.update({outName: model.intercept_})
-
-        if case == 'Lasso' or case == 'Ridge':
-            print(model.alpha_)
-        print('the model coef are {}'.format(model.coef_))
-        print('the model intercept is {}'.format(model.intercept_))
-        normFactor = 1 / (max(y_predicted) - min(y_predicted))
-        NMSE = math.sqrt(sum((y_observed - y_predicted) ** 2) / len(y_observed)) * normFactor
-        print('the NMSE is: {}'.format(NMSE))
-        print(eq)
-        modelDictionary.update({outName: (model, X, output)})  # X are the inputs
-
-    if showPLot:
-        plt.show()
-
-    coefDict = {}
-    for i, out in enumerate(outputNames):
-        featureCoefDict = {}
-        for j, feature in enumerate(X):
-            coefOfFeature = coefMatrix[i, j]
-            featureCoefDict.update({feature: coefOfFeature})  # can't put a np array in a json file
-        coefDict.update({out: featureCoefDict})
-    # coefficients.update({'coefficients':coefDict})
-    jsonDict.update({'lable': case,
-                     'Name': saveName,
-                     'CV_Equations': {'coef': coefDict, 'intercept': model.intercept_}})
-
-    surrogateModel = SurrogateModel(name=saveName, outputs=outputVariables, coef=coefDict, intercept=intercepts,
-                                    lable='yield_equation')
-    if save:
-        loc = os.getcwd()
-        posAlquimia = loc.find('Alquimia')
-        loc = loc[0:posAlquimia + 8]
-        loc = loc + r'\json models' + r'\{}'.format(saveName)
-        with open(loc, 'w+', encoding='utf-8') as f:
-            json.dump(surrogateModel.__dict__, f, ensure_ascii=False, indent=4)
-
-        # with open("/path/to/file.json", "w+") as f:
-        #    json.dump(object_to_write, f)
-
-    return surrogateModel, modelDictionary
+            F (float): flow rate of the incoming stream (kg/hr)
+            x_F (float): composition of the LK in the feed component (mass %)
+            x_D (float): desired composition of the distillate component (mass% of the LK)
+            x_B (float): desired composition of the bottom component (mass% of the LK)
+            alfa_f (float): vapor pressure the relative volatility is given by the ratio of vapor pressures,
+                             and thus is a function only of temperature. (-)
+            Hvap_LK (float): Evaporation enthalpy of the light key (kJ/kg)
+            Hvap_HK (float): Evaporation enthalpy of the heavy key (kJ/kg)
+            T_F (float): Temperature of the Feed (ªC or K)
+            T_D (float): Temperature of the Distillate stream (ªC or K)
+            T_B (float): Temperature of the Bottom stream (ªC or K)
+            Cp_LK (float): Heat capacity of the light key (kJ/K/kg)
+            Cp_HK (float): Heat capacity of the heavy key (kJ/K/kg)
 
 
-def regression_2_json_v2(outputNames, featureNames, model, saveName, save=True, maxConcentration=None):
-    coef_ = model.coef_
-    interpect_ = model.intercept_
-    coefDict = {}
-    interpectDict = {}
-    for i, out in enumerate(outputNames):
-        featureCoefDict = {}
-        interpectDict.update({out: interpect_[i]})
-        for j, feature in enumerate(featureNames):
-            coefOfFeature = coef_[i, j]
-            featureCoefDict.update({feature: coefOfFeature})  # can't put a np array in a json file
-        coefDict.update({out: featureCoefDict})
+        Returns:
+            D (float): flow of distillate (kg/h)
+            B (float): flow of bottom (kg/h)
+            Q (float): energy requirements of the re-boiler (J/hr)
+        """
 
-    surrogateModel = SurrogateModel(name=saveName, outputs=outputNames, coef=coefDict, intercept=interpectDict,
-                                    lable='yield_equation', maxConcentration=maxConcentration)
-    if save:
-       save_2_json(saveName=saveName, saveObject=surrogateModel)
+    # flow of mass
+    D = F*(x_F - x_B)/(x_D - x_B)   # in kg/h
+    B = F - D                       # in kg/h
 
+    # reflux ratio
+    L = (F*( (D*x_D)/(F*x_F) - alfa_f * D*(1-x_D)/ ( F*(1-x_F)) ) / (alfa_f -1)) * 1.3  # in kg/h
+    V = L + D                                                                           # in kg/h
 
+    # condenser
+    Hvap = x_D * Hvap_LK + (1-x_D) * Hvap_HK  # in kJ/kg
+    Qc = Hvap * V                             # in kJ/kg * kg/h = kJ/h
+
+    # re-boiler
+    hF = (x_F* Cp_LK + (1-x_F) * Cp_HK) *(T_F - T_D)  # in kJ/kg
+    hB = (x_B* Cp_LK + (1-x_B) * Cp_HK) *(T_B - T_D)  # in kJ/kg
+    Qr = B* hB + Qc - F*hF                            # kJ/h
+
+    # total energy requirements the same as that of the re-boiler
+    #Qtot = Qr #- Qc
+
+    # transform the Qr to kwh power consumption per kg
+    kw = Qr / 3600 # kJ/s = kW
+    # assume 1 hour of operation?
+    powerConsumption = kw / F # kwh/kg
+
+    # print statments
+    if printResults:
+        print('the flow of the LK in the feed (kg/h) is {} mols\n'.format(F * x_F))
+        print('the flow of distilate leaving (kg/h): {} where \n'
+              'the LK has {} kg'.format(D, D * x_D))
+        print('')
+        print('the flow of bottom (kg/h): {} where \n'
+              'the LK has {} kg\n'.format(B, B * x_B))
+        print('the sum of the LK in the bottom and distilate is: {} \n'.format(D * x_D + B * x_B))
+        print('Hvap (kJ/kg): {}'.format(Hvap))
+        print('Qc (kJ/h): {}'.format(Qc))
+        print('Qr (kJ/h): {}'.format(Qr))
+        print('the sum of the dutys: {}'.format(Qr - Qc))
+        print('the power consumption in kWh/kg is', powerConsumption)
+
+    return powerConsumption

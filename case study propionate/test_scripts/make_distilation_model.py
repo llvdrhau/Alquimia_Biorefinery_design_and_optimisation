@@ -29,7 +29,7 @@ def distillation_check(x_D, x_B, F, x_F, alfa_f,    # for mass balances
         Returns:
             D (float): flow of distilaate (kg/h)
             B (float): flow of bottom (kg/h)
-            Q (float): energy requirements (J/hr)
+            Q (float): energy requirements of the reboiler (J/hr)
         """
 
     # flow of mass

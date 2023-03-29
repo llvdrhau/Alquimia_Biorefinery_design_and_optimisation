@@ -17,7 +17,10 @@ x_F_vals = np.random.uniform(0.2, 0.8, size=n_samples)
 # Calculate Q for each set of F and x_F values
 Q_vals = []
 for F, x_F in zip(F_vals, x_F_vals):
-    Q = distillation_check(F=F, x_F=x_F, x_D=0.9, x_B=0.1, alfa_f=1.5, Hvap_LK=100, Hvap_HK=50, T_F=80, T_D=150, T_B=180, Cp_LK=2, Cp_HK=1)
+    Q = distillation_check(F=F, x_F=x_F, x_D=0.9, x_B=0.1, alfa_f=1.5,
+                           Hvap_LK=100, Hvap_HK=50,
+                           T_F=80, T_D=150, T_B=180,
+                           Cp_LK=2, Cp_HK=1)
     Q_vals.append(Q)
 
 # Convert the lists to NumPy arrays
