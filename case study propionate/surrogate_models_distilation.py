@@ -1,7 +1,7 @@
 
-from f_make_surrogate_model import simulate_distilation
+from f_make_surrogate_model import simulate_distilation, make_surrogate_model_distillation, regression_2_json_v2
 import numpy as np
-import math
+import matplotlib.pyplot as plt
 # -------------------------------------------------
 #           Distillation unit 2
 # -------------------------------------------------
@@ -10,10 +10,12 @@ import math
 # heavy-key: VFA (grouped together)
 
 # data on the feed (variable)
-x_F = np.linspace(0.01, 0.99) # in mass %
-# F =  np.linspace(100, 500)    # kg/h
-#x_F = 0.3
-F = 10     # kg/h
+n_samples = 50
+np.random.seed(5)
+x_F = np.random.uniform(0.2, 0.8, size=n_samples)
+
+# give input feed
+F = 1000   # kg/h
 
 # desired separation outcome
 x_D = 0.9  # VFA's mass % in distillate
@@ -38,13 +40,31 @@ Hvap_HK = 755 # kJ/kg  # https://webbook.nist.gov/cgi/cbook.cgi?ID=C79094&Mask=4
 
 # temperatures
 T_F = 25       # feed temperature (C)
-T_D = 95       # distillate temperature (C) # close to the boiling point of the light key
-T_B = 120      # bottom temperature (C)     # close to the boiling point of the light key (propionate)
+T_D = 95       # distillate temperature (C) # close to the boiling point of the light key (water)
+T_B = 120      # bottom temperature (C)     # close to the boiling point of the heavy key (propionate)
 
 # heat capacities
 Cp_LK = 4.184 # (kJ/K/kg)
 Cp_HK = 2.334 # (kJ/K/kg)
 
-Q = simulate_distilation(x_D= x_D, x_B= x_B, F= F, x_F= x_F, alfa_f= alfa,          # for mass balances
+powerConsumption =[]
+for xf in x_F:
+    Q = simulate_distilation(x_D= x_D, x_B= x_B, F= F, x_F= xf, alfa_f= alfa,          # for mass balances
                          Hvap_LK= Hvap_LK, Hvap_HK= Hvap_HK,                        # for condenser duty
-                         T_F= T_F, T_D=T_D, T_B=T_B, Cp_LK= Cp_LK, Cp_HK= Cp_LK, printResults=True)    # for reboiler duty
+                         T_F= T_F, T_D=T_D, T_B=T_B, Cp_LK= Cp_LK, Cp_HK= Cp_LK, printResults=False)    # for reboiler duty
+    powerConsumption.append(Q)
+
+
+# fit model
+n = 4 # ploynomial degree
+reg = make_surrogate_model_distillation(xdata= x_F, ydata=powerConsumption, polynomialDegree=n, case='Linear', alfa= 1,
+                                        plot=True)
+
+
+# save the model
+featureNames = []
+for i in range(n+1):
+    featureNames.append('x_F**{}'.format(i))
+
+regression_2_json_v2(outputNames= 'energy_consumption', inputNames = 'x_F' ,featureNames=featureNames, model= reg,
+                     saveName= 'Distillation_2.json', lable= 'Distillation_Regresion', lightKey = 'water')

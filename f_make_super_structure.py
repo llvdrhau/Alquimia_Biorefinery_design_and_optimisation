@@ -220,6 +220,53 @@ def make_str_eq_json(modelObject, equationInfo):
         equationList.append(waterEq)
     return equationList
 
+def make_str_eq_distilation_json(modelObject, intervalName):
+    """Reconstructs the surrogate model which is in a .json file into a equation that can be read by Pyomo
+    inputs:
+    model object (dict): is the unpacked .json file
+    equationInfo (DF): a pandas data frame containing the information from the Excel file about the surrogate model
+                        i.e., the abbreviations for the model parameters
+    """
+    # extract all the information
+    inputs = modelObject['inputs']
+    outputs = modelObject['outputs']
+    coef = modelObject['coef']
+    intercept = modelObject['intercept']
+    name = modelObject['name']
+    lable = modelObject['lable']
+
+    # get the variable and the features of the regresion
+    varNameInputs = inputs
+    varNameOutputs = outputs
+    keysCoef = list(coef.keys())  # just take the first key, the substrates are the same for all the products
+    varNames = varNameInputs + varNameOutputs
+
+    replacementDict = {}
+    for var in varNames:
+        newVar = var.replace(var, '{}_{}'.format(var, intervalName))
+        replacementDict.update({var:newVar})
+
+    out = varNameOutputs[0] # there should only be one output name
+    outVar = replacementDict[out]
+    outVar = 'energy_consumption_{}'.format(intervalName)
+    coefOfOutputs = coef[out]
+    # preallocate the right side of the reaction equation
+    energyRequiermentEqLeft = "model.var['{}'] == ".format(outVar)
+    energyRequiermentEqRight = ""
+    for feature in coefOfOutputs:
+        featureCoef = coefOfOutputs[feature]
+        energyRequiermentEqRight += " + {} * {} ".format(feature, featureCoef)
+    # add intercept
+    energyRequiermentEqRight += " + {}".format(intercept[out])
+    energyRequiermentEqRight = '(' + energyRequiermentEqRight + ')'
+    for var in replacementDict:
+        rplc = "model.var['{}']".format(replacementDict[var])
+        energyRequiermentEqRight = energyRequiermentEqRight.replace(var,rplc)
+    eq = energyRequiermentEqLeft + energyRequiermentEqRight
+
+    variableList = list(replacementDict.values())
+    return eq, variableList
+
 
 # Created on Tue Oct 04 2022
 # Contains the classes to make the process interval objects
@@ -1225,7 +1272,7 @@ class ProcessIntervalClass:
                                 'interval {}'.format(self.intervalName))
 
             # if the separation interval is a distilation
-            if energyConsumptionObject["lable"] == "distillation":
+            if energyConsumptionObject["lable"] == "short_cut":
                 eqList = energyConsumptionObject['equations']
                 varList = energyConsumptionObject['variables']
                 name = energyConsumptionObject['name']
@@ -1272,6 +1319,31 @@ class ProcessIntervalClass:
                     # change the feed var so there is no possiblity to dived by zero in the disitillation equations
                 self.boundaries.update({Feed_Var: (1e-6, None)})
 
+            elif energyConsumptionObject["lable"] == "Distillation_Regresion":
+                # infoDict = {'input_name': [], 'yield_of':[], }
+                # DFinfo = pd.DataFrame(infoDict)
+                eq, variables = make_str_eq_distilation_json(modelObject=energyConsumptionObject, intervalName=self.intervalName)
+                eq += " * model.var['{}']".format(self.incomingFlowVariable)
+                allEnergyEquation.append(eq)
+                # make the equation that defines the feed composition of the light key
+                lightKey = energyConsumptionObject['lightKey']
+                lightKeyVar = ''
+                for var in self.enteringVariables:
+                    if lightKey in var:
+                        lightKeyVar = var
+                if not lightKeyVar:
+                    raise Exception("The light key variable '{}' used in the surrogate Distillation model does not match"
+                                    " any abrreviations\n of the inputs to the process interval {}. Plz check the "
+                                    "distilation model to see if the name of the lightKey is correct "
+                                    "".format(lightKey, self.intervalName))
+
+                compositionEq = "model.var['{}'] == model.var['{}'] / (model.var['{}'] + 1e-12)" \
+                                "".format(variables[1],lightKeyVar,self.incomingFlowVariable)
+                allEnergyEquation.append(compositionEq)
+                # add the variable to the list
+                allEnergyVars += variables
+                for var in variables:
+                    self.boundaries.update({var: (0, None)})  # make it so that these variables can not hit zero
         else:
             energyConsumptionEq = "model.var['{}'] == {} * model.var['{}']".format(energyVar,
                                                                                    energyConsumptionParameter,

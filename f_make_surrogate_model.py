@@ -22,13 +22,15 @@ functions to find surrogate models with machinelearning models and SBML models
 the models are transformed into a JSON  file so it can be read by the superstructure functions
 """
 
+
 # --------------------------------------------------------------------------------------
-#Surogate model class
+# Surogate model class
 # ------------------------------------------- -------------------------------------------
 # Class to make all surrogate models uniform!
 class SurrogateModel:
-    def __init__(self, name, outputs, coef, lable, maxConcentration=None, intercept=None):
+    def __init__(self, name, inputs, outputs, coef, lable,lightKey= None, maxConcentration=None, intercept=None):
         self.name = name
+        self.inputs = inputs
         self.outputs = outputs
         self.coef = coef
         if intercept is None:
@@ -42,6 +44,10 @@ class SurrogateModel:
 
         if maxConcentration is None:
             maxConcentration = {}
+
+        if lightKey is not None:
+            self.lightKey = lightKey
+
 
         if maxConcentration:
             key = list(maxConcentration.keys())[0]
@@ -126,8 +132,10 @@ def plot_data_subplots(x_data, y_data):
 def plot_parity_plots(yPred, yObv):
     num_cols_yPred = yPred.shape[1]
     num_cols_yObv = yObv.shape[1]
-
-    subplotTitles = list(yObv.columns)
+    try:
+        subplotTitles = list(yObv.columns)
+    except:
+        subplotTitles = ['unspecified'] * len(yObv)
     if num_cols_yPred != num_cols_yObv:
         raise Exception('yPred and yObv should be the same size')
 
@@ -151,20 +159,28 @@ def plot_parity_plots(yPred, yObv):
 
 
 def plot_model_vs_data(x_data, y_data, x_data_model, y_data_model):
+    """
+    plots the data of the regression model and the data it was trained on
+    """
+    try:
+        y_data = y_data.to_numpy() # change to numpy array if it is a dataframe
+    except:
+        pass
+
     num_cols = y_data.shape[1]  # number of columns in y_data
     num_rows = (num_cols - 1) // 2 + 1  # calculate number of rows for subplot layout
     fig, axes = plt.subplots(nrows=num_rows, ncols=2, figsize=(10, 5 * num_rows))  # create subplots
     for i, ax in enumerate(axes.flatten()):  # iterate over subplots
         if i < num_cols:  # plot data if there are still columns left
             sns.set_style('darkgrid')
-            sns.scatterplot(x=x_data, y=y_data.iloc[:, i],
-                            ax=ax)  # plot i-th column of y_data against x_data using seaborn
+            sns.scatterplot(x=x_data, y=y_data[:, i], ax=ax)  # plot i-th column of y_data against x_data using seaborn
             sns.lineplot(x=x_data_model, y=y_data_model[:, i], ax=ax)
-            ax.set_title(y_data.columns[i])  # set title to column name
+            #ax.set_title(y_data.columns[i])  # set title to column name
         else:  # remove unused subplots
             ax.remove()
     fig.tight_layout()  # adjust subplot spacing
     plt.show()  # display plot
+
 
 def regression_2_json(data, showPLot=True, save=False, saveName='data.json', normalise=False,
                       case='Ridge', polynomial=None):
@@ -321,7 +337,22 @@ def regression_2_json(data, showPLot=True, save=False, saveName='data.json', nor
     return surrogateModel, modelDictionary
 
 
-def regression_2_json_v2(outputNames, featureNames, model, saveName, save=True, maxConcentration=None):
+def regression_2_json_v2(outputNames, featureNames, model, saveName, inputNames = None, save=True,
+                         maxConcentration=None, lightKey = None, lable = 'yield_equation'):
+    """ Saves the regresion model as a readable json file for the superstructure
+    Params
+
+    Returns
+
+    """
+    if isinstance(outputNames, str):
+        outputNames = [outputNames] # make sure it's a list so you interrate correctly
+
+    if inputNames is None:
+        inputNames = []
+    if isinstance(inputNames, str):
+        inputNames = [inputNames] # make sure it's a list
+
     coef_ = model.coef_
     interpect_ = model.intercept_
     coefDict = {}
@@ -334,10 +365,11 @@ def regression_2_json_v2(outputNames, featureNames, model, saveName, save=True, 
             featureCoefDict.update({feature: coefOfFeature})  # can't put a np array in a json file
         coefDict.update({out: featureCoefDict})
 
-    surrogateModel = SurrogateModel(name=saveName, outputs=outputNames, coef=coefDict, intercept=interpectDict,
-                                    lable='yield_equation', maxConcentration=maxConcentration)
+    surrogateModel = SurrogateModel(name=saveName, inputs = inputNames, outputs=outputNames, coef=coefDict, intercept=interpectDict,
+                                    lable=lable, maxConcentration=maxConcentration, lightKey=lightKey)
     if save:
-       save_2_json(saveName=saveName, saveObject=surrogateModel)
+        save_2_json(saveName=saveName, saveObject=surrogateModel)
+
 
 # # ------------------------------------------- -------------------------------------------
 # Surogate model functions for GEMS
@@ -502,10 +534,11 @@ def SBML_2_json_v2(modelName, substrate_exchange_rnx, product_exchange_rnx, maxC
         saveName = modelName.replace('.xml', '.json')
 
     # determine how to make the coefficient dictionary base on the input
-    coefDict, considered, ignored = get_coef_all_substrates_SBML(modelName=model, substrateExchRxnIDs=substrate_exchange_rnx,
-                                            productExchRxnIDs=product_exchange_rnx,
-                                            yieldTol=yieldTol, exchRnx2zero=exchRnx2zero,
-                                            ignore= toIgnore, include= alreadyConsidered)
+    coefDict, considered, ignored = get_coef_all_substrates_SBML(modelName=model,
+                                                                 substrateExchRxnIDs=substrate_exchange_rnx,
+                                                                 productExchRxnIDs=product_exchange_rnx,
+                                                                 yieldTol=yieldTol, exchRnx2zero=exchRnx2zero,
+                                                                 ignore=toIgnore, include=alreadyConsidered)
     outputNames = list(coefDict.keys())
     surrogateModel = SurrogateModel(name=modelName, outputs=outputNames, coef=coefDict,
                                     lable='SBML', maxConcentration=maxConcentration)
@@ -522,7 +555,7 @@ def SBML_2_json_v2(modelName, substrate_exchange_rnx, product_exchange_rnx, maxC
 
 
 def get_coef_all_substrates_SBML(modelName, substrateExchRxnIDs, productExchRxnIDs, yieldTol,
-                                 exchRnx2zero='Ex_S_cpd00027_ext', ignore = None, include= None):
+                                 exchRnx2zero='Ex_S_cpd00027_ext', ignore=None, include=None):
     """ Get the list of possible substrates from a model: Substrates have at least 3 carbons and produce a yield which is
     at least as big as the yield tolerance and is not a protein
 
@@ -618,8 +651,9 @@ def get_coef_all_substrates_SBML(modelName, substrateExchRxnIDs, productExchRxnI
 
     # selectSwitch = False # comment this line, just temporaily so don't have to go through this each fucking time
     if selectSwitch:
-        finalSubstrateList, ignored = substrate_run_through(substrateNames=shortestList, modelName=modelStrName, ignore= ignore
-                                                   ,include=include)
+        finalSubstrateList, ignored = substrate_run_through(substrateNames=shortestList, modelName=modelStrName,
+                                                            ignore=ignore
+                                                            , include=include)
     else:
         finalSubstrateList = shortestList
         ignored = []
@@ -685,7 +719,6 @@ def substrate_run_through(substrateNames, modelName, ignore, include):
         keepList += toInclude
         alreadyIncluded = toInclude
 
-
     # ----------------------------------- ask to exclude previous (ignore) list
     print("In the previous model(s) the previous substrates where excluded: {} \n"
           "do you wish to exclude them aswell (y/n) ?".format(ignore))
@@ -736,13 +769,14 @@ def substrate_run_through(substrateNames, modelName, ignore, include):
     ignored = list(set(keepList) ^ set(substrateNames))
     return keepList, ignored
 
+
 # # ------------------------------------------- -------------------------------------------
 # Surrogate model functions distillation units
 # # ------------------------------------------- -------------------------------------------
-def simulate_distilation(x_D, x_B, F, x_F, alfa_f,    # for mass balances
-                      Hvap_LK, Hvap_HK,             # for condenser duty
-                      T_F, T_D, T_B, Cp_LK, Cp_HK,  # for reboiler duty
-                       printResults = False):
+def simulate_distilation(x_D, x_B, F, x_F, alfa_f,  # for mass balances
+                         Hvap_LK, Hvap_HK,  # for condenser duty
+                         T_F, T_D, T_B, Cp_LK, Cp_HK,  # for reboiler duty
+                         printResults=False):
     """
         Calculates the flow of mass, reflux ratio, and energy requirements for a distillation column.
 
@@ -770,32 +804,33 @@ def simulate_distilation(x_D, x_B, F, x_F, alfa_f,    # for mass balances
         """
 
     # flow of mass
-    D = F*(x_F - x_B)/(x_D - x_B)   # in kg/h
-    B = F - D                       # in kg/h
+    D = F * (x_F - x_B) / (x_D - x_B)  # in kg/h
+    B = F - D  # in kg/h
 
     # reflux ratio
-    L = (F*( (D*x_D)/(F*x_F) - alfa_f * D*(1-x_D)/ ( F*(1-x_F)) ) / (alfa_f -1)) * 1.3  # in kg/h
-    V = L + D                                                                           # in kg/h
+    L = (F * ((D * x_D) / (F * x_F) - alfa_f * D * (1 - x_D) / (F * (1 - x_F))) / (alfa_f - 1)) * 1.3  # in kg/h
+    V = L + D  # in kg/h
 
     # condenser
-    Hvap = x_D * Hvap_LK + (1-x_D) * Hvap_HK  # in kJ/kg
-    Qc = Hvap * V                             # in kJ/kg * kg/h = kJ/h
+    Hvap = x_D * Hvap_LK + (1 - x_D) * Hvap_HK  # in kJ/kg
+    Qc = Hvap * V  # in kJ/kg * kg/h = kJ/h
 
     # re-boiler
-    hF = (x_F* Cp_LK + (1-x_F) * Cp_HK) *(T_F - T_D)  # in kJ/kg
-    hB = (x_B* Cp_LK + (1-x_B) * Cp_HK) *(T_B - T_D)  # in kJ/kg
-    Qr = B* hB + Qc - F*hF                            # kJ/h
+    hF = (x_F * Cp_LK + (1 - x_F) * Cp_HK) * (T_F - T_D)  # in kJ/kg
+    hB = (x_B * Cp_LK + (1 - x_B) * Cp_HK) * (T_B - T_D)  # in kJ/kg
+    Qr = B * hB + Qc - F * hF  # kJ/h
 
     # total energy requirements the same as that of the re-boiler
-    #Qtot = Qr #- Qc
+    # Qtot = Qr #- Qc
 
     # transform the Qr to kwh power consumption per kg
-    kw = Qr / 3600 # kJ/s = kW
+    kw = Qr / 3600  # kJ/s = kW
     # assume 1 hour of operation?
-    powerConsumption = kw / F # kwh/kg
+    powerConsumption = kw / F  # kwh/kg
 
     # print statments
     if printResults:
+        print('')
         print('the flow of the LK in the feed (kg/h) is {} mols\n'.format(F * x_F))
         print('the flow of distilate leaving (kg/h): {} where \n'
               'the LK has {} kg'.format(D, D * x_D))
@@ -810,3 +845,69 @@ def simulate_distilation(x_D, x_B, F, x_F, alfa_f,    # for mass balances
         print('the power consumption in kWh/kg is', powerConsumption)
 
     return powerConsumption
+
+
+def make_surrogate_model_distillation(xdata, ydata, polynomialDegree, case='Linear', plot=True, alfa = 0.1):
+    """ Create the surrogate model (linear or lasso regresion ) for distillation units, which is only dependent on the
+    variable x_F which is the fraction of the LK element in the feed
+
+     Params:
+        powerConsumption(list/array): the response variable, power consumption in kwh/kg as calculated by the
+        function simulate_distillation
+
+        x_F_vals(list/array): the variable of the regression, the fraction of the light key in the feed (mass%)
+
+     Returns:
+        regression model: lasso, ridge or linear model
+     """
+
+    # reshape the data
+    xdata = np.array(xdata).reshape(-1, 1)
+    ydata = np.array(ydata).reshape(-1, 1)
+
+    # make the polynomial data
+    poly = PolynomialFeatures(degree=polynomialDegree, include_bias=True)
+    X_poly = poly.fit_transform(xdata)
+
+    # Split data into training and testing sets
+
+    X_train, X_test, y_train, y_test = train_test_split(X_poly, ydata, test_size=0.35, random_state=42)
+
+    # Fit linear regression model to training data
+    if case == 'Ridge':
+        reg = Ridge().fit(X_train, y_train)
+    elif case == 'Lasso':
+        reg = Lasso(alpha=alfa).fit(X_train, y_train)
+        # model = Lasso(alpha= 1, max_iter= 4000)
+    elif case == 'Linear':
+        reg = LinearRegression().fit(X_train, y_train)
+    else:
+        raise Exception("The string variable _case_ can only be 'Linear, 'Lasso' or 'Ridge'")
+
+    # Predict Qtot for test data
+    y_pred = reg.predict(X_test)
+    r2_scores = r2_score(y_test, y_pred, multioutput='raw_values')
+    MSE = mean_squared_error(y_test, y_pred, multioutput='raw_values')
+    coefs = reg.coef_
+
+    # print info
+    print("R2 score for each output variable:", r2_scores)
+    print("mean_squared_error for each output variable:", MSE)
+    print('')
+    print("the ceof are:", coefs)
+
+    # only dependent on 1 variable, so we can plot the outcome of the model vs the pH
+    # create data to plot the model
+
+    x_data_model = np.linspace(min(xdata), max(xdata), num=100)
+    x_data_model = x_data_model.reshape((len(x_data_model), 1))  # reshape
+    x_poly_data_model = poly.fit_transform(x_data_model)
+    y_data_model = reg.predict(x_poly_data_model)
+
+    # check out the  plots
+    if plot:
+        #plot_parity_plots(yPred=y_pred, yObv=y_test)
+        if len(y_data_model.shape) < 2:
+            y_data_model = y_data_model.reshape((len(y_data_model), 1))
+        plot_model_vs_data(x_data=X_poly[:, 1], y_data=ydata, x_data_model=x_data_model.squeeze(), y_data_model=y_data_model)
+    return reg
