@@ -138,3 +138,8 @@ def save_2_json(saveName, saveObject):
     loc = loc + r'\json models' + r'\{}'.format(saveName)
     with open(loc, 'w+', encoding='utf-8') as f:
         json.dump(saveObject, f, ensure_ascii=False, indent=4)
+
+
+def linear_aprox(y1, y2, x1, x2, z1):
+    v = x1 - (x1-x2)*(y1-z1)/(y1-y2)
+    return v
