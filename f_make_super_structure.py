@@ -3,10 +3,12 @@ import cobra
 import cobra.io
 import numpy as np
 from collections import OrderedDict
-import json
 import pyomo.environ as pe
+import pyomo.opt as po
 from f_usefull_functions import *
 from f_screen_SBML import count_atom_in_formula
+import time
+
 
 # from typing import List
 
@@ -2645,3 +2647,48 @@ def make_super_structure(excelFile, printPyomoEq=False):
         model.pprint()  # debug check
 
     return model
+
+def solve_model(superstructure, solverType = None):
+    """ Prints the results of the superstructure optimisation
+     Params:
+        superstructure (pyomo-model): model containing all equations
+        solverType (str): string variable defining the preferred solver. if None the solver is automatically choosen .
+        Possible solver are: 'BARON', 'ANTIGONE', 'CPLEX', 'DICOPT'
+
+     Return:
+          prints the results of the optimisation
+     """
+
+    start_time = time.time()
+    solvername = 'gams'
+    opt = po.SolverFactory(solvername)
+
+
+    if solverType is None:
+        results = opt.solve(superstructure, keepfiles=True, tee=True)
+    else:
+        try:
+            results = opt.solve(superstructure, solver=solverType, keepfiles=True, tee=True)
+        except:
+            raise Exception("The solverType '{}' is invalid, check the spelling \n possible solvers are: "
+                            "'BARON', 'ANTIGONE', 'CPLEX', 'DICOPT'".format(solverType))
+
+    for v in superstructure.component_objects(ctype=pe.Var):
+        for index in v:
+            if pe.value(v[index]) >= 0.1:
+                print('{0} = {1}'.format(v[index], pe.value(v[index])))
+
+    print('')
+    for v2 in superstructure.component_objects(ctype=pe.Objective):
+        for index2 in v2:
+            a = pe.value(v2[index2])
+            print('The objective value is:')
+            print('{0} = {1}'.format(v2[index2], pe.value(v2[index2])))
+
+    end_time = time.time()
+    run_time = end_time - start_time
+    print('')
+    print('The run time is: {} seconds'.format(run_time))
+    print('')
+
+    return results

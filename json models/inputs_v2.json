@@ -1,11 +1,11 @@
 {
-    "Sucrose": 1,
-    "D-Glucose": 1,
-    "Maltose": 1,
-    "Dextrin": 1,
-    "L-Lactate": 1,
-    "Stachyose": 1,
-    "Glycerol": 1,
-    "Xylose": 1,
-    "D-Fructose": 1
+    "Sucrose": 1.85,
+    "D-Glucose": 0.45,
+    "Maltose": 0.37,
+    "Dextrin": 3.5,
+    "L-Lactate": 0.4,
+    "Stachyose": 6.0,
+    "Glycerol": 0.85,
+    "Xylose": 1.0,
+    "D-Fructose": 0.51
 }
