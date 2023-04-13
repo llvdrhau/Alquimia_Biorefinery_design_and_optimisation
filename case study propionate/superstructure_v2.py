@@ -11,4 +11,4 @@ superstructure = make_super_structure(excelFile= excelFile, printPyomoEq= False)
 switchSolver = True
 if switchSolver:
     results = solve_model(superstructure)
-    print(results)
+    #results = solve_model(superstructure, solverType='BARON')

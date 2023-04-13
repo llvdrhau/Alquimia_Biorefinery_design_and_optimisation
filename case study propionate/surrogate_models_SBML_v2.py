@@ -26,7 +26,7 @@ products = ['Ex_S_cpd00141_ext',  # propionate
 tolerance = {'Ex_S_cpd00141_ext': 0.15}
 
 # define maximum allowed concentrations in reactor
-maxConcentration = {'Propionate': 0.035}  # max concentration of propionate is 0.035 kg/L or 35 g/L
+maxConcentration = {'Propionate': 42.37e-3}  # max concentration of propionate is 0.035 kg/L or 35 g/L
 
 # give the names of the organisms and the save names of the json files
 microorganisms = [loc_acnes, loc_acidi, loc_prop, loc_avidum, loc_sher]  # all microorganisms

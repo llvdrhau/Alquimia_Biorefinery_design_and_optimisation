@@ -28,5 +28,5 @@
         "Biomass": ""
     },
     "lable": "SBML",
-    "waterEq": "water == Propionate / 0.071"
+    "waterEq": "water == Propionate / 0.04232"
 }
