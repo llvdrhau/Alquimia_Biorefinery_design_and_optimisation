@@ -136,4 +136,4 @@ for i in range(n+1):
     featureNames.append('x_F**{}'.format(i))
 
 regression_2_json_v2(outputNames= 'energy_consumption', inputNames = 'x_F' ,featureNames=featureNames, model= reg,
-                     saveName= 'Distillation_2.json', lable= 'Distillation_Regresion', lightKey = 'water')
+                     saveName= 'Distillation_3.json', lable= 'Distillation_Regresion', lightKey = 'ace')

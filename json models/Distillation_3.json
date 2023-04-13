@@ -1,0 +1,23 @@
+{
+    "name": "Distillation_3.json",
+    "inputs": [
+        "x_F"
+    ],
+    "outputs": [
+        "energy_consumption"
+    ],
+    "coef": {
+        "energy_consumption": {
+            "x_F**0": 0.0,
+            "x_F**1": 4.886905880412875,
+            "x_F**2": -13.502770604209951,
+            "x_F**3": 19.269439891937687,
+            "x_F**4": -10.544433329259485
+        }
+    },
+    "intercept": {
+        "energy_consumption": 0.01067974345803413
+    },
+    "lable": "Distillation_Regresion",
+    "lightKey": "ace"
+}

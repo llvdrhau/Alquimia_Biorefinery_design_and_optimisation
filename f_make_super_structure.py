@@ -1338,7 +1338,7 @@ class ProcessIntervalClass:
                                     "".format(lightKey, self.intervalName))
 
                 compositionEq = "model.var['{}'] == model.var['{}'] / (model.var['{}'] + 1e-12)" \
-                                "".format(variables[1],lightKeyVar,self.incomingFlowVariable)
+                                "".format(variables[0],lightKeyVar,self.incomingFlowVariable)
                 allEnergyEquation.append(compositionEq)
                 # add the variable to the list
                 allEnergyVars += variables
