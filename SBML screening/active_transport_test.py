@@ -8,11 +8,13 @@ modelNames = ['P_acnes_lvdh.xml', 'P_avidum_lvdh.xml', 'P_propionicum_lvdh.xml',
 BM_atp_old = []
 y_prop_old = []
 y_ace_old = []
+y_bm_old = []
 dictOld = {}
 
 BM_atp_new = []
 y_prop_new = []
 y_ace_new = []
+y_bm_new = []
 dictNew = {}
 for name in modelNames:
     loc_model = get_location(name)
@@ -42,14 +44,18 @@ for name in modelNames:
     exchangeRxnId_Acetate = 'Ex_S_cpd00029_ext'
     exchangeRxnId_Propionate = 'Ex_S_cpd00141_ext'
     exchangeRxnId_Glucose = 'Ex_S_cpd00027_ext'
+    exchangeRxnId_Biomass = 'Ex_S_biomass_ext'
 
     yield_prop = find_yield(model=model, substrateExchangeRxnID=exchangeRxnId_Glucose,
                             productExchangeRxnID=exchangeRxnId_Propionate)
     yield_ace = find_yield(model=model, substrateExchangeRxnID=exchangeRxnId_Glucose,
                            productExchangeRxnID=exchangeRxnId_Acetate)
+    yield_bm = find_yield(model=model, substrateExchangeRxnID=exchangeRxnId_Glucose,
+                           productExchangeRxnID=exchangeRxnId_Biomass)
 
     y_prop_old.append(yield_prop)
     y_ace_old.append(yield_ace)
+    y_bm_old.append(yield_bm)
 
     # ----------------------------------------------- update the model
     # change the transport reaction (add atp consumption)
@@ -63,11 +69,17 @@ for name in modelNames:
     ATP_Id = 'S_cpd00002_c0'
     ADP_Id = 'S_cpd00008_c0'
     PP_id = 'S_cpd00009_c0'  # id of phosphate
+    H_id_intra = 'S_cpd00067_c0' # id of intracellular H+
+    H_id_ext = 'S_cpd00067_ext' # id of extracellular H+
 
+    # Left side of chemical eq => extracellular space
+    # Right side of chemical eq => intracellular space
     metabolites2add = {
-        ATP_Id: -1.0,  # consumed ATP
-        ADP_Id: 1.0,  # produced ATP
-        PP_id: 1.0  # produced Phosphorus
+        ATP_Id: 1.0,  # consume ATP intracelular (right side of the chemical eq)
+        ADP_Id: -1.0,  # produce ADP intracelular (left side of the chemical eq)
+        PP_id: -1.0,  # produced Phosphorus
+        H_id_intra: 2, # intracellular, there is already one H in the reaction so 3 H+ in total react
+        H_id_ext:-2 # extracellular, there is already one H in the reaction
     }
 
     transportRxn_Acetate.add_metabolites(metabolites2add)
@@ -85,11 +97,18 @@ for name in modelNames:
     yield_ace = find_yield(model=model, substrateExchangeRxnID=exchangeRxnId_Glucose,
                            productExchangeRxnID=exchangeRxnId_Acetate)
 
+    yield_bm =  find_yield(model=model, substrateExchangeRxnID=exchangeRxnId_Glucose,
+                           productExchangeRxnID=exchangeRxnId_Biomass)
+
     y_prop_new.append(yield_prop)
     y_ace_new.append(yield_ace)
+    y_bm_new.append(yield_bm)
 
-DICT_old = {'BM_ATP (g/mol)': BM_atp_old,'yield acetate (g/g)': y_ace_old , 'yield propionate (g/g)': y_prop_old}
-DICT_new = {'BM_ATP (g/mol)': BM_atp_new, 'yield acetate (g/g)': y_ace_new , 'yield propionate (g/g)': y_prop_new}
+DICT_old = {'BM_ATP (g/mol)': BM_atp_old, 'yield biomass': y_bm_old ,'yield acetate (g/g)': y_ace_old ,
+            'yield propionate (g/g)': y_prop_old}
+
+DICT_new = {'BM_ATP (g/mol)': BM_atp_new, 'yield biomass (g/g)': y_bm_new, 'yield acetate (g/g)': y_ace_new ,
+            'yield propionate (g/g)': y_prop_new}
 
 DF_old = pd.DataFrame(DICT_old, index=modelNames)
 DF_new = pd.DataFrame(DICT_new, index=modelNames)

@@ -17,7 +17,7 @@ priceDF = pd.read_excel(locationExcel, sheet_name= 'price_list', index_col= 'inp
 inputList = inputs['inputs']
 dictInputs = {}
 for i in inputList:
-    price = priceDF.price[i]
+    price = round(priceDF.price[i],2)
     dictInputs.update({i: price})
 
 save_2_json(saveName='inputs_v2.json', saveObject= dictInputs)

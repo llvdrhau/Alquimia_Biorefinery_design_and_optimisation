@@ -807,7 +807,7 @@ def simulate_distilation(x_D, x_B, F, x_F, alfa_f,  # for mass balances
     D = F * (x_F - x_B) / (x_D - x_B)  # in kg/h
     B = F - D  # in kg/h
 
-    # reflux ratio
+    # reflux ratio assumed at 1.3
     L = (F * ((D * x_D) / (F * x_F) - alfa_f * D * (1 - x_D) / (F * (1 - x_F))) / (alfa_f - 1)) * 1.3  # in kg/h
     V = L + D  # in kg/h
 
@@ -824,7 +824,7 @@ def simulate_distilation(x_D, x_B, F, x_F, alfa_f,  # for mass balances
     # Qtot = Qr #- Qc
 
     # transform the Qr to kwh power consumption per kg
-    kw = Qr / 3600  # kJ/s = kW
+    kw = Qr / 3600  # kJ/h to kJ/s = kW
     # assume 1 hour of operation?
     powerConsumption = kw / F  # kwh/kg
 

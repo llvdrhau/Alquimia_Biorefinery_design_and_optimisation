@@ -95,8 +95,7 @@ model._compartments = {'c': 'Cytoplasma', 'e': 'Extracellular'}
 listExchRxn = model.exchanges
 for original_reaction in listExchRxn:
     # Create a new exchange reaction with the same metabolites as the original reaction
-    metabolite = original_reaction.reactants[
-        0]  # there is only going to be one metabolite in the reaction reactants
+    metabolite = original_reaction.reactants[0]  # there is only going to be one metabolite in the reaction reactants
     metabolite.compartment = 'e'
 
 # ------------------------------------------------------------ save the model

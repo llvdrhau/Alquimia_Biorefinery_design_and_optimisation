@@ -1220,6 +1220,7 @@ class ProcessIntervalClass:
             utilityName = ut
             utilityParameter = utilities[ut]['parameter']
             utilityCost = utilities[ut]['cost']
+            utilityUnit =  utilities[ut]['unit']
             allUtilityVariables = []  # preallocation
             # make the variable name
             utilityVariable = '{}_{}'.format(utilityName, reactorName)
@@ -1230,8 +1231,14 @@ class ProcessIntervalClass:
             self.boundaries.update({utilityVariable: (0, None)})
 
             # declare the utility equations i.e., mass utility == parameter_ut * incoming flow
-            utilityMassEqPyomo = "model.var['{}'] == {} * model.var['{}']".format(utilityVariable, utilityParameter,
-                                                                                  incomingFlowVariable)
+            if utilityUnit == 'kg/kgFeed':
+                utilityMassEqPyomo = "model.var['{}'] == {} * model.var['{}']".format(utilityVariable, utilityParameter,
+                                                                                   incomingFlowVariable)
+            elif utilityUnit == 'kg/h':
+                utilityMassEqPyomo = "model.var['{}'] == {}".format(utilityVariable, utilityParameter,incomingFlowVariable)
+
+            else:
+                raise Exception("the unit of utility '{}' should either be kg/kgFeed or kg/h".format(ut))
 
             # should be zero if the interval is not chosen
             if booleanVariable:
@@ -2194,9 +2201,17 @@ def make_process_intervals(ExcelDict):
             # get price utility
             utilityPrice = [DFeconomicParameters.ut_chem_price[
                                 intervalName]]  # made as a list so in the future multiple utility componets can be added
+
+            # get the units of the utility
+            utilityUnit = [DFprocessIntervals.units[intervalName]]
+
             # utilityPrice = split_remove_spaces(utilityPrice,',')
             for j, utilityName in enumerate(utilityVariableNames):
-                utilityDict.update({utilityName: {'cost': utilityPrice[j], 'parameter': utilityParameter[j]}})
+                utilityDict.update({utilityName:
+                                    {'cost': utilityPrice[j],
+                                     'parameter': utilityParameter[j],
+                                     'unit':utilityUnit[j]}
+                                    })
 
         # find if the separated streams and where they go to/ the components to separate
         seperationDict = {}
@@ -2648,7 +2663,7 @@ def make_super_structure(excelFile, printPyomoEq=False):
 
     return model
 
-def solve_model(superstructure, solverType = None):
+def solve_model(superstructure, operatingDays, solverType = None):
     """ Prints the results of the superstructure optimisation
      Params:
         superstructure (pyomo-model): model containing all equations
@@ -2658,6 +2673,7 @@ def solve_model(superstructure, solverType = None):
      Return:
           prints the results of the optimisation
      """
+    operatingHours = operatingDays * 24 # 24 hours in a day
 
     start_time = time.time()
     solvername = 'gams'
@@ -2675,15 +2691,19 @@ def solve_model(superstructure, solverType = None):
 
     for v in superstructure.component_objects(ctype=pe.Var):
         for index in v:
-            if pe.value(v[index]) >= 0.1:
-                print('{0} = {1}'.format(v[index], pe.value(v[index])))
+            if pe.value(v[index]) >= 1e-10:
+                if 'y_' in v[index].local_name:
+                    # don't multiply for the bool variables
+                    print('{0} = {1}'.format(v[index], pe.value(v[index])))
+                else:
+                    print('{0} = {1}'.format(v[index], pe.value(v[index])*operatingHours))
 
     print('')
     for v2 in superstructure.component_objects(ctype=pe.Objective):
         for index2 in v2:
             a = pe.value(v2[index2])
             print('The objective value is:')
-            print('{0} = {1}'.format(v2[index2], pe.value(v2[index2])))
+            print('{0} = {1}'.format(v2[index2], pe.value(v2[index2])*operatingHours))
 
     end_time = time.time()
     run_time = end_time - start_time

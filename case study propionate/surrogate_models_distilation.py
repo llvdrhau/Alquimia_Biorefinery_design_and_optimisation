@@ -2,6 +2,8 @@
 from f_make_surrogate_model import simulate_distilation, make_surrogate_model_distillation, regression_2_json_v2
 import numpy as np
 
+# script options
+saveSwitch = True
 # -------------------------------------------------
 #           Distillation unit 2
 # -------------------------------------------------
@@ -12,27 +14,27 @@ import numpy as np
 # data on the feed (variable)
 n_samples = 50
 np.random.seed(5)
-x_F = np.random.uniform(0.2, 0.8, size=n_samples)
+x_F = np.random.uniform(0.02, 0.95, size=n_samples)
 
 # give input feed
 F = 1000   # kg/h
 
-# desired separation outcome
-x_D = 0.9  # VFA's mass % in distillate
-x_B = 0.05 # VFA's mass % in bottom
+# desired separation outcome (i.e. compositions for the light key in bottom and distillate stream)
+x_D = 0.98  # water mass % in distillate
+x_B = 0.05  # water mass % in bottom
 
 # temperatures
 T_F = 25       # feed temperature (C)
 T_D = 95       # distillate temperature (C) # close to the boiling point of the light key (water 100 C)
 T_B = 120      # bottom temperature (C)     # close to the boiling point of the heavy key (propionic acid, 141 C)
 
-# vapour pressure LK
+# vapour pressure LK water
 # https://www.engineeringtoolbox.com/water-vapor-saturation-pressure-d_599.html
 VP_LK = 1.96 * 1.0135 # bar at 120 °C
 
-# vapour pressure HK
+# vapour pressure HK propionate (+ acetate)
 # https://webbook.nist.gov/cgi/cbook.cgi?ID=C79094&Mask=4&Type=ANTOINE&Plot=on#ANTOINE
-T = 120 + 273 # temperature in K near distillate temperature
+T = 120 + 273 # temperature in K near distillate temperature 120 °C
 VP_HK_log10 = 4.74558 - (1679.869 / (T -59.832))
 VP_HK = 10**VP_HK_log10 # in bar.
 
@@ -44,8 +46,8 @@ Hvap_LK = 46/72*1e3 # kJ/kg # https://www.engineeringtoolbox.com/water-propertie
 Hvap_HK = 3774 # kJ/kg  # https://webbook.nist.gov/cgi/cbook.cgi?ID=C79094&Mask=4
 
 # heat capacities
-Cp_LK = 4.184 # (kJ/K/kg)
-Cp_HK = 2.334 # (kJ/K/kg)
+Cp_LK = 4.184 # (kJ/K/kg) # water
+Cp_HK = 2.334 # (kJ/K/kg) # propionate
 
 powerConsumption =[]
 for xf in x_F:
@@ -56,7 +58,7 @@ for xf in x_F:
 
 
 # fit model
-n = 4 # ploynomial degree
+n = 6 # ploynomial degree
 reg = make_surrogate_model_distillation(xdata= x_F, ydata=powerConsumption, polynomialDegree=n, case='Linear', alfa= 1,
                                         plot=True)
 
@@ -67,7 +69,7 @@ for i in range(n+1):
     featureNames.append('x_F**{}'.format(i))
 
 regression_2_json_v2(outputNames= 'energy_consumption', inputNames = 'x_F' ,featureNames=featureNames, model= reg,
-                     saveName= 'Distillation_2.json', lable= 'Distillation_Regresion', lightKey = 'water')
+                     saveName= 'Distillation_2.json', lable= 'Distillation_Regresion', lightKey = 'water', save= saveSwitch)
 
 
 
@@ -81,14 +83,14 @@ regression_2_json_v2(outputNames= 'energy_consumption', inputNames = 'x_F' ,feat
 # data on the feed (variable)
 n_samples = 50
 np.random.seed(42)
-x_F = np.random.uniform(0.1, 0.9, size=n_samples)
+x_F = np.random.uniform(0.001, 0.999, size=n_samples)
 
 # give input feed
 F = 1000   # kg/h
 
 # desired separation outcome
-x_D = 0.95  # LK acetic acid mass % in distillate
-x_B = 0.05 # LK acetic acid mass % in bottom
+x_D = 0.999  # LK acetic acid mass % in distillate
+x_B = 0.0001 # LK acetic acid mass % in bottom
 
 # operating temperatures
 T_F = 100       # feed temperature (C)
@@ -136,4 +138,4 @@ for i in range(n+1):
     featureNames.append('x_F**{}'.format(i))
 
 regression_2_json_v2(outputNames= 'energy_consumption', inputNames = 'x_F' ,featureNames=featureNames, model= reg,
-                     saveName= 'Distillation_3.json', lable= 'Distillation_Regresion', lightKey = 'ace')
+                     saveName= 'Distillation_3.json', lable= 'Distillation_Regresion', lightKey = 'ace', save= saveSwitch)
