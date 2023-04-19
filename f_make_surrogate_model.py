@@ -828,6 +828,10 @@ def simulate_distilation(x_D, x_B, F, x_F, alfa_f,  # for mass balances
     # assume 1 hour of operation?
     powerConsumption = kw / F  # kwh/kg
 
+    seperationCoefDist = (F * x_F) / (D * x_D)
+    seperationCoefBtm = (F * x_F) / (B * x_B)
+    seperationCoef = [seperationCoefDist, seperationCoefBtm]
+
     # print statments
     if printResults:
         print('')
@@ -844,7 +848,7 @@ def simulate_distilation(x_D, x_B, F, x_F, alfa_f,  # for mass balances
         print('the sum of the dutys: {}'.format(Qr - Qc))
         print('the power consumption in kWh/kg is', powerConsumption)
 
-    return powerConsumption
+    return powerConsumption, seperationCoef
 
 
 def make_surrogate_model_distillation(xdata, ydata, polynomialDegree, case='Linear', plot=True, alfa = 0.1):

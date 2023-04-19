@@ -3,7 +3,9 @@ from f_make_surrogate_model import simulate_distilation, make_surrogate_model_di
 import numpy as np
 
 # script options
-saveSwitch = True
+saveSwitch = False
+nDist2 = 2 #polynomial
+nDist3 = 2
 # -------------------------------------------------
 #           Distillation unit 2
 # -------------------------------------------------
@@ -14,7 +16,7 @@ saveSwitch = True
 # data on the feed (variable)
 n_samples = 50
 np.random.seed(5)
-x_F = np.random.uniform(0.02, 0.95, size=n_samples)
+x_F = np.random.uniform(0.70, 0.95, size=n_samples)
 
 # give input feed
 F = 1000   # kg/h
@@ -51,14 +53,14 @@ Cp_HK = 2.334 # (kJ/K/kg) # propionate
 
 powerConsumption =[]
 for xf in x_F:
-    Q = simulate_distilation(x_D= x_D, x_B= x_B, F= F, x_F= xf, alfa_f= alfa,          # for mass balances
+    Q, sepeationCoef = simulate_distilation(x_D= x_D, x_B= x_B, F= F, x_F= xf, alfa_f= alfa,          # for mass balances
                          Hvap_LK= Hvap_LK, Hvap_HK= Hvap_HK,                        # for condenser duty
                          T_F= T_F, T_D=T_D, T_B=T_B, Cp_LK= Cp_LK, Cp_HK= Cp_LK, printResults=False)    # for reboiler duty
     powerConsumption.append(Q)
 
 
 # fit model
-n = 6 # ploynomial degree
+n = nDist2 # ploynomial degree
 reg = make_surrogate_model_distillation(xdata= x_F, ydata=powerConsumption, polynomialDegree=n, case='Linear', alfa= 1,
                                         plot=True)
 
@@ -83,14 +85,14 @@ regression_2_json_v2(outputNames= 'energy_consumption', inputNames = 'x_F' ,feat
 # data on the feed (variable)
 n_samples = 50
 np.random.seed(42)
-x_F = np.random.uniform(0.001, 0.999, size=n_samples)
+x_F = np.random.uniform(0.001, 0.5, size=n_samples)
 
 # give input feed
 F = 1000   # kg/h
 
 # desired separation outcome
 x_D = 0.999  # LK acetic acid mass % in distillate
-x_B = 0.0001 # LK acetic acid mass % in bottom
+x_B = 0.001 # LK acetic acid mass % in bottom
 
 # operating temperatures
 T_F = 100       # feed temperature (C)
@@ -120,14 +122,14 @@ Cp_HK = 2.334 # (kJ/K/kg) propionic acid
 
 powerConsumption =[]
 for xf in x_F:
-    Q = simulate_distilation(x_D= x_D, x_B= x_B, F= F, x_F= xf, alfa_f= alfa,          # for mass balances
+    Q, sepeationCoef = simulate_distilation(x_D= x_D, x_B= x_B, F= F, x_F= xf, alfa_f= alfa,          # for mass balances
                          Hvap_LK= Hvap_LK, Hvap_HK= Hvap_HK,                        # for condenser duty
                          T_F= T_F, T_D=T_D, T_B=T_B, Cp_LK= Cp_LK, Cp_HK= Cp_LK, printResults=False)    # for reboiler duty
     powerConsumption.append(Q)
 
 
 # fit model
-n = 4 # ploynomial degree
+n = nDist3 # ploynomial degree
 reg = make_surrogate_model_distillation(xdata= x_F, ydata=powerConsumption, polynomialDegree=n, case='Linear', alfa= 1,
                                         plot=True)
 

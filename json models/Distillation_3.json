@@ -9,14 +9,12 @@
     "coef": {
         "energy_consumption": {
             "x_F**0": 0.0,
-            "x_F**1": 0.6962000993875943,
-            "x_F**2": -0.5117613915714703,
-            "x_F**3": 0.9514148850769284,
-            "x_F**4": -0.5768845454058898
+            "x_F**1": 0.6520670555229127,
+            "x_F**2": -0.07628278250321618
         }
     },
     "intercept": {
-        "energy_consumption": 0.5967500523362538
+        "energy_consumption": 0.595319942642165
     },
     "lable": "Distillation_Regresion",
     "lightKey": "ace"
