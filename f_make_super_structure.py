@@ -2203,7 +2203,7 @@ def make_process_intervals(ExcelDict):
                                 intervalName]]  # made as a list so in the future multiple utility componets can be added
 
             # get the units of the utility
-            utilityUnit = [DFprocessIntervals.units[intervalName]]
+            utilityUnit = [DFprocessIntervals.unit_ut[intervalName]]
 
             # utilityPrice = split_remove_spaces(utilityPrice,',')
             for j, utilityName in enumerate(utilityVariableNames):
@@ -2663,7 +2663,7 @@ def make_super_structure(excelFile, printPyomoEq=False):
 
     return model
 
-def solve_model(superstructure, operatingDays, solverType = None):
+def solve_model(superstructure, operatingDays, saveName = None, solverType = None):
     """ Prints the results of the superstructure optimisation
      Params:
         superstructure (pyomo-model): model containing all equations
@@ -2689,26 +2689,55 @@ def solve_model(superstructure, operatingDays, solverType = None):
             raise Exception("The solverType '{}' is invalid, check the spelling \n possible solvers are: "
                             "'BARON', 'ANTIGONE', 'CPLEX', 'DICOPT'".format(solverType))
 
+    allValues = []
+    valueNames = []
     for v in superstructure.component_objects(ctype=pe.Var):
         for index in v:
-            if pe.value(v[index]) >= 1e-10:
-                if 'y_' in v[index].local_name:
-                    # don't multiply for the bool variables
-                    print('{0} = {1}'.format(v[index], pe.value(v[index])))
+            # get value and name
+            val = pe.value(v[index])
+            nameVal = v[index].local_name
+
+            # find value > 0
+            if val >= 1e-10:
+                valueNames.append(nameVal)
+
+                # check if it's a boolean variable or contious variable and print the results
+                if 'y_' in nameVal and val == 1:
+                    # don't multiply for the boolean variables
+                    valueVariableBool = pe.value(v[index])
+                    print('{0} = {1}'.format(v[index],valueVariableBool))
+                    allValues.append(valueVariableBool)
                 else:
-                    print('{0} = {1}'.format(v[index], pe.value(v[index])*operatingHours))
+                    valueVariableContious =  pe.value(v[index]) * operatingHours
+                    print('{0} = {1}'.format(v[index], valueVariableContious))
+                    allValues.append(valueVariableContious)
+
 
     print('')
     for v2 in superstructure.component_objects(ctype=pe.Objective):
         for index2 in v2:
-            a = pe.value(v2[index2])
+            # get value and name
+            valueObjective = pe.value(v2[index2]) * operatingHours
+            nameObj = v2[index2].local_name
+
+            # save name and value to list
+            valueNames.append(nameObj)
+            allValues.append(valueObjective)
+
+            # print result
             print('The objective value is:')
-            print('{0} = {1}'.format(v2[index2], pe.value(v2[index2])*operatingHours))
+            print('{0} = {1}'.format(v2[index2],valueObjective))
 
     end_time = time.time()
     run_time = end_time - start_time
     print('')
     print('The run time is: {} seconds'.format(run_time))
     print('')
+
+    if saveName:
+        # Convert the list of variables to a pandas DataFrame
+        df = pd.DataFrame({'Name':valueNames ,'results':allValues})
+        # Save the DataFrame to an Excel file
+        df.to_excel(saveName, index=False)
 
     return results

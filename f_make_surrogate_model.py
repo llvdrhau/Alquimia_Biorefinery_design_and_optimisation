@@ -828,9 +828,9 @@ def simulate_distilation(x_D, x_B, F, x_F, alfa_f,  # for mass balances
     # assume 1 hour of operation?
     powerConsumption = kw / F  # kwh/kg
 
-    seperationCoefDist = (F * x_F) / (D * x_D)
-    seperationCoefBtm = (F * x_F) / (B * x_B)
-    seperationCoef = [seperationCoefDist, seperationCoefBtm]
+    seperationCoefDist = (D * x_D) /(F * x_F)
+    seperationCoefBtm =  (B * x_B) /(F * x_F)
+    seperationCoef = [seperationCoefDist, seperationCoefBtm] # of the Light Key!!
 
     # print statments
     if printResults:

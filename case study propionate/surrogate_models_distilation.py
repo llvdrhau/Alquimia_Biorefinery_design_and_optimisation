@@ -52,14 +52,41 @@ Cp_LK = 4.184 # (kJ/K/kg) # water
 Cp_HK = 2.334 # (kJ/K/kg) # propionate
 
 powerConsumption =[]
+seperationCoef_LK_Dist = []
+seperationCoef_LK_Btm = []
 for xf in x_F:
     Q, sepeationCoef = simulate_distilation(x_D= x_D, x_B= x_B, F= F, x_F= xf, alfa_f= alfa,          # for mass balances
                          Hvap_LK= Hvap_LK, Hvap_HK= Hvap_HK,                        # for condenser duty
                          T_F= T_F, T_D=T_D, T_B=T_B, Cp_LK= Cp_LK, Cp_HK= Cp_LK, printResults=False)    # for reboiler duty
     powerConsumption.append(Q)
+    seperationCoef_LK_Dist.append(sepeationCoef[0])
+    seperationCoef_LK_Btm.append(sepeationCoef[1])
+
+# plot the % of water seperated to the distilation stream (compared to the feed)
+# import matplotlib.pyplot as plt
+# # create scatter plot
+# # create figure and axes objects
+# fig, ax1 = plt.subplots()
+#
+# # plot data on primary axis
+# ax1.scatter(x_F, seperationCoef_LK_Dist, color='tab:red')
+# ax1.set_xlabel('X Data')
+# ax1.set_ylabel('water in dist %', color='tab:red')
+# ax1.tick_params(axis='y', labelcolor='tab:red')
+#
+# # create secondary axis and plot data on it
+# ax2 = ax1.twinx()
+# ax2.scatter(x_F, seperationCoef_LK_Btm, color='tab:blue')
+# ax2.set_ylabel('water in btm %', color='tab:blue')
+# ax2.tick_params(axis='y', labelcolor='tab:blue')
+#
+# plt.title('Scatter Plot of X and Y Data')
+# # show plot
+# plt.show()
 
 
 # fit model
+
 n = nDist2 # ploynomial degree
 reg = make_surrogate_model_distillation(xdata= x_F, ydata=powerConsumption, polynomialDegree=n, case='Linear', alfa= 1,
                                         plot=True)
