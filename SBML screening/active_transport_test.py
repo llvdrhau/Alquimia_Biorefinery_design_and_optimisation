@@ -75,11 +75,11 @@ for name in modelNames:
     # Left side of chemical eq => extracellular space
     # Right side of chemical eq => intracellular space
     metabolites2add = {
-        ATP_Id: 1.0,  # consume ATP intracelular (right side of the chemical eq)
-        ADP_Id: -1.0,  # produce ADP intracelular (left side of the chemical eq)
-        PP_id: -1.0,  # produced Phosphorus
-        H_id_intra: 2, # intracellular, there is already one H in the reaction so 3 H+ in total react
-        H_id_ext:-2 # extracellular, there is already one H in the reaction
+        ATP_Id: 1/3,  # consume ATP intracelular (right side of the chemical eq)
+        ADP_Id: -1/3,  # produce ADP intracelular (left side of the chemical eq)
+        PP_id: -1,  # produced Phosphorus
+        #H_id_intra: 2, # intracellular, there is already one H in the reaction so 3 H+ in total react
+        #H_id_ext:-2 # extracellular, there is already one H in the reaction
     }
 
     transportRxn_Acetate.add_metabolites(metabolites2add)
