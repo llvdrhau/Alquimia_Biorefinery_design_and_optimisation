@@ -418,6 +418,7 @@ def SBML_2_json(modelName, substrate_exchange_rnx, product_exchange_rnx, case='c
     allEquations = []
     coefDict = {}
     outputVariables = []
+    inputVariables = []
 
     # start the loop over the products
     if printEq:
@@ -450,6 +451,7 @@ def SBML_2_json(modelName, substrate_exchange_rnx, product_exchange_rnx, case='c
 
             substrateMet = model.reactions.get_by_id(substrate).reactants[0]
             substrateName = substrateMet.name
+            inputVariables.append(substrateName)
             Csub = count_atom_in_formula(metabolite=substrateMet, atom='C')
             MW_sub = substrateMet.formula_weight
 
@@ -480,7 +482,11 @@ def SBML_2_json(modelName, substrate_exchange_rnx, product_exchange_rnx, case='c
     if printEq:
         print('')  # extra space to make it more readable
 
-    surrogateModel = SurrogateModel(name=modelName, outputs=outputVariables, coef=coefDict,
+    # make a unique list of input variables
+    inputVariables = list(set(inputVariables))
+
+    # make the json object that needs to be saved
+    surrogateModel = SurrogateModel(name=modelName, inputs= inputVariables, outputs=outputVariables, coef=coefDict,
                                     lable='SBML', maxConcentration=maxConcentration)
 
     if save:

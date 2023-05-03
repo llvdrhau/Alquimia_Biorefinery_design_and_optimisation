@@ -1,0 +1,38 @@
+{
+    "name": "P_acnes_V2.xml",
+    "outputs": [
+        "Propionate",
+        "Acetate",
+        "Biomass"
+    ],
+    "coef": {
+        "Propionate": {
+            "D-Glucose": 0.4026752646408066,
+            "D-Fructose": 0.3703272032693965,
+            "Glycerol": 0.40988677995770556,
+            "L-Lactate": 0.5092291731257435,
+            "Maltose": 0.3975081150066275
+        },
+        "Acetate": {
+            "D-Glucose": 0.034291397727897965,
+            "D-Fructose": 0.06534637674299426,
+            "Glycerol": 0.0,
+            "L-Lactate": 0.018916062751772093,
+            "Maltose": 0.0
+        },
+        "Biomass": {
+            "D-Glucose": 0.45928974086952584,
+            "D-Fructose": 0.4592897408695276,
+            "Glycerol": 0.3788796482241386,
+            "L-Lactate": 0.2533566472988176,
+            "Maltose": 0.47613726146568264
+        }
+    },
+    "intercept": {
+        "Propionate": "",
+        "Acetate": "",
+        "Biomass": ""
+    },
+    "lable": "SBML",
+    "waterEq": "water == Propionate / 0.04232"
+}

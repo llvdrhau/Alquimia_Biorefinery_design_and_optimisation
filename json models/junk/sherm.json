@@ -1,0 +1,29 @@
+{
+    "name": "P_sherm_lvdh.xml",
+    "outputs": [
+        "Propionate",
+        "Acetate",
+        "Biomass"
+    ],
+    "coef": {
+        "Propionate": {
+            "D-Glucose": 0.2789710458150109,
+            "D-Fructose": 0.3444271280885154
+        },
+        "Acetate": {
+            "D-Glucose": 0.13115664973800223,
+            "D-Fructose": 0.15299057260052387
+        },
+        "Biomass": {
+            "D-Glucose": 0.3821956672535305,
+            "D-Fructose": 0.2866467504401497
+        }
+    },
+    "intercept": {
+        "Propionate": "",
+        "Acetate": "",
+        "Biomass": ""
+    },
+    "lable": "SBML",
+    "waterEq": "water == Propionate / 0.03"
+}

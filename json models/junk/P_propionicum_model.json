@@ -1,0 +1,22 @@
+{
+    "name": "P_propionicum_model.xml",
+    "outputs": [
+        "Propionate",
+        "Acetate"
+    ],
+    "coef": {
+        "Propionate": {
+            "D-Glucose": 0.28707449278113295,
+            "D-Fructose": 0.2870744927811328
+        },
+        "Acetate": {
+            "D-Glucose": 0.13233909341356653,
+            "D-Fructose": 0.13233909341356723
+        }
+    },
+    "intercept": {
+        "Propionate": "",
+        "Acetate": ""
+    },
+    "lable": "SBML"
+}

@@ -10,11 +10,11 @@ will be included or excluded during the loop to minimise time selecting substrat
 saveSwitch = True
 
 # -------------------------- SBML models
-loc_acidi = 'PAC_4875_V2.xml'
-loc_acnes = 'P_acnes_V2.xml'
-loc_prop = 'P_propionicum_V2.xml'
-loc_avidum = 'P_avidum_V2.xml'
-loc_sher = 'P_sherm_V2.xml'
+loc_acidi = 'v2_PAC_4875.xml'
+loc_acnes = 'v2_P_acnes.xml'
+loc_prop = 'v2_P_propionicum.xml'
+loc_avidum = 'v2_P_avidum.xml'
+loc_sher = 'v2_P_sherm.xml'
 
 # select substrates qnd products
 substrates = 'select'  # substrates = ['Ex_S_cpd00027_ext']  # glucose

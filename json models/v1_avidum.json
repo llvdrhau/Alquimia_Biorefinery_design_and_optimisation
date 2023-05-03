@@ -1,0 +1,33 @@
+{
+    "name": "P_avidum_lvdh.xml",
+    "inputs": [
+        "D-Glucose",
+        "D-Fructose"
+    ],
+    "outputs": [
+        "Propionate",
+        "Acetate",
+        "Biomass"
+    ],
+    "coef": {
+        "Propionate": {
+            "D-Glucose": 0.29342113186494323,
+            "D-Fructose": 0.293421131864943
+        },
+        "Acetate": {
+            "D-Glucose": 0.05288994955434191,
+            "D-Fructose": 0.05288994955434133
+        },
+        "Biomass": {
+            "D-Glucose": 0.415457534607943,
+            "D-Fructose": 0.4154575346079439
+        }
+    },
+    "intercept": {
+        "Propionate": "",
+        "Acetate": "",
+        "Biomass": ""
+    },
+    "lable": "SBML",
+    "waterEq": "water == Propionate / 0.018"
+}

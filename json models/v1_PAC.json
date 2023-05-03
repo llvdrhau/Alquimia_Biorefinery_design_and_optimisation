@@ -1,0 +1,33 @@
+{
+    "name": "PAC_4875_lvdh.xml",
+    "inputs": [
+        "D-Glucose",
+        "D-Fructose"
+    ],
+    "outputs": [
+        "Propionate",
+        "Acetate",
+        "Biomass"
+    ],
+    "coef": {
+        "Propionate": {
+            "D-Glucose": 0.2631219480020133,
+            "D-Fructose": 0.2631219480020133
+        },
+        "Acetate": {
+            "D-Glucose": 0.11128185566040198,
+            "D-Fructose": 0.11128185566040198
+        },
+        "Biomass": {
+            "D-Glucose": 0.4163574841034813,
+            "D-Fructose": 0.4163574841034864
+        }
+    },
+    "intercept": {
+        "Propionate": "",
+        "Acetate": "",
+        "Biomass": ""
+    },
+    "lable": "SBML",
+    "waterEq": "water == Propionate / 0.018"
+}

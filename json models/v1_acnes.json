@@ -1,0 +1,33 @@
+{
+    "name": "P_acnes_lvdh.xml",
+    "inputs": [
+        "D-Glucose",
+        "D-Fructose"
+    ],
+    "outputs": [
+        "Propionate",
+        "Acetate",
+        "Biomass"
+    ],
+    "coef": {
+        "Propionate": {
+            "D-Glucose": 0.37032720326939855,
+            "D-Fructose": 0.37032720326939805
+        },
+        "Acetate": {
+            "D-Glucose": 0.08012811079720118,
+            "D-Fructose": 0.03429139772789795
+        },
+        "Biomass": {
+            "D-Glucose": 0.4610553995534843,
+            "D-Fructose": 0.46105539955348335
+        }
+    },
+    "intercept": {
+        "Propionate": "",
+        "Acetate": "",
+        "Biomass": ""
+    },
+    "lable": "SBML",
+    "waterEq": "water == Propionate / 0.018"
+}

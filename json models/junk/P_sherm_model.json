@@ -1,0 +1,22 @@
+{
+    "name": "P_sherm_model.xml",
+    "outputs": [
+        "Propionate",
+        "Acetate"
+    ],
+    "coef": {
+        "Propionate": {
+            "D-Glucose": 0.343902159372741,
+            "D-Fructose": 0.4245932861962213
+        },
+        "Acetate": {
+            "D-Glucose": 0.13339562387182513,
+            "D-Fructose": 0.15560227345942496
+        }
+    },
+    "intercept": {
+        "Propionate": "",
+        "Acetate": ""
+    },
+    "lable": "SBML"
+}
