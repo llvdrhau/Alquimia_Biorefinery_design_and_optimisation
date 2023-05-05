@@ -4,8 +4,8 @@ import numpy as np
 
 # script options
 saveSwitch = False
-nDist2 = 2 #polynomial
-nDist3 = 2
+nDist2 = 1 #polynomial
+nDist3 = 1
 # -------------------------------------------------
 #           Distillation unit 2
 # -------------------------------------------------
@@ -16,14 +16,14 @@ nDist3 = 2
 # data on the feed (variable)
 n_samples = 50
 np.random.seed(5)
-x_F = np.random.uniform(0.70, 0.95, size=n_samples)
+x_F = np.random.uniform(0.90, 0.98, size=n_samples)
 
 # give input feed
 F = 1000   # kg/h
 
 # desired separation outcome (i.e. compositions for the light key in bottom and distillate stream)
-x_D = 0.98  # water mass % in distillate
-x_B = 0.05  # water mass % in bottom
+x_D = 0.99  # water mass % in distillate
+x_B = 0.01  # water mass % in bottom
 
 # temperatures
 T_F = 25       # feed temperature (C)
@@ -87,11 +87,13 @@ for xf in x_F:
 
 # fit model
 
+print('power',np.mean(powerConsumption))
+print('lk btm',np.mean(seperationCoef_LK_Btm))
+print('lk TOP',np.mean(seperationCoef_LK_Dist))
+
 n = nDist2 # ploynomial degree
 reg = make_surrogate_model_distillation(xdata= x_F, ydata=powerConsumption, polynomialDegree=n, case='Linear', alfa= 1,
                                         plot=True)
-
-
 # save the model
 featureNames = []
 for i in range(n+1):
@@ -112,14 +114,14 @@ regression_2_json_v2(outputNames= 'energy_consumption', inputNames = 'x_F' ,feat
 # data on the feed (variable)
 n_samples = 50
 np.random.seed(42)
-x_F = np.random.uniform(0.001, 0.5, size=n_samples)
+x_F = np.random.uniform(0.05, 0.35, size=n_samples)
 
 # give input feed
 F = 1000   # kg/h
 
 # desired separation outcome
-x_D = 0.999  # LK acetic acid mass % in distillate
-x_B = 0.001 # LK acetic acid mass % in bottom
+x_D = 0.98  # LK acetic acid mass % in distillate
+x_B = 0.02 # LK acetic acid mass % in bottom
 
 # operating temperatures
 T_F = 100       # feed temperature (C)
@@ -148,16 +150,23 @@ Cp_LK = 2.050 # (kJ/K/kg) acetic acid    https://rapidn.jrc.ec.europa.eu/substan
 Cp_HK = 2.334 # (kJ/K/kg) propionic acid
 
 powerConsumption =[]
+seperationCoef_LK_Dist = []
+seperationCoef_LK_Btm = []
 for xf in x_F:
     Q, sepeationCoef = simulate_distilation(x_D= x_D, x_B= x_B, F= F, x_F= xf, alfa_f= alfa,          # for mass balances
                          Hvap_LK= Hvap_LK, Hvap_HK= Hvap_HK,                        # for condenser duty
                          T_F= T_F, T_D=T_D, T_B=T_B, Cp_LK= Cp_LK, Cp_HK= Cp_LK, printResults=False)    # for reboiler duty
     powerConsumption.append(Q)
+    seperationCoef_LK_Dist.append(sepeationCoef[0])
+    seperationCoef_LK_Btm.append(sepeationCoef[1])
 
+print('power',np.mean(powerConsumption))
+print('lk btm',np.mean(seperationCoef_LK_Btm))
+print('lk TOP',np.mean(seperationCoef_LK_Dist))
 
 # fit model
 n = nDist3 # ploynomial degree
-reg = make_surrogate_model_distillation(xdata= x_F, ydata=powerConsumption, polynomialDegree=n, case='Linear', alfa= 1,
+reg = make_surrogate_model_distillation(xdata= x_F, ydata=powerConsumption, polynomialDegree=n, case='Linear', alfa= 0.0001,
                                         plot=True)
 
 

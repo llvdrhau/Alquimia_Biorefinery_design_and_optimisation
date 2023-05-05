@@ -569,9 +569,9 @@ def get_coef_all_substrates_SBML(modelName, substrateExchRxnIDs, productExchRxnI
         model (str, model): can be a string of the model name or the model its self
         productExchRxnIDs (list): list of id strings of the desired products
         substrateExchRxnIDs (list or str): list of id strings of the desired substrates or str: 'select'
-        exchRnx2zero (str): string of the original substrate exchange reaction that needs to be set to zero. Glusoe in
+        exchRnx2zero (str): string of the original substrate exchange reaction that needs to be set to zero. Glucose in
                             the case of the propioni bacteria
-        yieldTol (array): yield tolarances to accept an exchange metabolite as a potential substrate
+        yieldTol (array): yield tolerances to accept an exchange metabolite as a potential substrate
         ignore (list): list of substrate names to ignore
         include (list): list of substrate names to automatically include
 
