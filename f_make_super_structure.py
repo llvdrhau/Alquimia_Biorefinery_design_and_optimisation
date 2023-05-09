@@ -1,3 +1,11 @@
+"""
+Created on the 30.01.2023
+@author: Lucas Van der Hauwaert
+@author contact: lucas.vanderhauwaert@usc.es
+
+All functions used to create superstructure models
+"""
+
 import pandas as pd
 import cobra
 import cobra.io
@@ -8,16 +16,6 @@ import pyomo.opt as po
 from f_usefull_functions import *
 from f_screen_SBML import count_atom_in_formula
 import time
-
-
-# from typing import List
-
-"""Created on the 30.01.2023
-@author: Lucas Van der Hauwaert
-@author contact: lucas.vanderhauwaert@usc.es
-
-All functions used to create superstructure models
-"""
 
 
 ########################################################################################################################

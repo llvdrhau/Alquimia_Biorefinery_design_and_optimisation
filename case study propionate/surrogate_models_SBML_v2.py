@@ -1,11 +1,13 @@
-from f_make_surrogate_model import *
 """
 This script creates the surrogate models of the GEMs. Json files are made from which the superstructure can then read 
 the appropriate mathematical expression 
 
-In this script you will be ask to include/exclude substrates. Based on the history of your choice the same substrates 
+In this script you will be asked to include/exclude substrates. Based on the history of your choice the same substrates
 will be included or excluded during the loop to minimise time selecting substrates manually  
 """
+
+from f_make_surrogate_model import *
+
 # ----- script specifications
 saveSwitch = True
 
@@ -30,7 +32,7 @@ maxConcentration = {'Propionate': 42.37e-3}  # max concentration of propionate i
 
 # give the names of the organisms and the save names of the json files
 microorganisms = [loc_acnes, loc_acidi, loc_prop, loc_avidum, loc_sher]  # all microorganisms
-saveNames = ['acnes_v2.json', 'PAC_v2.json', 'propionicum_v2.json', 'avidum_v2.json','sherm_v2.json']
+saveNames = ['v2_acnes.json', 'v2_PAC.json', 'v2_propionicum.json', 'v2_avidum.json','v2_sherm.json']
 
 # give list of components to already ignore or include
 alreadyConsidered = ['D-Glucose', 'D-Fructose', 'Glycerol', 'L-Lactate', 'Maltose']

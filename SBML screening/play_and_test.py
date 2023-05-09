@@ -1,6 +1,7 @@
 from f_screen_SBML import *
 
 modelName = "P_acnes_V2.xml"
+modelName = 'PAC_4875_V2.xml'
 save = False
 
 loc_model = get_location(modelName)
@@ -11,17 +12,22 @@ PropionateRnxID = 'Ex_S_cpd00141_ext'
 AcetateRxnId  = 'Ex_S_cpd00029_ext'
 BiomassRnxID = 'Ex_S_biomass_ext'
 
+# get reaction objects
 biomassRxn = model.reactions.get_by_id(BiomassRnxID)
 PropRxn = model.reactions.get_by_id(PropionateRnxID)
-PropRxn.bounds = 0, 1000
-biomassRxn.bounds = 0,1000
+AceRxn = model.reactions.get_by_id(AcetateRxnId)
+
+# ajust bounds
+PropRxn.bounds = 0, 0.1
+AceRxn.bounds = 0, 0.15
+biomassRxn.bounds = 0, 1000
 print('the bounds of propioante are:', PropRxn.bounds)
 
-uptakeRates = [1000]
+uptakeRates = [1.3]
 for rates in uptakeRates:
 
     glucoseRxnExch = model.reactions.get_by_id(GlucoseExchRnxId)
-    glucoseRxnExch.bounds = -rates, 1000 # make sure it's negative
+    glucoseRxnExch.bounds = -rates, 0 # make sure it's negative
     model.optimize()
     y_prop = find_yield(model=model, substrateExchangeRxnID= GlucoseExchRnxId, productExchangeRxnID= PropionateRnxID)
     y_bm = find_yield(model=model, substrateExchangeRxnID= GlucoseExchRnxId, productExchangeRxnID= BiomassRnxID)
@@ -34,12 +40,25 @@ for rates in uptakeRates:
     print('the yield (mol/mol) of biomass is:', biomassRxn.flux/glucoseRxnExch.flux)
 
 
-# let's try and map the model
-import json
-import cobra.io.json
-# Serialize the model to JSON format using cobra.io.json.to_json
-model_json = cobra.io.json.to_json(model)
+# RnxIdLactate = 'Ex_S_cpd00159_ext'
+# RxnIdSuscinate = 'Ex_S_cpd00036_ext'
+#
+# RnxLactate = model.reactions.get_by_id(RnxIdLactate)
+# RxnSuscinate = model.reactions.get_by_id(RxnIdSuscinate)
+#
+# glucoseRxnExch.bounds = 0, 1000 # make sure it's negative
+# RnxLactate.bounds = -10, 0
+# model.optimize()
+# print('the flux of suscinate is:', RxnSuscinate.flux)
+#
+# print_SBML_info_2_excel(modelName=model, saveName= '', print2Excel= False)
 
-# Write the JSON-formatted string to a file
-with open('acnesJ.json', 'w') as f:
-    json.dump(model_json, f)
+# let's try and map the model
+# import json
+# import cobra.io.json
+# # Serialize the model to JSON format using cobra.io.json.to_json
+# model_json = cobra.io.json.to_json(model)
+#
+# # Write the JSON-formatted string to a file
+# with open('acnesJ.json', 'w') as f:
+#     json.dump(model_json, f)
