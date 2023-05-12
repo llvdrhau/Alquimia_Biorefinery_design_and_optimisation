@@ -70,7 +70,7 @@ def regression_open_fermentation(xdata, ydata, polynomialDegree, case='Lasso', p
 
     # Fit linear regression model to training data
     if case == 'Ridge':
-        reg = Ridge().fit(X_train, y_train)
+        reg = Ridge(alpha=0.001).fit(X_train, y_train)
     elif case == 'Lasso':
         reg = Lasso(alpha=0.002).fit(X_train, y_train)
         # model = Lasso(alpha= 1, max_iter= 4000)
@@ -101,7 +101,7 @@ def regression_open_fermentation(xdata, ydata, polynomialDegree, case='Lasso', p
 
     # check out the  plots
     if plot:
-        plot_parity_plots(yPred=y_pred, yObv=y_test)
+        #plot_parity_plots(yPred=y_pred, yObv=y_test)
         plot_model_vs_data(x_data=X_poly[:, 1], y_data=ydata, x_data_model=x_data_model.squeeze(),
                            y_data_model=y_data_model)
     return reg
@@ -158,10 +158,41 @@ def plot_parity_plots(yPred, yObv):
     plt.show()  # display plot
 
 
+
+# def plot_model_vs_data(x_data, y_data, x_data_model, y_data_model):
+#     """
+#     plots the data of the regression model and the data it was trained on
+#     """
+#     try:
+#         y_data = y_data.to_numpy() # change to numpy array if it is a dataframe
+#     except:
+#         pass
+#
+#     num_cols = y_data.shape[1]  # number of columns in y_data
+#     num_rows = (num_cols - 1) // 2 + 1  # calculate number of rows for subplot layout
+#     fig, axes = plt.subplots(nrows=num_rows, ncols=2, figsize=(12, 6 * num_rows))  # create subplots
+#     for i, ax in enumerate(axes.flatten()):  # iterate over subplots
+#         if i < num_cols:  # plot data if there are still columns left
+#             sns.set_style('dark')
+#             sns.scatterplot(x=x_data, y=y_data[:, i], ax=ax, palette="Set2")  # plot i-th column of y_data against x_data using seaborn
+#             sns.lineplot(x=x_data_model, y=y_data_model[:, i], ax=ax, palette="Set2")
+#             ax.set_xlabel("x-axis", fontsize=12)
+#             ax.set_ylabel("y-axis", fontsize=12)
+#             ax.set_title("Plot Title", fontsize=14)
+#             #ax.set_title(y_data.columns[i])  # set title to column name
+#         else:  # remove unused subplots
+#             ax.remove()
+#     fig.tight_layout()  # adjust subplot spacing
+#     plt.show()  # display plot
+
 def plot_model_vs_data(x_data, y_data, x_data_model, y_data_model):
     """
     plots the data of the regression model and the data it was trained on
     """
+    # Delete previous Seaborn settings
+    #sns.set()
+
+    ylabels = ['Yield (gHpr/gSub)', 'Yield (gHac/gSub)', 'Yield (gBM/gSub)']
     try:
         y_data = y_data.to_numpy() # change to numpy array if it is a dataframe
     except:
@@ -170,17 +201,25 @@ def plot_model_vs_data(x_data, y_data, x_data_model, y_data_model):
     num_cols = y_data.shape[1]  # number of columns in y_data
     num_rows = (num_cols - 1) // 2 + 1  # calculate number of rows for subplot layout
     fig, axes = plt.subplots(nrows=num_rows, ncols=2, figsize=(10, 5 * num_rows))  # create subplots
-    for i, ax in enumerate(axes.flatten()):  # iterate over subplots
-        if i < num_cols:  # plot data if there are still columns left
-            sns.set_style('darkgrid')
-            sns.scatterplot(x=x_data, y=y_data[:, i], ax=ax)  # plot i-th column of y_data against x_data using seaborn
-            sns.lineplot(x=x_data_model, y=y_data_model[:, i], ax=ax)
-            #ax.set_title(y_data.columns[i])  # set title to column name
-        else:  # remove unused subplots
-            ax.remove()
+    if num_cols % 2 != 0:  # if there is an odd number of plots
+        axes[-1, -1].remove()  # remove the last subplot
+        axes = axes.flatten()[:-1]  # flatten the axes array and remove the last subplot from the list
+
+    for i, ax in enumerate(axes):  # iterate over subplots
+        sns.scatterplot(x=x_data, y=y_data[:, i], ax=ax, color='black')  # plot i-th column of y_data against x_data using seaborn
+        sns.lineplot(x=x_data_model, y=y_data_model[:, i], ax=ax, color='#1F9491')
+        ax.set_xlabel("pH", fontsize=12)
+        ax.set_ylabel(ylabels[i], fontsize=12)
+        #ax.set_title("Plot Title", fontsize=14)
+        sns.set_style('white')
+        sns.despine()  # deactivate gridlines
+        # Add subplot numbering
+        subplot_number = i + 1
+        ax.text(0.12, 0.95, f"{subplot_number}", transform=ax.transAxes,
+                ha='right', va='top', fontsize=15, weight='bold')
+
     fig.tight_layout()  # adjust subplot spacing
     plt.show()  # display plot
-
 
 def regression_2_json(data, showPLot=True, save=False, saveName='data.json', normalise=False,
                       case='Ridge', polynomial=None):

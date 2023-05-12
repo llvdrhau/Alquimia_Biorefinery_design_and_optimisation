@@ -30,9 +30,9 @@ y_outputs = y_outputs.loc[x_pH.index]
 # plot_data_subplots(y_data=y_outputs, x_data=x_pH)
 
 # ---- fit poly data
-polynomial = 6
+polynomial = 5
 model = regression_open_fermentation(xdata=x_pH, ydata=y_outputs, polynomialDegree=polynomial,
-                                     case='Linear', plot=True)
+                                     case='Ridge', plot=True)
 # compare to other scenarios
 # model = regression_open_fermentation(xdata=x_pH, ydata=y_outputs, polynomialDegree=5, case='Linear')
 # model = regression_open_fermentation(xdata=x_pH, ydata=y_outputs, polynomialDegree=6, case='Linear')
