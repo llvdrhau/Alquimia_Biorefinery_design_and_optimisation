@@ -16,7 +16,6 @@ dataLocation = get_location(file=excelFile, case='ML')
 x_pH = pd.read_excel(dataLocation, sheet_name='inputs')
 y_outputs = pd.read_excel(dataLocation, sheet_name='outputs')
 # plot_data_subplots(y_data=y_outputs, x_data=x_pH)
-
 # deleet the row where the pH is larger than 8.49
 # (otherwise the fit is not going to be great, see the propionate plot)
 
@@ -30,7 +29,7 @@ y_outputs = y_outputs.loc[x_pH.index]
 # plot_data_subplots(y_data=y_outputs, x_data=x_pH)
 
 # ---- fit poly data
-polynomial = 5
+polynomial = 6
 model = regression_open_fermentation(xdata=x_pH, ydata=y_outputs, polynomialDegree=polynomial,
                                      case='Ridge', plot=True)
 # compare to other scenarios

@@ -102,8 +102,9 @@ def regression_open_fermentation(xdata, ydata, polynomialDegree, case='Lasso', p
     # check out the  plots
     if plot:
         #plot_parity_plots(yPred=y_pred, yObv=y_test)
+        ylabels = ['Yield (gHpr/gSub)', 'Yield (gHac/gSub)', 'Yield (gBM/gSub)']
         plot_model_vs_data(x_data=X_poly[:, 1], y_data=ydata, x_data_model=x_data_model.squeeze(),
-                           y_data_model=y_data_model)
+                           y_data_model=y_data_model, ylabels= ylabels, xlabel= 'pH')
     return reg
 
 
@@ -185,14 +186,18 @@ def plot_parity_plots(yPred, yObv):
 #     fig.tight_layout()  # adjust subplot spacing
 #     plt.show()  # display plot
 
-def plot_model_vs_data(x_data, y_data, x_data_model, y_data_model):
+def plot_model_vs_data(x_data, y_data, x_data_model, y_data_model, ylabels= None, xlabel=None):
     """
     plots the data of the regression model and the data it was trained on
     """
     # Delete previous Seaborn settings
     #sns.set()
 
-    ylabels = ['Yield (gHpr/gSub)', 'Yield (gHac/gSub)', 'Yield (gBM/gSub)']
+    if ylabels is None:
+        ylabels = ['Y'] * len(y_data)
+    if xlabel is None:
+        xlabel = 'X'
+
     try:
         y_data = y_data.to_numpy() # change to numpy array if it is a dataframe
     except:
@@ -200,26 +205,45 @@ def plot_model_vs_data(x_data, y_data, x_data_model, y_data_model):
 
     num_cols = y_data.shape[1]  # number of columns in y_data
     num_rows = (num_cols - 1) // 2 + 1  # calculate number of rows for subplot layout
-    fig, axes = plt.subplots(nrows=num_rows, ncols=2, figsize=(10, 5 * num_rows))  # create subplots
-    if num_cols % 2 != 0:  # if there is an odd number of plots
-        axes[-1, -1].remove()  # remove the last subplot
-        axes = axes.flatten()[:-1]  # flatten the axes array and remove the last subplot from the list
 
-    for i, ax in enumerate(axes):  # iterate over subplots
-        sns.scatterplot(x=x_data, y=y_data[:, i], ax=ax, color='black')  # plot i-th column of y_data against x_data using seaborn
-        sns.lineplot(x=x_data_model, y=y_data_model[:, i], ax=ax, color='#1F9491')
-        ax.set_xlabel("pH", fontsize=12)
-        ax.set_ylabel(ylabels[i], fontsize=12)
-        #ax.set_title("Plot Title", fontsize=14)
+    # only one plot to make
+    if num_cols == 1:
+        fig, ax = plt.subplots()
+        sns.scatterplot(x=x_data, y=y_data[:, 0], ax=ax,
+                        color='black')  # plot i-th column of y_data against x_data using seaborn
+        sns.lineplot(x=x_data_model, y=y_data_model[:, 0], ax=ax, color='#1F9491')
+        ax.set_xlabel(xlabel, fontsize=12)
+        ax.set_ylabel(ylabels[0], fontsize=12)
+        # ax.set_title("Plot Title", fontsize=14)
         sns.set_style('white')
         sns.despine()  # deactivate gridlines
-        # Add subplot numbering
-        subplot_number = i + 1
-        ax.text(0.12, 0.95, f"{subplot_number}", transform=ax.transAxes,
-                ha='right', va='top', fontsize=15, weight='bold')
 
-    fig.tight_layout()  # adjust subplot spacing
-    plt.show()  # display plot
+        fig.tight_layout()  # adjust subplot spacing
+        plt.show()  # display plot
+
+    # if more than one model to plot, make subplots
+    else:
+        fig, axes = plt.subplots(nrows=num_rows, ncols=2, figsize=(10, 5 * num_rows))  # create subplots
+
+        if num_cols> 1 and num_cols % 2 != 0:  # if there is an odd number of plots
+            axes[-1, -1].remove()  # remove the last subplot
+            axes = axes.flatten()[:-1]  # flatten the axes array and remove the last subplot from the list
+
+        for i, ax in enumerate(axes):  # iterate over subplots
+            sns.scatterplot(x=x_data, y=y_data[:, i], ax=ax, color='black')  # plot i-th column of y_data against x_data using seaborn
+            sns.lineplot(x=x_data_model, y=y_data_model[:, i], ax=ax, color='#1F9491')
+            ax.set_xlabel(xlabel, fontsize=12)
+            ax.set_ylabel(ylabels[i], fontsize=12)
+            #ax.set_title("Plot Title", fontsize=14)
+            sns.set_style('white')
+            sns.despine()  # deactivate gridlines
+            # Add subplot numbering
+            subplot_number = i + 1
+            ax.text(0.12, 0.95, f"{subplot_number}", transform=ax.transAxes,
+                    ha='right', va='top', fontsize=15, weight='bold')
+
+        fig.tight_layout()  # adjust subplot spacing
+        plt.show()  # display plot
 
 def regression_2_json(data, showPLot=True, save=False, saveName='data.json', normalise=False,
                       case='Ridge', polynomial=None):
@@ -880,7 +904,7 @@ def simulate_distilation(x_D, x_B, F, x_F, alfa_f,  # for mass balances
     # print statments
     if printResults:
         print('')
-        print('the flow of the LK in the feed (kg/h) is {} mols\n'.format(F * x_F))
+        print('the flow of the LK in the feed (kg/h) is {} kg\n'.format(F * x_F))
         print('the flow of distilate leaving (kg/h): {} where \n'
               'the LK has {} kg'.format(D, D * x_D))
         print('')
@@ -958,5 +982,6 @@ def make_surrogate_model_distillation(xdata, ydata, polynomialDegree, case='Line
         #plot_parity_plots(yPred=y_pred, yObv=y_test)
         if len(y_data_model.shape) < 2:
             y_data_model = y_data_model.reshape((len(y_data_model), 1))
-        plot_model_vs_data(x_data=X_poly[:, 1], y_data=ydata, x_data_model=x_data_model.squeeze(), y_data_model=y_data_model)
+        plot_model_vs_data(x_data=X_poly[:, 1], y_data=ydata, x_data_model=x_data_model.squeeze(),
+                           y_data_model=y_data_model, ylabels=['kWh/kg'], xlabel='X_F (m%)')
     return reg

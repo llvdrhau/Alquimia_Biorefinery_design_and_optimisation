@@ -4,8 +4,8 @@ import numpy as np
 
 # script options
 saveSwitch = False
-nDist2 = 1 #polynomial
-nDist3 = 1
+nDist2 = 4 #polynomial
+nDist3 = 4
 # -------------------------------------------------
 #           Distillation unit 2
 # -------------------------------------------------
