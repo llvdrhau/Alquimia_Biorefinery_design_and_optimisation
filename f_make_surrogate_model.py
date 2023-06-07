@@ -60,7 +60,7 @@ class SurrogateModel:
 # # ------------------------------------------- -------------------------------------------
 # Surogate model functions open_fermentation unit
 # # ------------------------------------------- -------------------------------------------
-def regression_open_fermentation(xdata, ydata, polynomialDegree, case='Lasso', plot=True):
+def regression_open_fermentation(xdata, ydata, polynomialDegree, case='Lasso', plot=True, alfa = 0.001):
     # make the polynomial data
     poly = PolynomialFeatures(degree=polynomialDegree, include_bias=True)
     X_poly = poly.fit_transform(xdata)
@@ -70,9 +70,9 @@ def regression_open_fermentation(xdata, ydata, polynomialDegree, case='Lasso', p
 
     # Fit linear regression model to training data
     if case == 'Ridge':
-        reg = Ridge(alpha=0.001).fit(X_train, y_train)
+        reg = Ridge(alpha=alfa).fit(X_train, y_train)
     elif case == 'Lasso':
-        reg = Lasso(alpha=0.002).fit(X_train, y_train)
+        reg = Lasso(alpha=alfa).fit(X_train, y_train)
         # model = Lasso(alpha= 1, max_iter= 4000)
     elif case == 'Linear':
         reg = LinearRegression().fit(X_train, y_train)

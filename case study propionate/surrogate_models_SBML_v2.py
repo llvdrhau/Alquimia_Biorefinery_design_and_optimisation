@@ -12,17 +12,17 @@ from f_make_surrogate_model import *
 saveSwitch = True
 
 # -------------------------- SBML models
-loc_acidi = 'v2_PAC_4875.xml'
-loc_acnes = 'v2_P_acnes.xml'
-loc_prop = 'v2_P_propionicum.xml'
-loc_avidum = 'v2_P_avidum.xml'
-loc_sher = 'v2_P_sherm.xml'
+loc_acidi = 'PAC_4875_V2.xml'
+loc_acnes = 'P_acnes_V2.xml'
+loc_prop = 'P_propionicum_V2.xml'
+loc_avidum = 'P_avidum_V2.xml'
+loc_sher = 'P_sherm_V2.xml'
 
 # select substrates qnd products
-substrates = 'select'  # substrates = ['Ex_S_cpd00027_ext']  # glucose
-products = ['Ex_S_cpd00141_ext',  # propionate
-            'Ex_S_cpd00029_ext',  # acetate
-            'Ex_S_biomass_ext']  # biomass
+substrates = 'select'               # substrates = ['Ex_S_cpd00027_ext']  # glucose
+products = ['Ex_S_cpd00141_ext',    # propionate
+            'Ex_S_cpd00029_ext',    # acetate
+            'Ex_S_biomass_ext']     # biomass
 
 # propionate needs a minimum yield of 0.1 for the possible substrate selection procedure
 tolerance = {'Ex_S_cpd00141_ext': 0.15}

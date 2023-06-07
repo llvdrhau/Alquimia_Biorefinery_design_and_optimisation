@@ -555,6 +555,8 @@ def balance_element(reaction, element):
     for prod in products:
         if element in prod.elements:
             nC = prod.elements[element]
+        elif element == 'e-':
+            nC = prod.charge
         else:
             nC = 0
         stoiFactor = reaction.metabolites[prod]
@@ -564,6 +566,8 @@ def balance_element(reaction, element):
     for react in reactants:
         if element in react.elements:
             nC = react.elements[element]
+        elif element == 'e-':
+            nC = react.charge
         else:
             nC = 0
         stoiFactor = reaction.metabolites[react]
@@ -572,11 +576,13 @@ def balance_element(reaction, element):
 
 
 def check_reaction(model, reactionID):
+    """ Prints the reactions equations and look if the elements are balanced """
     # elements to look at
-    elements = ['C', 'H', 'O']
+    elements = ['C', 'H', 'O', 'e-']
     reaction = model.reactions.get_by_id(reactionID)
     reactionEq = string_reactions(reaction, case='formulas')
     reactionEqNames = string_reactions(reaction=reaction, case='names')
+
     print(reactionEq)
     print(reactionEqNames)
     print(reaction)  # reaction with id codes
@@ -588,6 +594,87 @@ def check_reaction(model, reactionID):
         print('{} right of reaction = {}'.format(elm, prod))
         print('{} missing = {}'.format(elm, missing))
         print('')
+
+def check_charge(model,reactionID):
+    """ Checks which molecules are charged in the reactants and products to more easily identify missing charge """
+
+    # get the reaction
+    reaction = model.reactions.get_by_id(reactionID)
+
+    # print reactions
+    reactionEq = string_reactions(reaction, case='formulas')
+    reactionEqNames = string_reactions(reaction=reaction, case='names')
+    print(reactionEq)
+    print(reactionEqNames)
+
+    # get products and reactans
+    products = reaction.products
+    reactants = reaction.reactants
+
+    # iniciate lists
+    prodList = []
+    chargeProdList = []
+    stoiProdList = []
+    totalChargeProdList = []
+    for prod in products:
+        # get the name
+        prodList.append(prod.name)
+
+        # get the charge
+        charge = prod.charge
+        chargeProdList.append(charge)
+
+        # get the stoichiometric value
+        stoiFactor = reaction.metabolites[prod]
+        stoiProdList.append(reaction.metabolites[prod])
+
+        # get the total charge
+        totalCharge = charge * stoiFactor
+        totalChargeProdList.append(totalCharge)
+
+    # make the dataframe
+    dfProducts = pd.DataFrame({'Product':prodList, 'Charge': chargeProdList, 'Stoichiometry':stoiProdList,
+                                   'Total charge': totalChargeProdList})
+
+    reacList = []
+    chargeReacList = []
+    stoiReacList = []
+    totalChargeReacList = []
+    for react in reactants:
+        # get the name
+        reacList.append(react.name)
+
+        # get the charge
+        charge = react.charge
+        chargeReacList.append(charge)
+
+        # get the stoichiometric value
+        stoiFactor = reaction.metabolites[react]
+        stoiReacList.append(reaction.metabolites[react])
+
+        # get the total charge
+        totalCharge = charge * stoiFactor
+        totalChargeReacList.append(totalCharge)
+
+    # make the dataframe
+    dfReactants = pd.DataFrame({'Product': reacList, 'Charge': chargeReacList, 'Stoichiometry': stoiReacList ,
+                                   'Total charge': totalChargeReacList})
+
+    print('')
+    print('the charge of the individual reactants are:')
+    print(dfReactants)
+    print('')
+    print('total charge Reactants: ', sum(totalChargeReacList))
+
+    print('')
+    print('the charge of the individual products are:')
+    print(dfProducts)
+    print('')
+    print('total charge Products: ', sum(totalChargeProdList) )
+    print('')
+
+    return sum(totalChargeProdList) + sum(totalChargeReacList)
+
 
 
 def get_metabolites_whith_missing_formula(model):

@@ -1,0 +1,37 @@
+{
+    "name": "P_sherm_test.xml",
+    "inputs": [
+        "D-Glucose",
+        "D-Fructose",
+        "L-Lactate"
+    ],
+    "outputs": [
+        "Propionate",
+        "Acetate",
+        "Biomass"
+    ],
+    "coef": {
+        "Propionate": {
+            "D-Glucose": 0.27883273090989263,
+            "D-Fructose": 0.3443233919096781,
+            "L-Lactate": 0.41445161860486573
+        },
+        "Acetate": {
+            "D-Glucose": 0.054856708660847825,
+            "D-Fructose": 0.04114253149563584,
+            "L-Lactate": 0.17682757231425883
+        },
+        "Biomass": {
+            "D-Glucose": 0.380518927042404,
+            "D-Fructose": 0.28538919528180146,
+            "L-Lactate": 0.1924124906196793
+        }
+    },
+    "intercept": {
+        "Propionate": "",
+        "Acetate": "",
+        "Biomass": ""
+    },
+    "lable": "SBML",
+    "waterEq": "water == Propionate / 0.04237"
+}

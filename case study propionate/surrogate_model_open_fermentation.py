@@ -6,6 +6,10 @@ Json file and later read by the function that make the superstructure.
 from f_make_surrogate_model import *
 
 save2json = False
+plotSwitch = True
+regresionFlag = 'Ridge'
+polynomial = 5
+alfa = 0.01
 
 # Glucose_PH_Data.xlsx # without biomass as variable
 # excelFile = 'Glucose_PH_Data.xlsx'
@@ -29,9 +33,8 @@ y_outputs = y_outputs.loc[x_pH.index]
 # plot_data_subplots(y_data=y_outputs, x_data=x_pH)
 
 # ---- fit poly data
-polynomial = 6
 model = regression_open_fermentation(xdata=x_pH, ydata=y_outputs, polynomialDegree=polynomial,
-                                     case='Ridge', plot=True)
+                                     case=regresionFlag, plot=plotSwitch, alfa = alfa)
 # compare to other scenarios
 # model = regression_open_fermentation(xdata=x_pH, ydata=y_outputs, polynomialDegree=5, case='Linear')
 # model = regression_open_fermentation(xdata=x_pH, ydata=y_outputs, polynomialDegree=6, case='Linear')
