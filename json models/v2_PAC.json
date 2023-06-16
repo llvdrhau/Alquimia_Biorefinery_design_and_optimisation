@@ -1,5 +1,15 @@
 {
     "name": "PAC_4875_V2.xml",
+    "inputs": [
+        "D-Fructose",
+        "D-Glucose",
+        "Maltose",
+        "Glycerol",
+        "L-Lactate",
+        "Xylose",
+        "Dextrin",
+        "Sucrose"
+    ],
     "outputs": [
         "Propionate",
         "Acetate",
@@ -43,5 +53,5 @@
         "Biomass": ""
     },
     "lable": "SBML",
-    "waterEq": "water == Propionate / 0.04232"
+    "waterEq": "water == Propionate / 0.04237"
 }

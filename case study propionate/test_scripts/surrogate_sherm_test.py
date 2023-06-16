@@ -8,8 +8,8 @@ carbonCheckSwitch = True
 
 # -------------------------- SBML models
 
-loc_sher = 'P_sherm_test.xml'
-microorganisms = [loc_sher]  # all microorganisms
+modelName = 'P_sherm_v2.xml'
+microorganisms = [modelName]  # all microorganisms
 saveNames = ['sherm_test.json'] # make save names
 
 # SBML surrogates

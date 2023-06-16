@@ -1,3 +1,8 @@
+"""
+functions to find surrogate models with machinelearning models and SBML models
+the models are transformed into a JSON  file, so it can be read by the superstructure functions
+"""
+
 import os
 import pandas as pd
 import numpy as np
@@ -16,12 +21,6 @@ import json
 import math
 from f_usefull_functions import get_location, save_2_json
 from f_screen_SBML import count_atom_in_formula, carbon_balance_in_out, find_yield, is_protein_met
-
-"""
-functions to find surrogate models with machinelearning models and SBML models
-the models are transformed into a JSON  file so it can be read by the superstructure functions
-"""
-
 
 # --------------------------------------------------------------------------------------
 # Surogate model class
@@ -158,33 +157,6 @@ def plot_parity_plots(yPred, yObv):
     fig.tight_layout()  # adjust subplot spacing
     plt.show()  # display plot
 
-
-
-# def plot_model_vs_data(x_data, y_data, x_data_model, y_data_model):
-#     """
-#     plots the data of the regression model and the data it was trained on
-#     """
-#     try:
-#         y_data = y_data.to_numpy() # change to numpy array if it is a dataframe
-#     except:
-#         pass
-#
-#     num_cols = y_data.shape[1]  # number of columns in y_data
-#     num_rows = (num_cols - 1) // 2 + 1  # calculate number of rows for subplot layout
-#     fig, axes = plt.subplots(nrows=num_rows, ncols=2, figsize=(12, 6 * num_rows))  # create subplots
-#     for i, ax in enumerate(axes.flatten()):  # iterate over subplots
-#         if i < num_cols:  # plot data if there are still columns left
-#             sns.set_style('dark')
-#             sns.scatterplot(x=x_data, y=y_data[:, i], ax=ax, palette="Set2")  # plot i-th column of y_data against x_data using seaborn
-#             sns.lineplot(x=x_data_model, y=y_data_model[:, i], ax=ax, palette="Set2")
-#             ax.set_xlabel("x-axis", fontsize=12)
-#             ax.set_ylabel("y-axis", fontsize=12)
-#             ax.set_title("Plot Title", fontsize=14)
-#             #ax.set_title(y_data.columns[i])  # set title to column name
-#         else:  # remove unused subplots
-#             ax.remove()
-#     fig.tight_layout()  # adjust subplot spacing
-#     plt.show()  # display plot
 
 def plot_model_vs_data(x_data, y_data, x_data_model, y_data_model, ylabels= None, xlabel=None):
     """
@@ -609,7 +581,7 @@ def SBML_2_json_v2(modelName, substrate_exchange_rnx, product_exchange_rnx, maxC
                                                                  yieldTol=yieldTol, exchRnx2zero=exchRnx2zero,
                                                                  ignore=toIgnore, include=alreadyConsidered)
     outputNames = list(coefDict.keys())
-    surrogateModel = SurrogateModel(name=modelName, outputs=outputNames, coef=coefDict,
+    surrogateModel = SurrogateModel(name=modelName, inputs= considered ,outputs=outputNames, coef=coefDict,
                                     lable='SBML', maxConcentration=maxConcentration)
 
     if save:
@@ -654,7 +626,7 @@ def get_coef_all_substrates_SBML(modelName, substrateExchRxnIDs, productExchRxnI
         modelStrName = model.name
 
     # change the original substrate to zero
-    model.reactions.get_by_id(exchRnx2zero).bounds = 0, 1000
+    model.reactions.get_by_id(exchRnx2zero).bounds = 0.0, 1000
 
     # get the exchange reactions based on the input of substrateExchRxnIDs
     if isinstance(substrateExchRxnIDs, str) and substrateExchRxnIDs == 'select':
@@ -670,7 +642,7 @@ def get_coef_all_substrates_SBML(modelName, substrateExchRxnIDs, productExchRxnI
     substrateLists = []
     yieldDict = {}
 
-    # loop over all the products and possible substrates
+    # loop over all the products
     for i, prodId in enumerate(productExchRxnIDs):
         productRxn = model.reactions.get_by_id(prodId)
         productName = productRxn.reactants[0].name
@@ -683,7 +655,7 @@ def get_coef_all_substrates_SBML(modelName, substrateExchRxnIDs, productExchRxnI
         except:
             tolerance = 0
 
-        for rxnExch in allExchRxn:
+        for rxnExch in allExchRxn: # loop over substrates
             if isinstance(rxnExch, str):
                 rxnExch = model.reactions.get_by_id(rxnExch)  # get rxn object from the model if a list of strings
             substrateMetabolite = rxnExch.reactants[0]

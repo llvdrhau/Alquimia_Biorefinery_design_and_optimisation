@@ -1,13 +1,12 @@
 {
     "inputs": [
-        "Sucrose",
+        "Xylose",
+        "Dextrin",
+        "D-Fructose",
         "D-Glucose",
         "Maltose",
-        "Dextrin",
-        "L-Lactate",
-        "Stachyose",
         "Glycerol",
-        "Xylose",
-        "D-Fructose"
+        "L-Lactate",
+        "Sucrose"
     ]
 }

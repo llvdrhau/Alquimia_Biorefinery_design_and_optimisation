@@ -35,7 +35,7 @@ microorganisms = [loc_acnes, loc_acidi, loc_prop, loc_avidum, loc_sher]  # all m
 saveNames = ['v2_acnes.json', 'v2_PAC.json', 'v2_propionicum.json', 'v2_avidum.json','v2_sherm.json']
 
 # give list of components to already ignore or include
-alreadyConsidered = ['D-Glucose', 'D-Fructose', 'Glycerol', 'L-Lactate', 'Maltose']
+alreadyConsidered = ['D-Glucose', 'D-Fructose', 'Glycerol', 'L-Lactate', 'Maltose', 'Sucrose', 'Xylose', 'Dextrin']
 toIgnore = ['D-Lyxitol', 'alpha-Methyl-D-glucoside', 'CELB', 'TRHL', 'GLCN', 'Succinate', 'Glycerol-3-phosphate',
             'beta-Methylglucoside', 'Glycerone', 'Pyruvate', 'LACT', 'D-Mannitol', 'ACTN', 'L-Inositol', 'Ribitol',
             'Thyminose', 'D-Ribose', 'Glucuronate', 'Fumarate', '2-Oxobutyrate', 'L-Malate', 'DTYL', '2-Oxoglutarate',

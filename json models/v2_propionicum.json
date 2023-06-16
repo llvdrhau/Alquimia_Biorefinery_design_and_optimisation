@@ -1,5 +1,13 @@
 {
     "name": "P_propionicum_V2.xml",
+    "inputs": [
+        "D-Fructose",
+        "D-Glucose",
+        "Maltose",
+        "Glycerol",
+        "L-Lactate",
+        "Sucrose"
+    ],
     "outputs": [
         "Propionate",
         "Acetate",
@@ -37,5 +45,5 @@
         "Biomass": ""
     },
     "lable": "SBML",
-    "waterEq": "water == Propionate / 0.04232"
+    "waterEq": "water == Propionate / 0.04237"
 }
