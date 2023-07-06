@@ -36,6 +36,9 @@ print('The yield of biomass is: {} \n'.format(yBm))
 
 # what happens in the function is that instead of finding the yields per substrate, we find the yields per product
 # in other words more efficient to loop over the substrates in stead of products
+
+
+
 # # let's check without using the function
 # model.optimize()
 # # get reactions

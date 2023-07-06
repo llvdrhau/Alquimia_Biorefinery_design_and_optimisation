@@ -310,14 +310,31 @@ def string_reactions(reaction, case='names', printFlux=False):
 
 def print_all_rxn_of_metabolite(metabolite, case='names', printFlux=False):
     allRxn = list(metabolite.reactions)
+    listRxn = []
     for rxn in allRxn:
         strRnx, flux = string_reactions(reaction=rxn, case=case, printFlux=printFlux)
+        listRxn.append(strRnx)
         print(strRnx)
         if printFlux:
             print('the flux of reaction {} is : {} mmol/gDW/h \n '
                   'the bounds are {} mmol/gDW/h \n'
                   'the compartment(s) of the reactions are {} \n'.format(rxn.id, flux, rxn.bounds, rxn.compartments))
+    return  listRxn
 
+def find_maintanace_reaction(metabolite, case='names', printFlux=False):
+    allRxn = list(metabolite.reactions)
+    listRxn = []
+    for rxn in allRxn:
+        len_reaction = len(rxn.products) + len(rxn.reactants)
+        if len_reaction == 3:
+            strRnx, flux = string_reactions(reaction=rxn, case=case, printFlux=printFlux)
+            listRxn.append(strRnx)
+            print(strRnx)
+            if printFlux:
+                print('the flux of reaction {} is : {} mmol/gDW/h \n '
+                      'the bounds are {} mmol/gDW/h \n'
+                      'the compartment(s) of the reactions are {} \n'.format(rxn.id, flux, rxn.bounds, rxn.compartments))
+    return  listRxn
 
 def find_unbalanced_rxn_of_element(model, stoiMatrix, fluxArray, element, elementCount):
     """ finds the reactions where the given element is unbalanced
@@ -869,7 +886,7 @@ def ATP_Biomass_Ratio(model, biomassRxnID, ATPmetID, modelName = 'NONE', printRe
     return  BM_ATP_ratio
 
 
-def find_yield(model, substrateExchangeRxnID, productExchangeRxnID, printResults = False):
+def find_yield(model, substrateExchangeRxnID, productExchangeRxnID, printResults = False, Biomass = False):
     """
     Finds the yields of a product derived from a given substrate
 
@@ -882,8 +899,10 @@ def find_yield(model, substrateExchangeRxnID, productExchangeRxnID, printResults
         yield (float): returns the yield of the specified compounds in g/g
 
     """
-    model.optimize()
-
+    #model.optimize()
+    cobra.flux_analysis.pfba(model)
+    #solutionFVA = cobra.flux_analysis.flux_variability_analysis(model,processes= 1)
+    #print(solutionFVA)
     # get the reactions:
     RxnSubstrate = model.reactions.get_by_id(substrateExchangeRxnID)
     RxnProduct = model.reactions.get_by_id(productExchangeRxnID)
@@ -899,11 +918,15 @@ def find_yield(model, substrateExchangeRxnID, productExchangeRxnID, printResults
     # get the fluxes
     fluxSubstrate = RxnSubstrate.flux
     fluxProduct = RxnProduct.flux
+    print(metProduct.name)
+    if Biomass: #'biomass' in metProduct.name:
+        ratio = - (fluxProduct) / (fluxSubstrate * mwSubstrate * 0.001) # bio mass in g/g/h substrate in mmol/g/h
 
-    try:
-        ratio = - (fluxProduct * mwProduct) / (fluxSubstrate * mwSubstrate)
-    except: # if the division is by zero (a nonsense result) return ratio = 0
-        ratio = 0
+    else:
+        try:
+            ratio = - (fluxProduct * mwProduct) / (fluxSubstrate * mwSubstrate)
+        except: # if the division is by zero (a nonsense result) return ratio = 0
+            ratio = 0
 
     if printResults:
         print('the yield (g/g) of {} is: {} \n'.format(metProduct.name, ratio))
