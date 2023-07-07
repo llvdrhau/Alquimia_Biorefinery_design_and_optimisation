@@ -326,7 +326,7 @@ def find_maintanace_reaction(metabolite, case='names', printFlux=False):
     listRxn = []
     for rxn in allRxn:
         len_reaction = len(rxn.products) + len(rxn.reactants)
-        if len_reaction == 3:
+        if len_reaction == 4:
             strRnx, flux = string_reactions(reaction=rxn, case=case, printFlux=printFlux)
             listRxn.append(strRnx)
             print(strRnx)
@@ -921,15 +921,16 @@ def find_yield(model, substrateExchangeRxnID, productExchangeRxnID, printResults
     print(metProduct.name)
     if Biomass: #'biomass' in metProduct.name:
         ratio = - (fluxProduct) / (fluxSubstrate * mwSubstrate * 0.001) # bio mass in g/g/h substrate in mmol/g/h
-
+        MetabioliteName = 'Biomass'
     else:
+        MetabioliteName = metProduct.name
         try:
             ratio = - (fluxProduct * mwProduct) / (fluxSubstrate * mwSubstrate)
         except: # if the division is by zero (a nonsense result) return ratio = 0
             ratio = 0
 
     if printResults:
-        print('the yield (g/g) of {} is: {} \n'.format(metProduct.name, ratio))
+        print('the yield (g/g) of {} is: {} \n'.format(MetabioliteName, ratio))
 
     return ratio
 
