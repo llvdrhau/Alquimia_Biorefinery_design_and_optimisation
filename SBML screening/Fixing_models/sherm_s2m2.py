@@ -60,7 +60,7 @@ maximise propionate production, setting bm to minimum flux (best option we think
 minimise glucose consumption setting the biomass flux 
 
 '''
-model.objective = 'Ex_S_cpd00141_ext'
+model.objective = 'Ex_S_cpd00141_ext' # propionate production
 model.objective_direction = 'max'
 # set the bounds of biomass!!!!
 

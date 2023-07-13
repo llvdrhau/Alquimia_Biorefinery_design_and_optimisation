@@ -1,0 +1,45 @@
+{
+    "name": "PAC_4875_V2.xml",
+    "inputs": [
+        "D-Fructose",
+        "D-Glucose",
+        "Sucrose",
+        "Dextrin",
+        "Maltose"
+    ],
+    "outputs": [
+        "Propionate",
+        "Acetate",
+        "Biomass"
+    ],
+    "coef": {
+        "Propionate": {
+            "D-Glucose": 0.32559846905615514,
+            "Sucrose": 0.3098525722761464,
+            "D-Fructose": 0.32559846905611,
+            "Maltose": 0.3098525722761503,
+            "Dextrin": 0.30155640372683884
+        },
+        "Acetate": {
+            "D-Glucose": 0.13540421490413246,
+            "Sucrose": 0.129834657155384,
+            "D-Fructose": 0.13540421490380083,
+            "Maltose": 0.12983465715537768,
+            "Dextrin": 0.12700237507562506
+        },
+        "Biomass": {
+            "D-Glucose": 0.3683166715347726,
+            "Sucrose": 0.44398064768487794,
+            "D-Fructose": 0.3683166715347423,
+            "Maltose": 0.44398064768487766,
+            "Dextrin": 0.4936083791381764
+        }
+    },
+    "intercept": {
+        "Propionate": "",
+        "Acetate": "",
+        "Biomass": ""
+    },
+    "lable": "SBML",
+    "waterEq": "water == Propionate / 0.04237"
+}

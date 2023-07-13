@@ -1,9 +1,9 @@
 '''
-This script intends to fix the SBML (GEMs) of "P_sherm_model.xml"
-propionibacterium freudenreichii (also known as shermanii)
+This script intends to fix the SBML (GEMs) of "PAC_4875_model.xml"
+propionibacterium acidipropionici
 
 lucas.vanderhauwaert@usc.es
-07/07/2023
+12/07/2023
 '''
 
 from f_screen_SBML import find_yield, string_reactions
@@ -11,13 +11,11 @@ from f_usefull_functions import get_location
 import cobra
 from cobra.io import write_sbml_model
 
-
 # load the model
-modelName = "P_sherm_model.xml"
+modelName = "PAC_4875_model.xml"
 loc_sher = get_location(modelName)
 model = cobra.io.read_sbml_model(loc_sher)
 # ---------------------------------------------------------------------------------------------------------------------
-
 # give the metabolite biomass_c0 a name
 model.metabolites.get_by_id('S_biomass_ext').name = 'Biomass'
 # check the biomass reaction of the model
@@ -70,6 +68,7 @@ strATPm = string_reactions(atpm, printFlux=True)
 print('')
 print("The maintenance reaction is:")
 print(strATPm[0])
+print('the bounds of the reaction are: {}'.format(atpm.bounds))
 print('The flux of the maintanance reaction is: {}'.format(strATPm[1]))
 
 # let's set the bound of the flux to that of another gram negative bacteria: ecoli! iJO1366.xml 3.15 mmol/gDW/h
@@ -158,12 +157,53 @@ print('The yield of biomass is: {} '.format(yBm))
 print("")
 print("The glucose uptake rate is: {} mmol/gDW/h".format(model.reactions.get_by_id(exchangeRxnId_Glucose).flux))
 
-# ---------------------------------------------------------------------------------------------------------------------
+
+#----------------------------------------------------------------------------------------------------------------------
+
+
+
 # set the model whith the desired objective function and save it
 # maximise the biomass production
 model.objective = 'biomass_c0'
 model.objective_direction = 'max'
 
 # save the model
-newModelName = "\SBML models\P_sherm_V2.xml"
+newModelName = r"C:\Users\lucas\PycharmProjects\Alquimia\SBML models\PAC_4875_V2.xml"
 write_sbml_model(model, newModelName)
+print("The model has been saved with biomass as the OF \n")
+
+# ---------------------------------------------------------------------------------------------------------------------
+
+# TODO find out why their is not consumption of lactate or glycerol
+
+atpm.bounds = (0, 1000)
+
+# check if lactate can be consumed by the model
+print(" --------------------------------------------- \n")
+print("Check if the model can consume L-Lactate \n")
+
+lactateExchangeReaction = model.reactions.get_by_id('Ex_S_cpd00159_ext')
+print('the bounds of lactate are',lactateExchangeReaction.bounds)
+
+model.reactions.get_by_id(exchangeRxnId_Glucose).bounds = (0, 1000)
+lactateExchangeReaction.bounds = (-10, 1000)
+
+# find the yield of propionate from lactate
+yProp = find_yield(model=model, substrateExchangeRxnID='Ex_S_cpd00159_ext', productExchangeRxnID=exchangeRxnId_Propionate,
+                   printResults= True)
+print('the yield of propionate from lactate is: {}'.format(yProp))
+
+# reset the bounds of lactate
+lactateExchangeReaction.bounds = (0, 1000)
+
+# ---------------------------------------------------------------------------------------------------------------------
+# check if the model can consume glycerol and what is the yield of propionate
+print(" --------------------------------------------- \n")
+print("Check if the model can consume Glycerol \n")
+GlycerolExchangeReaction = model.reactions.get_by_id('Ex_S_cpd00100_ext')
+GlycerolExchangeReaction.bounds = (-10, 1000)
+
+# find the yield of propionate from glycerol
+yProp = find_yield(model=model, substrateExchangeRxnID='Ex_S_cpd00100_ext',
+                   productExchangeRxnID=exchangeRxnId_Propionate, printResults= True)
+

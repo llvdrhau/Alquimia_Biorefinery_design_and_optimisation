@@ -1,8 +1,8 @@
 {
-    "name": "PAC_4875_lvdh.xml",
+    "name": "PAC_4875_V2.xml",
     "inputs": [
-        "D-Glucose",
-        "D-Fructose"
+        "D-Fructose",
+        "D-Glucose"
     ],
     "outputs": [
         "Propionate",
@@ -11,16 +11,16 @@
     ],
     "coef": {
         "Propionate": {
-            "D-Glucose": 0.2631219480020133,
-            "D-Fructose": 0.2631219480020133
+            "D-Glucose": 0.32754528029062047,
+            "D-Fructose": 0.32726376905354704
         },
         "Acetate": {
-            "D-Glucose": 0.11128185566040198,
-            "D-Fructose": 0.11128185566040198
+            "D-Glucose": 0.10426784940775499,
+            "D-Fructose": 0.1042678494077542
         },
         "Biomass": {
-            "D-Glucose": 0.4163574841034813,
-            "D-Fructose": 0.4163574841034864
+            "D-Glucose": 0.0,
+            "D-Fructose": 0.0
         }
     },
     "intercept": {

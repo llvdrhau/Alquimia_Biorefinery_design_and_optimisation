@@ -886,7 +886,7 @@ def ATP_Biomass_Ratio(model, biomassRxnID, ATPmetID, modelName = 'NONE', printRe
     return  BM_ATP_ratio
 
 
-def find_yield(model, substrateExchangeRxnID, productExchangeRxnID, printResults = False, Biomass = False):
+def find_yield(model, substrateExchangeRxnID, productExchangeRxnID, printResults = False, biomass = False):
     """
     Finds the yields of a product derived from a given substrate
 
@@ -899,38 +899,69 @@ def find_yield(model, substrateExchangeRxnID, productExchangeRxnID, printResults
         yield (float): returns the yield of the specified compounds in g/g
 
     """
-    #model.optimize()
-    cobra.flux_analysis.pfba(model)
-    #solutionFVA = cobra.flux_analysis.flux_variability_analysis(model,processes= 1)
-    #print(solutionFVA)
+    # get info on the substrate and product
+
     # get the reactions:
     RxnSubstrate = model.reactions.get_by_id(substrateExchangeRxnID)
     RxnProduct = model.reactions.get_by_id(productExchangeRxnID)
 
     # get the metabolite objects
-    metSubstrate =  RxnSubstrate.reactants[0]
+    metSubstrate = RxnSubstrate.reactants[0]
     metProduct = RxnProduct.reactants[0]
 
-    # get the molecular weight
-    mwSubstrate = metSubstrate.formula_weight
-    mwProduct = metProduct.formula_weight
+    # print the names of the sustrate and product
+    # print('substrate:', metSubstrate.name)
+    # print('product:', metProduct.name)
+    #
+    # # print the bounds of glucose
+    # print('bounds of glucose:', model.reactions.get_by_id('Ex_S_cpd00027_ext').bounds)
+    # #print bounds of the substrate
+    # print('bounds of substrate ({}) are {}:'.format(metSubstrate.name, RxnSubstrate.bounds))
+    # # print objective function
+    # #print(model.obejctive)
 
-    # get the fluxes
-    fluxSubstrate = RxnSubstrate.flux
-    fluxProduct = RxnProduct.flux
-    print(metProduct.name)
-    if Biomass: #'biomass' in metProduct.name:
-        ratio = - (fluxProduct) / (fluxSubstrate * mwSubstrate * 0.001) # bio mass in g/g/h substrate in mmol/g/h
-        MetabioliteName = 'Biomass'
-    else:
-        MetabioliteName = metProduct.name
-        try:
-            ratio = - (fluxProduct * mwProduct) / (fluxSubstrate * mwSubstrate)
-        except: # if the division is by zero (a nonsense result) return ratio = 0
-            ratio = 0
+    # find solution to the optimization problem
+    #model.optimize()
+    try:
+        solution_pFBA = cobra.flux_analysis.pfba(model)
+        #solutionFVA = cobra.flux_analysis.flux_variability_analysis(model,processes= 1)
+        #print(solutionFVA)
 
-    if printResults:
-        print('the yield (g/g) of {} is: {} \n'.format(MetabioliteName, ratio))
+
+        # get the molecular weight
+        mwSubstrate = metSubstrate.formula_weight
+        mwProduct = metProduct.formula_weight
+
+        # get the fluxes
+        fluxSubstrate = solution_pFBA[substrateExchangeRxnID] #RxnSubstrate.flux
+        fluxProduct = solution_pFBA[productExchangeRxnID] #RxnProduct.flux
+        #print(metProduct.name)
+
+        # calculate the yield of the biomass from the substrate
+        if biomass or 'biomass' in metProduct.name.lower():
+            MetabioliteName = 'Biomass'
+            if fluxSubstrate == 0 or mwSubstrate == 0:
+                ratio = 0 # if the substrate is not consumed return 0
+            else:
+                ratio = - (fluxProduct) / (fluxSubstrate * mwSubstrate * 0.001) # bio mass in g/g/h substrate in mmol/g/h
+
+        # calucalte the yield of the product from the substrate
+        else:
+            MetabioliteName = metProduct.name
+            if fluxSubstrate == 0 or mwSubstrate == 0:
+                ratio = 0 # if the substrate is not consumed return 0
+            else:
+                ratio = - (fluxProduct * mwProduct) / (fluxSubstrate * mwSubstrate)
+
+        # print('the ratio is',ratio)
+        # print('the flux of the substrate is', fluxSubstrate)
+        if printResults:
+            print('the yield (g/g) of {} is: {} \n'.format(MetabioliteName, ratio))
+
+    except:
+        ratio = 0
+        if printResults:
+            print('No feasible solution found for the substrate {} \n'.format(metSubstrate.name))
 
     return ratio
 

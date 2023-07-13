@@ -31,8 +31,12 @@ tolerance = {'Ex_S_cpd00141_ext': 0.15}
 maxConcentration = {'Propionate': 42.37e-3}  # max concentration of propionate is 0.035 kg/L or 35 g/L
 
 # give the names of the organisms and the save names of the json files
-microorganisms = [loc_acnes, loc_acidi, loc_prop, loc_avidum, loc_sher]  # all microorganisms
-saveNames = ['v2_acnes.json', 'v2_PAC.json', 'v2_propionicum.json', 'v2_avidum.json','v2_sherm.json']
+# microorganisms = [loc_acidi, loc_acnes, loc_prop, loc_avidum, loc_sher]  # all microorganisms
+# saveNames = ['v2_PAC.json', 'v2_acnes.json', 'v2_propionicum.json', 'v2_avidum.json','v2_sherm.json']
+
+microorganisms = [loc_acidi]  # all microorganisms
+saveNames = ['v2_PAC_test.json']
+
 
 # give list of components to already ignore or include
 alreadyConsidered = ['D-Glucose', 'D-Fructose', 'Glycerol', 'L-Lactate', 'Maltose', 'Sucrose', 'Xylose', 'Dextrin']
