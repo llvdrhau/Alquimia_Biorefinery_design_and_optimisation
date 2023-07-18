@@ -1,9 +1,9 @@
 {
     "name": "P_sherm_V2.xml",
     "inputs": [
-        "L-Lactate",
+        "D-Glucose",
         "D-Fructose",
-        "D-Glucose"
+        "L-Lactate"
     ],
     "outputs": [
         "Propionate",
@@ -12,19 +12,19 @@
     ],
     "coef": {
         "Propionate": {
-            "D-Glucose": 0.33729437404280255,
-            "D-Fructose": 0.3997832505189236,
-            "L-Lactate": 0.49863409485425386
+            "D-Glucose": 0.2993271474693939,
+            "D-Fructose": 0.3648544819170456,
+            "L-Lactate": 0.45612682307537766
         },
         "Acetate": {
-            "D-Glucose": 0.013337589871636696,
-            "D-Fructose": 0.1529905726005233,
-            "L-Lactate": 0.006362938798348346
+            "D-Glucose": 0.13856474197541213,
+            "D-Fructose": 0.1602547281932529,
+            "L-Lactate": 0.19091331189326216
         },
         "Biomass": {
-            "D-Glucose": 0.3821956672535289,
-            "D-Fructose": 0.2866467504401448,
-            "L-Lactate": 0.1932603479461287
+            "D-Glucose": 0.40189866114565237,
+            "D-Fructose": 0.2928352524222696,
+            "L-Lactate": 0.15110771131061543
         }
     },
     "intercept": {

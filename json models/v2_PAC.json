@@ -1,14 +1,14 @@
 {
     "name": "PAC_4875_V2.xml",
     "inputs": [
-        "D-Fructose",
-        "D-Glucose",
-        "Maltose",
-        "Glycerol",
-        "L-Lactate",
         "Xylose",
+        "D-Fructose",
+        "Glycerol",
         "Dextrin",
-        "Sucrose"
+        "D-Glucose",
+        "Sucrose",
+        "Maltose",
+        "L-Lactate"
     ],
     "outputs": [
         "Propionate",
@@ -17,34 +17,34 @@
     ],
     "coef": {
         "Propionate": {
-            "D-Glucose": 0.3073096945759547,
-            "Sucrose": 0.3349567508108469,
-            "D-Fructose": 0.3170345901832551,
-            "Glycerol": 0.3682614227857235,
-            "Xylose": 0.3430150933685307,
-            "L-Lactate": 0.4856372455479121,
-            "Maltose": 0.3349567508104169,
-            "Dextrin": 0.2901970539172461
+            "D-Glucose": 0.28498873037094485,
+            "Sucrose": 0.2884790448317693,
+            "D-Fructose": 0.2849887303709375,
+            "Glycerol": 0.43522650050443185,
+            "Xylose": 0.31018759386276135,
+            "L-Lactate": 0.4507357989167342,
+            "Maltose": 0.28847904483176784,
+            "Dextrin": 0.29417282635061476
         },
         "Acetate": {
-            "D-Glucose": 0.0,
-            "Sucrose": 0.0,
-            "D-Fructose": 0.005590787666046355,
-            "Glycerol": 0.0542857767912464,
-            "Xylose": 0.0,
-            "L-Lactate": 0.0035058905766560122,
-            "Maltose": 0.05248228555577828,
-            "Dextrin": 0.015623262146569852
+            "D-Glucose": 0.1197246813957006,
+            "Sucrose": 0.12158227852385792,
+            "D-Fructose": 0.11972468139570773,
+            "Glycerol": 0.045735766944553016,
+            "Xylose": 0.12945403295733068,
+            "L-Lactate": 0.18382973906661884,
+            "Maltose": 0.12158227852385907,
+            "Dextrin": 0.12415155523211914
         },
         "Biomass": {
-            "D-Glucose": 0.40857592690086336,
-            "Sucrose": 0.4300795360655915,
-            "D-Fructose": 0.40857592690115624,
-            "Glycerol": 0.3564428038685251,
-            "Xylose": 0.37793273238329966,
-            "L-Lactate": 0.20659974081520419,
-            "Maltose": 0.4300795360655788,
-            "Dextrin": 0.4410755991985915
+            "D-Glucose": 0.4378215918082701,
+            "Sucrose": 0.4805621517546851,
+            "D-Fructose": 0.4378215918082708,
+            "Glycerol": 0.3493064949795801,
+            "Xylose": 0.3946928976898436,
+            "L-Lactate": 0.1646141803805191,
+            "Maltose": 0.4805621517546853,
+            "Dextrin": 0.5062456177288064
         }
     },
     "intercept": {

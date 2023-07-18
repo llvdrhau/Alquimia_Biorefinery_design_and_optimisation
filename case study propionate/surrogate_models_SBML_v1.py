@@ -1,3 +1,8 @@
+"""
+making the surogate models for the first case study of propionate production
+"""
+#todo make sure this script works with SBML_2_json_V2!!! (it does not work yet)
+
 from f_make_surrogate_model import *
 
 # ----- script specifications

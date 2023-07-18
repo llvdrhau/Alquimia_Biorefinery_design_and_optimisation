@@ -1,9 +1,9 @@
 '''
-This script intends to fix the SBML (GEMs) of "PAC_4875_model.xml"
-propionibacterium acidipropionici
+This script intends to fix the SBML (GEMs) of "P_acnes_model.xml"
+Propionibacterium acnes
 
 lucas.vanderhauwaert@usc.es
-12/07/2023
+18/07/2023
 '''
 
 from f_screen_SBML import find_yield, string_reactions
@@ -12,7 +12,7 @@ import cobra
 from cobra.io import write_sbml_model
 
 # load the model
-modelName = "PAC_4875_model.xml"
+modelName = "P_acnes_model.xml"
 loc_sher = get_location(modelName)
 model = cobra.io.read_sbml_model(loc_sher)
 # ---------------------------------------------------------------------------------------------------------------------
@@ -72,7 +72,7 @@ print('the bounds of the reaction are: {}'.format(atpm.bounds))
 print('The flux of the maintanance reaction is: {}'.format(strATPm[1]))
 
 # let's set the bound of the flux to that of another gram negative bacteria: ecoli! iJO1366.xml 3.15 mmol/gDW/h
-lbATPm = 3.15 # 3.15 # mmol/gDW/h
+lbATPm = 9 # 3.15 # mmol/gDW/h
 atpm.bounds = (lbATPm, 1000)
 
 
@@ -169,53 +169,8 @@ model.objective_direction = 'max'
 model.reactions.get_by_id('Ex_S_biomass_ext').bounds = (0, 1000)
 
 # save the model
-newModelName = r"C:\Users\lucas\PycharmProjects\Alquimia\SBML models\PAC_4875_V2.xml"
+newModelName = r"C:\Users\lucas\PycharmProjects\Alquimia\SBML models\P_acnes_V2.xml"
 write_sbml_model(model, newModelName)
 print("The model has been saved with biomass as the OF \n")
 
 # ---------------------------------------------------------------------------------------------------------------------
-
-# check if lactate can be consumed by the model
-print(" --------------------------------------------- \n")
-print("Check if the model can consume L-Lactate \n")
-
-lactateExchangeReaction = model.reactions.get_by_id('Ex_S_cpd00159_ext')
-model.reactions.get_by_id(exchangeRxnId_Glucose).bounds = (0, 1000)
-lactateExchangeReaction.bounds = (-10, 1000)
-
-print('the bounds of lactate are',lactateExchangeReaction.bounds)
-print('the bounds of glucose are',model.reactions.get_by_id(exchangeRxnId_Glucose).bounds)
-
-
-# find the yield of propionate from lactate
-yProp = find_yield(model=model, substrateExchangeRxnID='Ex_S_cpd00159_ext', productExchangeRxnID=exchangeRxnId_Propionate,
-                   printResults= True)
-yAce = find_yield(model=model, substrateExchangeRxnID='Ex_S_cpd00159_ext', productExchangeRxnID=exchangeRxnId_Acetate,
-                  printResults= True)
-yBm = find_yield(model=model, substrateExchangeRxnID='Ex_S_cpd00159_ext', productExchangeRxnID=exchangeRxnId_Biomass,
-                 biomass=True, printResults= True)
-#print('the yield of propionate from lactate is: {}'.format(yProp))
-
-# reset the bounds of lactate
-lactateExchangeReaction.bounds = (0, 1000)
-
-# ---------------------------------------------------------------------------------------------------------------------
-# check if the model can consume glycerol and what is the yield of propionate
-print(" --------------------------------------------- \n")
-print("Check if the model can consume Glycerol \n")
-GlycerolExchangeReaction = model.reactions.get_by_id('Ex_S_cpd00100_ext')
-GlycerolExchangeReaction.bounds = (-10, 1000)
-
-print('Check bounds:')
-print('the bounds of glycerol are',GlycerolExchangeReaction.bounds)
-print('the bounds of glucose are',model.reactions.get_by_id(exchangeRxnId_Glucose).bounds)
-print('the bounds of lactate are',lactateExchangeReaction.bounds)
-print('')
-
-# find the yield of propionate from glycerol
-yProp = find_yield(model=model, substrateExchangeRxnID='Ex_S_cpd00100_ext',
-                   productExchangeRxnID=exchangeRxnId_Propionate, printResults= True)
-yAce = find_yield(model=model, substrateExchangeRxnID='Ex_S_cpd00100_ext',
-                  productExchangeRxnID=exchangeRxnId_Acetate,printResults= True)
-yBm = find_yield(model=model, substrateExchangeRxnID='Ex_S_cpd00100_ext', productExchangeRxnID=exchangeRxnId_Biomass,
-                 biomass=True, printResults= True)

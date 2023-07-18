@@ -1,3 +1,6 @@
+"""
+This script was quickly made to brainstrom some possible solutions/ improvements to the model during the s2m2 workshop
+"""
 from f_screen_SBML import *
 
 modelName = "P_sherm_model.xml"

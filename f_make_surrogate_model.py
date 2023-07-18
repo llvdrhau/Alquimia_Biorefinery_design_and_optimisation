@@ -19,7 +19,7 @@ from sklearn.metrics import r2_score, mean_squared_error
 
 import json
 import math
-from f_usefull_functions import get_location, save_2_json
+from f_usefull_functions import get_location, save_2_json, transform_dictionary
 from f_screen_SBML import count_atom_in_formula, carbon_balance_in_out, find_yield, is_protein_met
 
 # --------------------------------------------------------------------------------------
@@ -640,126 +640,132 @@ def get_coef_all_substrates_SBML(modelName, substrateExchRxnIDs, productExchRxnI
 
 
 #####################################################################################################################
-    # # preallocate variables
-    # substrateLists = []
-    # yieldDict = {}
-    #
-    # for rxnExch in allExchRxn: # loop through all the exchange reactions (i.e., possible substrates)
-    #     if isinstance(rxnExch, str):
-    #         rxnExch = model.reactions.get_by_id(rxnExch)  # get rxn object from the model if a list of strings
-    #     substrateMetabolite = rxnExch.reactants[0]
-    #     substrateName = substrateMetabolite.name
-    #     nCarbon = count_atom_in_formula(substrateMetabolite, atom='C')
-    #     proteinCheck = is_protein_met(metabolite=substrateMetabolite)
-    #     # save the original bounds
-    #     originalReactionBounds = rxnExch.bounds
-    #
-    #     # filter out the substrates that aren't carbon based or are proteins
-    #     if nCarbon >= 2 and not proteinCheck and substrateName.lower() != 'biomass':
-    #         # preallocate variables
-    #         yields = []
-    #         substrateNames = []
-    #         productCoefDict = {}
-    #
-    #         # change bound of new desired substrate to -10 mol/h/gDW
-    #         rxnExch.bounds = -10, 1000
-    #
-    #         for i, prodId in enumerate(productExchRxnIDs): # loop over all the products
-    #             productName = model.reactions.get_by_id(prodId).reactants[0].name
-    #             FBA_yield = find_yield(model, substrateExchangeRxnID=rxnExch.id, productExchangeRxnID=prodId,
-    #                                    printResults=False)
-    #
-    #             # get the tolarance for this product if given
-    #             try:
-    #                 tolerance = yieldTol[prodId]
-    #             except:
-    #                 tolerance = 0
-    #
-    #             # check if the yield is above the given tolerance
-    #             if FBA_yield >= tolerance and FBA_yield < 1:  # bigger than the tolerance and smaller then 1
-    #                 yields.append(FBA_yield)  # already in g/g
-    #                 substrateNames.append(substrateName)
-    #                 productCoefDict.update({productName: FBA_yield})
-    #
-    #                 #print(productCoefDict)
-    #                 #print('')
-    #
-    #         yieldDict.update({substrateName: productCoefDict})
-    #         #substrateLists.append(substrateNames)
-    #
-    #     # reset the bounds to the original bounds again
-    #     rxnExch.bounds = originalReactionBounds
-    #
-    # print(yieldDict)
-    # print('')
-
-#####################################################################################################################
-
-# old version to put in comments
-# todo: switch the order of the loops to make it faster
-# ---------------------------------------------------------------------------------------------------------------------
-
     # preallocate variables
     substrateLists = []
     yieldDict = {}
 
-    # loop over all the products
-    for i, prodId in enumerate(productExchRxnIDs):
-        productRxn = model.reactions.get_by_id(prodId)
-        productName = productRxn.reactants[0].name
-        substrateCoefDict = {}
-        yields = []
-        substrateNames = []
+    for rxnExch in allExchRxn: # loop through all the exchange reactions (i.e., possible substrates)
+        if isinstance(rxnExch, str):
+            rxnExch = model.reactions.get_by_id(rxnExch)  # get rxn object from the model if a list of strings
+        substrateMetabolite = rxnExch.reactants[0]
+        substrateName = substrateMetabolite.name
+        nCarbon = count_atom_in_formula(substrateMetabolite, atom='C')
+        proteinCheck = is_protein_met(metabolite=substrateMetabolite)
+        # save the original bounds
+        originalReactionBounds = rxnExch.bounds
 
-        try:
-            tolerance = yieldTol[prodId]
-        except:
-            tolerance = 0
+        # filter out the substrates that aren't carbon based or are proteins
+        if nCarbon >= 2 and not proteinCheck and substrateName.lower() != 'biomass':
+            # preallocate variables
+            yields = []
+            substrateNames = []
+            productCoefDict = {}
 
-        # loop over substrates
-        for rxnExch in allExchRxn:
-            if isinstance(rxnExch, str):
-                rxnExch = model.reactions.get_by_id(rxnExch)  # get rxn object from the model if a list of strings
-            substrateMetabolite = rxnExch.reactants[0]
-            substrateName = substrateMetabolite.name
-            nCarbon = count_atom_in_formula(substrateMetabolite, atom='C')
-            proteinCheck = is_protein_met(metabolite=substrateMetabolite)
+            # change bound of new desired substrate to -10 mol/h/gDW
+            rxnExch.bounds = -10, 1000
 
-            # filter out the substrates that aren't carbon based or are proteins
-            if nCarbon >= 2 and not proteinCheck and substrateName.lower() != 'biomass':
-
-                # save the original bounds
-                originalReactionBounds = rxnExch.bounds
-
-                # change bound of new desired substrate to -10 mol/h/gDW
-                rxnExch.bounds = -10, 1000
+            # check if all products are above the tolerance
+            allAboveTol = True
+            for i, prodId in enumerate(productExchRxnIDs): # loop over all the products
+                productName = model.reactions.get_by_id(prodId).reactants[0].name
                 FBA_yield = find_yield(model, substrateExchangeRxnID=rxnExch.id, productExchangeRxnID=prodId,
                                        printResults=False)
+
+                # get the tolarance for this product if given
+                try:
+                    tolerance = yieldTol[prodId]
+                except:
+                    tolerance = 0
 
                 # check if the yield is above the given tolerance
                 if FBA_yield >= tolerance and FBA_yield < 1:  # bigger than the tolerance and smaller then 1
                     yields.append(FBA_yield)  # already in g/g
                     substrateNames.append(substrateName)
-                    substrateCoefDict.update({substrateName: FBA_yield})
+                    productCoefDict.update({productName: FBA_yield})
+                else:
+                    allAboveTol = False
 
-                # reset the bounds to the original bounds again
-                rxnExch.bounds = originalReactionBounds
+                    #print(productCoefDict)
+                    #print('')
 
-        yieldDict.update({productName: substrateCoefDict})
-        substrateLists.append(substrateNames)
+            # if all the products are above the tolerance then add the substrate to the list
+            if allAboveTol:
+                yieldDict.update({substrateName: productCoefDict})
+                #substrateLists.append(substrateNames)
+
+        # reset the bounds to the original bounds again
+        rxnExch.bounds = originalReactionBounds
+
+
+    yieldDict = transform_dictionary(input_dict = yieldDict)
+
+#####################################################################################################################
+
+# get yields (i.e, coefficients) for all the substrates
+# ---------------------------------------------------------------------------------------------------------------------
+
+    # # preallocate variables
+    # substrateLists = []
+    # yieldDict = {}
+    #
+    # # loop over all the products
+    # for i, prodId in enumerate(productExchRxnIDs):
+    #     productRxn = model.reactions.get_by_id(prodId)
+    #     productName = productRxn.reactants[0].name
+    #     substrateCoefDict = {}
+    #     yields = []
+    #     substrateNames = []
+    #
+    #     try:
+    #         tolerance = yieldTol[prodId]
+    #     except:
+    #         tolerance = 0
+    #
+    #     # loop over substrates
+    #     for rxnExch in allExchRxn:
+    #         if isinstance(rxnExch, str):
+    #             rxnExch = model.reactions.get_by_id(rxnExch)  # get rxn object from the model if a list of strings
+    #         substrateMetabolite = rxnExch.reactants[0]
+    #         substrateName = substrateMetabolite.name
+    #         nCarbon = count_atom_in_formula(substrateMetabolite, atom='C')
+    #         proteinCheck = is_protein_met(metabolite=substrateMetabolite)
+    #
+    #         # filter out the substrates that aren't carbon based or are proteins
+    #         if nCarbon >= 2 and not proteinCheck and substrateName.lower() != 'biomass':
+    #
+    #             # save the original bounds
+    #             originalReactionBounds = rxnExch.bounds
+    #
+    #             # change bound of new desired substrate to -10 mol/h/gDW
+    #             rxnExch.bounds = -10, 1000
+    #             FBA_yield = find_yield(model, substrateExchangeRxnID=rxnExch.id, productExchangeRxnID=prodId,
+    #                                    printResults=False)
+    #
+    #             # check if the yield is above the given tolerance
+    #             if FBA_yield >= tolerance and FBA_yield < 1:  # bigger than the tolerance and smaller then 1
+    #                 yields.append(FBA_yield)  # already in g/g
+    #                 substrateNames.append(substrateName)
+    #                 substrateCoefDict.update({substrateName: FBA_yield})
+    #
+    #             # reset the bounds to the original bounds again
+    #             rxnExch.bounds = originalReactionBounds
+    #
+    #     yieldDict.update({productName: substrateCoefDict})
+    #     substrateLists.append(substrateNames)
 # ---------------------------------------------------------------------------------------------------------------------
 
 
-    # now we're going to select the same substrates for each product as the list of substrates with the least amount of
-    # substrate names
-    shortestList = min(substrateLists, key=len)
+    # get the list that you want to go over to select the final substrates
+    #shortestList = min(substrateLists, key=len)
+    keyYieldDict = list(yieldDict.keys())[0] # the keys in each dict are the same, so just take the first one
+    substrateList = list(yieldDict[keyYieldDict].keys())
 
-    # selectSwitch = False # comment this line, just temporaily so don't have to go through this each fucking time
+    # selectSwitch = False # comment this line, just temporally so don't have to go through this each fucking time
     if selectSwitch:
-        finalSubstrateList, ignored = substrate_run_through(substrateNames=shortestList, modelName=modelStrName,
+        finalSubstrateList, ignored = substrate_run_through(substrateNames=substrateList, modelName=modelStrName,
                                                             ignore=ignore, include=include)
     else:
-        finalSubstrateList = shortestList
+        finalSubstrateList = substrateList
         ignored = []
         included = []
 

@@ -139,4 +139,4 @@ for original_reaction in listExchRxn:
 
 # save the model
 if save:
-    write_sbml_model(model, r"C:\Users\lucas\PycharmProjects\Alquimia\SBML models\P_sherm_test.xml")
+    write_sbml_model(model, r"/SBML models/P_sherm_test.xml")

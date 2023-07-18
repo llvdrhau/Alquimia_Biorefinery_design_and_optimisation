@@ -25,25 +25,23 @@ products = ['Ex_S_cpd00141_ext',    # propionate
             'Ex_S_biomass_ext']     # biomass
 
 # propionate needs a minimum yield of 0.1 for the possible substrate selection procedure
-tolerance = {'Ex_S_cpd00141_ext': 0.15}
+tolerance = {'Ex_S_cpd00141_ext': 0.15,   # tolerance for the yield of propionate
+             'Ex_S_cpd00029_ext': 0, # tolerance for the yield of acetate -1e-10
+             'Ex_S_biomass_ext': 0.05 }  # tolerance for the yield of biomass
 
 # define maximum allowed concentrations in reactor
 maxConcentration = {'Propionate': 42.37e-3}  # max concentration of propionate is 0.035 kg/L or 35 g/L
 
 # give the names of the organisms and the save names of the json files
-# microorganisms = [loc_acidi, loc_acnes, loc_prop, loc_avidum, loc_sher]  # all microorganisms
-# saveNames = ['v2_PAC.json', 'v2_acnes.json', 'v2_propionicum.json', 'v2_avidum.json','v2_sherm.json']
-
-microorganisms = [loc_acidi]  # all microorganisms
-saveNames = ['v2_PAC_test.json']
-
+microorganisms = [loc_acidi, loc_acnes, loc_prop, loc_avidum, loc_sher]  # all microorganisms
+saveNames = ['v2_PAC.json', 'v2_acnes.json', 'v2_propionicum.json', 'v2_avidum.json', 'v2_sherm.json']
 
 # give list of components to already ignore or include
-alreadyConsidered = ['D-Glucose', 'D-Fructose', 'Glycerol', 'L-Lactate', 'Maltose', 'Sucrose', 'Xylose', 'Dextrin']
+alreadyConsidered = ['D-Glucose', 'D-Fructose', 'L-Lactate', 'Glycerol', 'Maltose', 'Sucrose', 'Xylose', 'Dextrin']
 toIgnore = ['D-Lyxitol', 'alpha-Methyl-D-glucoside', 'CELB', 'TRHL', 'GLCN', 'Succinate', 'Glycerol-3-phosphate',
             'beta-Methylglucoside', 'Glycerone', 'Pyruvate', 'LACT', 'D-Mannitol', 'ACTN', 'L-Inositol', 'Ribitol',
             'Thyminose', 'D-Ribose', 'Glucuronate', 'Fumarate', '2-Oxobutyrate', 'L-Malate', 'DTYL', '2-Oxoglutarate',
-            'D-Arabinose', 'D-Mannose', 'Salicin']
+            'D-Arabinose', 'D-Mannose', 'Salicin', 'L-Lyxitol', 'Xylitol', 'D-GLUCOSE-6-PHOSPHATE', 'GLUCOSE-1-PHOSPHATE']
 
 # create the json files
 allConsideredSubstrates = []

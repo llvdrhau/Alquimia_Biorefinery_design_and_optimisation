@@ -143,3 +143,15 @@ def save_2_json(saveName, saveObject):
 def linear_aprox(y1, y2, x1, x2, z1):
     v = x1 - (x1-x2)*(y1-z1)/(y1-y2)
     return v
+
+
+def transform_dictionary(input_dict):
+    output_dict = {}
+
+    for key1, value1 in input_dict.items():
+        for key2, value2 in value1.items():
+            if key2 not in output_dict:
+                output_dict[key2] = {}
+            output_dict[key2][key1] = value2
+
+    return output_dict

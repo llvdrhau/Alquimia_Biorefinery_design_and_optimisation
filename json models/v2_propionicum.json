@@ -2,11 +2,11 @@
     "name": "P_propionicum_V2.xml",
     "inputs": [
         "D-Fructose",
-        "D-Glucose",
-        "Maltose",
         "Glycerol",
-        "L-Lactate",
-        "Sucrose"
+        "D-Glucose",
+        "Sucrose",
+        "Maltose",
+        "L-Lactate"
     ],
     "outputs": [
         "Propionate",
@@ -15,28 +15,28 @@
     ],
     "coef": {
         "Propionate": {
-            "D-Glucose": 0.2150152264572671,
-            "Sucrose": 0.2685898301793875,
-            "D-Fructose": 0.2927878276331042,
-            "Glycerol": 0.247024889866081,
-            "L-Lactate": 0.3292033524777245,
-            "Maltose": 0.2788734999956949
+            "D-Glucose": 0.2545508390269791,
+            "Sucrose": 0.25810215897072636,
+            "D-Fructose": 0.24722317647708444,
+            "Glycerol": 0.3356293434706501,
+            "L-Lactate": 0.37489031997343314,
+            "Maltose": 0.2506546859891036
         },
         "Acetate": {
-            "D-Glucose": 0.13648105099012686,
-            "Sucrose": 0.13514512877373833,
-            "D-Fructose": 0.08806729895258258,
-            "Glycerol": 0.006376347107896215,
-            "L-Lactate": 0.19115537014229741,
-            "Maltose": 0.13141979319831243
+            "D-Glucose": 0.14574733278014526,
+            "Sucrose": 0.1436379832301832,
+            "D-Fructose": 0.15758943217828847,
+            "Glycerol": 0.008751115647490348,
+            "L-Lactate": 0.2693125071845054,
+            "Maltose": 0.1556737060428086
         },
         "Biomass": {
-            "D-Glucose": 0.487032180328972,
-            "Sucrose": 0.4770070801584671,
-            "D-Fructose": 0.48703218032907225,
-            "Glycerol": 0.472034691019739,
-            "L-Lactate": 0.3241673360297975,
-            "Maltose": 0.4770070801584706
+            "D-Glucose": 0.5271422174668479,
+            "Sucrose": 0.535761219272125,
+            "D-Fructose": 0.5271422174667173,
+            "Glycerol": 0.48101368435566927,
+            "L-Lactate": 0.29561891239298865,
+            "Maltose": 0.5357612192721224
         }
     },
     "intercept": {
