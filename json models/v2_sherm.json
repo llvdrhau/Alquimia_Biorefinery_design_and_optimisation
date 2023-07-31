@@ -1,9 +1,9 @@
 {
     "name": "P_sherm_V2.xml",
     "inputs": [
-        "D-Glucose",
+        "L-Lactate",
         "D-Fructose",
-        "L-Lactate"
+        "D-Glucose"
     ],
     "outputs": [
         "Propionate",

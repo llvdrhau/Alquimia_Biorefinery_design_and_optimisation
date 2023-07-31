@@ -1,11 +1,11 @@
 {
     "name": "P_acnes_V2.xml",
     "inputs": [
-        "D-Fructose",
+        "L-Lactate",
         "Glycerol",
+        "D-Fructose",
         "D-Glucose",
-        "Maltose",
-        "L-Lactate"
+        "Maltose"
     ],
     "outputs": [
         "Propionate",
@@ -14,25 +14,25 @@
     ],
     "coef": {
         "Propionate": {
-            "D-Glucose": 0.3798238000020882,
-            "D-Fructose": 0.3798238000020879,
-            "Glycerol": 0.6569823862540409,
-            "L-Lactate": 0.5496377484139616,
-            "Maltose": 0.3706289609930957
+            "D-Glucose": 0.3481718608769388,
+            "D-Fructose": 0.3481718608769385,
+            "Glycerol": 0.5032464023571599,
+            "L-Lactate": 0.48561750650537705,
+            "Maltose": 0.3539700606538409
         },
         "Acetate": {
-            "D-Glucose": 0.1282905666519134,
-            "D-Fructose": 0.12829056665191288,
+            "D-Glucose": 0.1079650348493818,
+            "D-Fructose": 0.1079650348493812,
             "Glycerol": 0.0,
-            "L-Lactate": 0.24934587632737742,
-            "Maltose": 0.109370908223772
+            "L-Lactate": 0.20823479438785808,
+            "Maltose": 0.09867326953244505
         },
         "Biomass": {
-            "D-Glucose": 0.4114453683170534,
-            "D-Fructose": 0.41144536831705286,
-            "Glycerol": 0.2660803796819852,
-            "L-Lactate": 0.05806065968580944,
-            "Maltose": 0.4851391450424491
+            "D-Glucose": 0.4860796444303789,
+            "D-Fructose": 0.48607964443037804,
+            "Glycerol": 0.37531337765669526,
+            "L-Lactate": 0.20901837486891386,
+            "Maltose": 0.5244203076514201
         }
     },
     "intercept": {

@@ -1,5 +1,5 @@
 {
-    "name": "P_avidum_lvdh.xml",
+    "name": "P_avidum_V2.xml",
     "inputs": [
         "D-Glucose",
         "D-Fructose"
@@ -11,16 +11,16 @@
     ],
     "coef": {
         "Propionate": {
-            "D-Glucose": 0.29342113186494323,
-            "D-Fructose": 0.293421131864943
+            "D-Glucose": 0.2860537835014644,
+            "D-Fructose": 0.2860537835014647
         },
         "Acetate": {
-            "D-Glucose": 0.05288994955434191,
-            "D-Fructose": 0.05288994955434133
+            "D-Glucose": 0.12016697221978227,
+            "D-Fructose": 0.12016697221978233
         },
         "Biomass": {
-            "D-Glucose": 0.415457534607943,
-            "D-Fructose": 0.4154575346079439
+            "D-Glucose": 0.43687524801541894,
+            "D-Fructose": 0.4368752480154193
         }
     },
     "intercept": {

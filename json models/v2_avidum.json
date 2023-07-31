@@ -1,11 +1,11 @@
 {
     "name": "P_avidum_V2.xml",
     "inputs": [
-        "D-Fructose",
+        "L-Lactate",
         "Glycerol",
+        "D-Fructose",
         "D-Glucose",
-        "Maltose",
-        "L-Lactate"
+        "Maltose"
     ],
     "outputs": [
         "Propionate",

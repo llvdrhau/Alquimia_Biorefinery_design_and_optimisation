@@ -8,7 +8,7 @@ with open(jsonLoc) as file:
     inputs = json.load(file)
 
 
-# Prices searched on sigma ALdich (see Excel file, sheet price_list)
+# Prices searched on internet (see Excel file, sheet price_list)
 Excelfile = 'propionate_case_study_v2.xlsx'
 locationExcel = get_location(Excelfile)
 priceDF = pd.read_excel(locationExcel, sheet_name= 'price_list', index_col= 'inputs')

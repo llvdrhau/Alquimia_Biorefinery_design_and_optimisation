@@ -1,12 +1,12 @@
 {
     "name": "P_propionicum_V2.xml",
     "inputs": [
-        "D-Fructose",
+        "L-Lactate",
         "Glycerol",
+        "D-Fructose",
         "D-Glucose",
-        "Sucrose",
         "Maltose",
-        "L-Lactate"
+        "Sucrose"
     ],
     "outputs": [
         "Propionate",

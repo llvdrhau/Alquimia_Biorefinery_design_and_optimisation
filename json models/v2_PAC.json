@@ -1,14 +1,14 @@
 {
     "name": "PAC_4875_V2.xml",
     "inputs": [
-        "Xylose",
+        "L-Lactate",
         "D-Fructose",
         "Glycerol",
         "Dextrin",
-        "D-Glucose",
-        "Sucrose",
+        "Xylose",
         "Maltose",
-        "L-Lactate"
+        "D-Glucose",
+        "Sucrose"
     ],
     "outputs": [
         "Propionate",

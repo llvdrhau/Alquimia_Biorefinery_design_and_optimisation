@@ -1,5 +1,5 @@
 {
-    "name": "P_propionicum_lvdh.xml",
+    "name": "P_propionicum_V2.xml",
     "inputs": [
         "D-Glucose",
         "D-Fructose"
@@ -11,16 +11,16 @@
     ],
     "coef": {
         "Propionate": {
-            "D-Glucose": 0.2328728369255897,
-            "D-Fructose": 0.23287283692558958
+            "D-Glucose": 0.2545508390269786,
+            "D-Fructose": 0.24722317647708444
         },
         "Acetate": {
-            "D-Glucose": 0.13011785257787575,
-            "D-Fructose": 0.13011785257787645
+            "D-Glucose": 0.14574733278014526,
+            "D-Fructose": 0.15758943217828847
         },
         "Biomass": {
-            "D-Glucose": 0.49630798078915334,
-            "D-Fructose": 0.4963079807892258
+            "D-Glucose": 0.5271422174668479,
+            "D-Fructose": 0.5271422174667173
         }
     },
     "intercept": {
