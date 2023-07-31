@@ -12,6 +12,7 @@ script_filenames = [
 r'C:\Users\lucas\PycharmProjects\Alquimia\SBML screening\Fixing_models\fix_other_propionibacteria_models.py',
 
 # make the surrogate models for the pure culture reactors
+# this is a semi-automated process which interacts with the user to select the desired substrates
 r'C:\Users\lucas\PycharmProjects\Alquimia\case study propionate\surrogate_models_SBML_v2.py',
 
 # make the surrogate models for the mixed culture reactor
