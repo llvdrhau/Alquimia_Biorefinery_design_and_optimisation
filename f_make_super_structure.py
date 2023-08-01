@@ -720,7 +720,7 @@ class ProcessIntervalClass:
         else:
             # If there is a dictionary for the separation equations but no reaction, then there is no helpingDict.
             # In other words now the separation equations need to be updated according to the incomming flow...
-            # this is indicated the in function update_interval_equations by the self.intervalType label!!
+            # this is indicated in function update_interval_equations by the self.intervalType label!
             helpingDict = {}
 
         # separation equations
@@ -859,7 +859,7 @@ class ProcessIntervalClass:
 
                 if newOutputName not in reactionVariablesOutput:
                     reactionVariablesOutput.append(newOutputName)
-                    helpingDict.update({out: newOutputName})  # helpìng dictionary for the serparation equations
+                    helpingDict.update({out: newOutputName})  # helpìng dictionary for the separation equations
 
             if booleanVariable:
                 eqPyo = make_eqation_bool_dependent(equation=eqPyo, booleanVariable=booleanVariable)
@@ -909,7 +909,7 @@ class ProcessIntervalClass:
                 helpingDict (dict): dictionary to help create the variables
 
         Returns:
-               saparationEquations (list): list of separartion equations
+               separationEquations (list): list of separation equations
                seperationVariables (list): list of variables
             """
         separationEquationsPyomo = []

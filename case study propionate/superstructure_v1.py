@@ -6,7 +6,7 @@ lucas.vanderhauwaert@usc.es
 from f_make_super_structure import make_super_structure, solve_model
 
 excelFile = 'propionate_case_study_v1.xlsx'
-superstructure = make_super_structure(excelFile= excelFile, printPyomoEq= False)
+superstructure = make_super_structure(excelFile= excelFile, printPyomoEq= True)
 
 switchSolver = True
 operatingDays= 1 # days of operation

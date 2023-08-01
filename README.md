@@ -14,7 +14,7 @@ The code is structured in the following way:
 - file: *'json models'* contains the surrogate models for the case studies
 - file: *'SBML models'* contains the SBML models (GEMs) for the case studies
 - file: *'SBML screening'* contains scripts for the curration of the sbml models
-- file: *'excel files'* contains the Excel files with the data for the case studies
+- file: *'Excel files'* contains the Excel files with the data for the case studies
 - scripts to build the superstructures and surrogate models
   - f_make_super_structure.py: contains the classes and functions to generate the superstructure
   - f_make_surrogate_models.py: contains the classes and functions to generate the surrogate models
