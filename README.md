@@ -1,42 +1,32 @@
-# Alquimia
+# Alquimia: Biorefinery Design and Optimisation
 
-This code presents the implementation of the Alquimia project which aims to integrate metabolic models within a 
-superstructure optimization framework. The code is written in Python and uses the [Pyomo](http://www.pyomo.org/)
-to generate the superstructure and [GAMs](https://www.gams.com/) to solve the optimization problem. 
+ALQUIMIA is a proof-of-concept software developed for the early-stage design of biorefineries. It leverages superstructure optimization to optimize the flow sheet of biorefinery processes. This approach is crucial in identifying efficient and cost-effective pathways in complex systems where multiple process routes are possible. A unique feature of ALQUIMIA is the integration of metabolic models within this optimization framework. These models represent the biochemical processes in bioreactors, a key component of biorefineries, allowing for a more holistic and accurate optimization of the entire process.
 
-The publication of this work can be found in the following link: [Advancing Biorefinery Design through the Integration 
-of Metabolic Models in Superstructure Optimization](https://www.sciencedirect.com/science/article/pii/S1369703X21002554)
+The code is written in Python, utilizing [Pyomo](http://www.pyomo.org/) to generate the superstructure and [GAMS](https://www.gams.com/) for solving the optimization problem.
 
-The code is structured in the following way:
-- file: *'case study propionate'* contains the code to generate the superstructure for the propionate case studies
-  - 'case_study_v1.py' contains the code to generate and solve the superstructure of case study 1 
-  - 'case_study_v2.gms' contains the code to generate and solve the superstructure of case study 2
-- file: *'json models'* contains the surrogate models for the case studies
-- file: *'SBML models'* contains the SBML models (GEMs) for the case studies
-- file: *'SBML screening'* contains scripts for the curration of the sbml models
-- file: *'Excel files'* contains the Excel files with the data for the case studies
-- scripts to build the superstructures and surrogate models
-  - f_make_super_structure.py: contains the classes and functions to generate the superstructure
-  - f_make_surrogate_models.py: contains the classes and functions to generate the surrogate models
-  - f_screen_SBML.py: contains the classes and functions to screen the sbml models
+## Content
+The code is organized as follows:
+- **File: 'Case Study Propionate'**: Contains the code to generate the superstructure for the propionate case studies.
+  - `case_study_v1.py`: Code to generate and solve the superstructure of case study 1.
+  - `case_study_v2.gms`: Code to generate and solve the superstructure of case study 2.
+- **File: 'JSON Models'**: Contains the surrogate models for the case studies.
+- **File: 'SBML Models'**: Includes the SBML models (GEMs) for the case studies.
+- **File: 'SBML Screening'**: Scripts for the curation of the SBML models.
+- **File: 'Excel Files'**: Excel files with data for the case studies.
+- **Scripts for Building Superstructures and Surrogate Models**:
+  - `f_make_super_structure.py`: Classes and functions to generate the superstructure.
+  - `f_make_surrogate_models.py`: Classes and functions to generate the surrogate models.
+  - `f_screen_SBML.py`: Classes and functions to screen the SBML models.
 
-
-
-# Software and Python Version
-
+## Software and Python Version
 - Python Version: 3.10.1
-- Packages see python_packages.md
+- For package details, see `python_packages.md`.
 - Gams Version: 37.1.0
 
-To install the packages (OS: windos) run the script 'install_packages.py'.
-Make sure you have pip installed and accessible in your system's PATH. If you are using a virtual environment, activate 
-it before running the script to ensure that the packages are installed within the virtual environment.
+## Publication
+DOI available upon publication.
 
-## Acknolwedgements
+## Acknowledgements
+This work was supported by the ALQUIMIA project (PID2019-110993RJ-I00), funded by the Agencia Estatal de Investigación under the Programa Retos de la sociedad, modalidad Jovenes investigadores, convocatoria 2019.
 
-This work was supported by project ALQUIMIA(PID2019-110993RJ-I00)
-funded by the Agencia Estatal de Investigación Alquimia: Proyecto de I- D-i Programa Retos de la sociedad modalidad
-Jovenes investigadores convocatoria.
-
-A. Regueira would like to acknowledge the support of the Xunta de Galicia through a postdoctoral fellowship
-(ED481B-2021-012). The authors belong to the Galician Competitive Research Group ED431C-2021/37, cofounded by ERRF (EU).
+A. Regueira acknowledges the support of the Xunta de Galicia through a postdoctoral fellowship (ED481B-2021-012). The authors are part of the Galician Competitive Research Group ED431C-2021/37, co-funded by the ERRF (EU).
