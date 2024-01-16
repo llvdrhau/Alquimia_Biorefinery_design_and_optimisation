@@ -2675,7 +2675,8 @@ def solve_model(superstructure, operatingDays, saveName = None, solverType = Non
 
     start_time = time.time()
     solvername = 'gams'
-    opt = po.SolverFactory(solvername)
+    pathGams = r"C:\Program Files\GAMS\44\gams.exe"
+    opt = po.SolverFactory(solvername, executable=pathGams)
 
 
     if solverType is None:

@@ -57,8 +57,8 @@ opt = po.SolverFactory(solvername)
 # =============================================================================
 #     Possible solver are: 'BARON', 'ANTIGONE', 'CPLEX', 'DICOPT'
 # =============================================================================
-results = opt.solve(model, solver='BARON', keepfiles=True, tee=True)
-# results = opt.solve(model, keepfiles=True, tee=True)
+#results = opt.solve(model, solver='BARON', keepfiles=True, tee=True)
+results = opt.solve(model, keepfiles=True, tee=True)
 
 model.pprint()
 
