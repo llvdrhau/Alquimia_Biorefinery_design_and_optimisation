@@ -12,9 +12,11 @@ import cobra
 from cobra.io import write_sbml_model
 
 # load the model
+saveModel = True
 modelName = "P_acnes_model.xml"
 loc_sher = get_location(modelName)
 model = cobra.io.read_sbml_model(loc_sher)
+
 # ---------------------------------------------------------------------------------------------------------------------
 # give the metabolite biomass_c0 a name
 model.metabolites.get_by_id('S_biomass_ext').name = 'Biomass'
@@ -72,7 +74,7 @@ print('the bounds of the reaction are: {}'.format(atpm.bounds))
 print('The flux of the maintanance reaction is: {}'.format(strATPm[1]))
 
 # let's set the bound of the flux to that of another gram negative bacteria: ecoli! iJO1366.xml 3.15 mmol/gDW/h
-lbATPm = 9 # 3.15 # mmol/gDW/h
+lbATPm = 3.15 # 3.15 # mmol/gDW/h
 atpm.bounds = (lbATPm, 1000)
 
 
@@ -168,9 +170,12 @@ model.objective_direction = 'max'
 # reset the bounds of the biomass exchange reaction
 model.reactions.get_by_id('Ex_S_biomass_ext').bounds = (0, 1000)
 
-# save the model
-newModelName = r"C:\Users\lucas\PycharmProjects\Alquimia\SBML models\P_acnes_V2.xml"
-write_sbml_model(model, newModelName)
-print("The model has been saved with biomass as the OF \n")
+if saveModel:
+    # save the model
+    newModelName = r"C:\Users\lucas\PycharmProjects\Alquimia\SBML models\P_acnes_V2.xml"
+    write_sbml_model(model, newModelName)
+    print("The model has been saved with biomass as the OF \n")
+
+
 
 # ---------------------------------------------------------------------------------------------------------------------

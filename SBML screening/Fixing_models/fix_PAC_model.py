@@ -11,6 +11,8 @@ from f_usefull_functions import get_location
 import cobra
 from cobra.io import write_sbml_model
 
+# save switch
+saveModel = True
 # load the model
 modelName = "PAC_4875_model.xml"
 loc_sher = get_location(modelName)
@@ -59,6 +61,11 @@ yBm = find_yield(model=model, substrateExchangeRxnID=exchangeRxnId_Glucose,
 print('The yield of propionate is: {}'.format(yProp))
 print('The yield of acetate is: {}'.format(yAce))
 print('The yield of biomass is: {}'.format(yBm))
+
+# get the flux of biomass by finding the reaction id of the biomass exchange reaction
+reactionBm = model.reactions.get_by_id(exchangeRxnId_Biomass)
+fluxBm = reactionBm.flux
+print('The growth rate of biomass is: {} gBM/gDW/h '.format(fluxBm))
 
 # ---------------------------------------------------------------------------------------------------------------------
 # there is no flux going through the cell maintenance reaction. Typically annotated by atpm (m= maintenance)
@@ -169,9 +176,11 @@ model.objective_direction = 'max'
 model.reactions.get_by_id('Ex_S_biomass_ext').bounds = (0, 1000)
 
 # save the model
-newModelName = r"C:\Users\lucas\PycharmProjects\Alquimia\SBML models\PAC_4875_V2.xml"
-write_sbml_model(model, newModelName)
-print("The model has been saved with biomass as the OF \n")
+if saveModel:
+    newModelName = r"C:\Users\lucas\PycharmProjects\Alquimia\SBML models\PAC_4875_V1.xml"
+    write_sbml_model(model, newModelName)
+    print("The model has been saved with biomass as the OF \n")
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 
