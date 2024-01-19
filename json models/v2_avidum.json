@@ -1,10 +1,9 @@
 {
     "name": "P_avidum_V2.xml",
     "inputs": [
-        "L-Lactate",
+        "D-Glucose",
         "Glycerol",
         "D-Fructose",
-        "D-Glucose",
         "Maltose"
     ],
     "outputs": [
@@ -14,25 +13,22 @@
     ],
     "coef": {
         "Propionate": {
-            "D-Glucose": 0.28605378350146543,
-            "D-Fructose": 0.2860537835014647,
-            "Glycerol": 0.32747593488317805,
-            "L-Lactate": 0.4511362425024856,
-            "Maltose": 0.2896480694612369
+            "D-Glucose": 0.3264944431957464,
+            "D-Fructose": 0.32649444319574594,
+            "Glycerol": 0.48924860072791043,
+            "Maltose": 0.3109326080431233
         },
         "Acetate": {
-            "D-Glucose": 0.12016697221978227,
-            "D-Fructose": 0.12016697221978233,
+            "D-Glucose": 0.13577629130973,
+            "D-Fructose": 0.13577629130973004,
             "Glycerol": 0.0,
-            "L-Lactate": 0.18399603360954947,
-            "Maltose": 0.12206774619858092
+            "Maltose": 0.13028316990626954
         },
         "Biomass": {
-            "D-Glucose": 0.43687524801541894,
-            "D-Fructose": 0.4368752480154193,
-            "Glycerol": 0.3090678298590649,
-            "L-Lactate": 0.16425836967877758,
-            "Maltose": 0.4795234249812729
+            "D-Glucose": 0.36752056142409517,
+            "D-Fructose": 0.36752056142409834,
+            "Glycerol": 0.2017653488694205,
+            "Maltose": 0.44302099119935523
         }
     },
     "intercept": {

@@ -33,11 +33,14 @@ feed_concentration=10; % substrates COD concentration kg COD/m^-3
 flagCase.substrate1=7; % choose substrate 1
 flagCase.substrate2=7; % choose substrate 2
 flagCase.substrates_ratio=0; % ratio concentration S2/S1 [0:1]
-Despacho='C:\Users\Reboots\OneDrive - Universidade de Santiago de Compostela\Alquimia\Model_Mateo\Kinetic model MCF v4 (updated)\Stoichiometric model\R Generation\';
+currentDirectory = pwd;
 
-Casa='C:\Users\mateo\OneDrive - Universidade de Santiago de Compostela\Mateo\Modelado\Kinetic model MCF v4\Stoichiometric model\R Generation\';
+currentDirectory = pwd;
+newExtension = '\Stoichiometric model\R Generation\';
+extendedPath = [currentDirectory, newExtension];
 
-flagCase.computer=Despacho;
+
+flagCase.computer=extendedPath;
 flagCase.simulation=0;
 
 i=1;

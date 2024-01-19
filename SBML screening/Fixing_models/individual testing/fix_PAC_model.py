@@ -12,7 +12,7 @@ import cobra
 from cobra.io import write_sbml_model
 
 # save switch
-saveModel = True
+saveModel = False
 # load the model
 modelName = "PAC_4875_model.xml"
 loc_sher = get_location(modelName)
@@ -79,7 +79,7 @@ print('the bounds of the reaction are: {}'.format(atpm.bounds))
 print('The flux of the maintanance reaction is: {}'.format(strATPm[1]))
 
 # let's set the bound of the flux to that of another gram negative bacteria: ecoli! iJO1366.xml 3.15 mmol/gDW/h
-lbATPm = 3.15 # 3.15 # mmol/gDW/h
+lbATPm = 9 # 3.15 # mmol/gDW/h
 atpm.bounds = (lbATPm, 1000)
 
 

@@ -1,11 +1,11 @@
 {
     "name": "P_propionicum_V2.xml",
     "inputs": [
-        "L-Lactate",
-        "Glycerol",
         "D-Fructose",
-        "D-Glucose",
+        "Glycerol",
         "Maltose",
+        "D-Glucose",
+        "L-Lactate",
         "Sucrose"
     ],
     "outputs": [
@@ -15,28 +15,28 @@
     ],
     "coef": {
         "Propionate": {
-            "D-Glucose": 0.2545508390269791,
-            "Sucrose": 0.25810215897072636,
-            "D-Fructose": 0.24722317647708444,
-            "Glycerol": 0.3356293434706501,
-            "L-Lactate": 0.37489031997343314,
-            "Maltose": 0.2506546859891036
+            "D-Glucose": 0.2801852667169828,
+            "Sucrose": 0.26278716498487487,
+            "D-Fructose": 0.27387380707320763,
+            "Glycerol": 0.516005066235354,
+            "L-Lactate": 0.4279294108118083,
+            "Maltose": 0.26278716498487653
         },
         "Acetate": {
-            "D-Glucose": 0.14574733278014526,
-            "Sucrose": 0.1436379832301832,
-            "D-Fructose": 0.15758943217828847,
-            "Glycerol": 0.008751115647490348,
-            "L-Lactate": 0.2693125071845054,
-            "Maltose": 0.1556737060428086
+            "D-Glucose": 0.17477351029864527,
+            "Sucrose": 0.15962007075742804,
+            "D-Fructose": 0.18497334304769367,
+            "Glycerol": 0.006451982719145096,
+            "L-Lactate": 0.3293693215870689,
+            "Maltose": 0.17085961213258039
         },
         "Biomass": {
-            "D-Glucose": 0.5271422174668479,
-            "Sucrose": 0.535761219272125,
-            "D-Fructose": 0.5271422174667173,
-            "Glycerol": 0.48101368435566927,
-            "L-Lactate": 0.29561891239298865,
-            "Maltose": 0.5357612192721224
+            "D-Glucose": 0.4540379431362021,
+            "Sucrose": 0.5003197967382901,
+            "D-Fructose": 0.4540379431362051,
+            "Glycerol": 0.35463958015743685,
+            "L-Lactate": 0.1443620053231071,
+            "Maltose": 0.5003197967382894
         }
     },
     "intercept": {

@@ -6,20 +6,23 @@ Lucas Van der Hauwaert
 import subprocess
 import sys
 
+# get the working directory
+basePath = sys.path[0]
+# find the word 'Alquimia' in the path and split the path at this point
+# to get the path to the Alquimia folder
+basePath = basePath.split('Alquimia')[0] + 'Alquimia\\'
+
+pathFixingModels = basePath + 'SBML screening\\Fixing_models\\fix_all_propionibacteria_models.py'
+pathSurrogateModles  = basePath + 'case study propionate\\surrogate_models_SBML_v1.py'
+pathSurrogateModelOpenFermentation = basePath + 'case study propionate\\surrogate_model_open_fermentation.py'
+pathSuperstructure = basePath + 'case study propionate\\superstructure_v1.py'
+
 # List of script filenames to run
 script_filenames = [
-# start by fixing the models
-r'C:\Users\lucas\PycharmProjects\Alquimia\SBML screening\Fixing_models\fix_other_propionibacteria_models.py',
-
-# make the surrogate models for the pure culture reactors
-r'C:\Users\lucas\PycharmProjects\Alquimia\case study propionate\surrogate_models_SBML_v1.py',
-
-# make the surrogate models for the mixed culture reactor
-r'C:\Users\lucas\PycharmProjects\Alquimia\case study propionate\surrogate_model_open_fermentation.py',
-
-# make and solve the superstructure
-r'C:\Users\lucas\PycharmProjects\Alquimia\case study propionate\superstructure_v1.py'
-
+pathFixingModels,     # start by fixing the models
+pathSurrogateModles,   # make the surrogate models for the pure culture reactors
+pathSurrogateModelOpenFermentation, # make the surrogate models for the mixed culture reactor
+pathSuperstructure # make and solve the superstructure
 ]
 
 # Run each script sequentially
