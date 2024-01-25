@@ -7,7 +7,7 @@ The medium is defined as the set of exchange reactions that are not blocked and 
 from f_screen_SBML import find_yield, string_reactions
 from f_usefull_functions import get_location
 import cobra
-from cobra.io import write_sbml_model
+
 
 # list of models to be analyzed
 ListModels = [ 'P_acnes_V2.xml', 'PAC_4875_V2.xml', 'P_propionicum_V2.xml','P_avidum_V2.xml',  'P_sherm_V2.xml']

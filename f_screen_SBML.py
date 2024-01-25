@@ -886,7 +886,12 @@ def ATP_Biomass_Ratio(model, biomassRxnID, ATPmetID, modelName = 'NONE', printRe
     return  BM_ATP_ratio
 
 
-def find_yield(model, substrateExchangeRxnID, productExchangeRxnID, printResults = False, biomass = False):
+def find_yield(model,
+               substrateExchangeRxnID,
+               productExchangeRxnID,
+               printResults = False,
+               biomass = False,
+               optimisationMode= 'pFBA'):
     """
     Finds the yields of a product derived from a given substrate
 
@@ -923,9 +928,12 @@ def find_yield(model, substrateExchangeRxnID, productExchangeRxnID, printResults
     # find solution to the optimization problem
     #model.optimize()
     try:
-        solution_pFBA = cobra.flux_analysis.pfba(model)
-        #solutionFVA = cobra.flux_analysis.flux_variability_analysis(model,processes= 1)
-        #print(solutionFVA)
+        if optimisationMode == 'pFBA':
+            solution = cobra.flux_analysis.pfba(model)
+        elif optimisationMode == 'FBA':
+            solution = model.optimize()
+        else:
+            raise Exception('the optimisation model can only be pFBA or FBA')
 
 
         # get the molecular weight
@@ -933,8 +941,8 @@ def find_yield(model, substrateExchangeRxnID, productExchangeRxnID, printResults
         mwProduct = metProduct.formula_weight
 
         # get the fluxes
-        fluxSubstrate = solution_pFBA[substrateExchangeRxnID] #RxnSubstrate.flux
-        fluxProduct = solution_pFBA[productExchangeRxnID] #RxnProduct.flux
+        fluxSubstrate = solution[substrateExchangeRxnID] #RxnSubstrate.flux
+        fluxProduct = solution[productExchangeRxnID] #RxnProduct.flux
         #print(metProduct.name)
 
         # calculate the yield of the biomass from the substrate
