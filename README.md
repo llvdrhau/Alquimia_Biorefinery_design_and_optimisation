@@ -24,7 +24,7 @@ The code is organized as follows:
 - Gams Version: 37.1.0
 
 ## Publication
-DOI available upon publication.
+DOI: https://doi.org/10.1016/j.jclepro.2024.142793
 
 ## Acknowledgements
 This work was supported by the ALQUIMIA project (PID2019-110993RJ-I00), funded by the Agencia Estatal de Investigación under the Programa Retos de la sociedad, modalidad Jovenes investigadores, convocatoria 2019.
